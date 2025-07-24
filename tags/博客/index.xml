@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>博客 on Skylm</title>
+        <link>http://localhost:1313/tags/%E5%8D%9A%E5%AE%A2/</link>
+        <description>Recent content in 博客 on Skylm</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>zh-cn</language>
+        <copyright>Skylm</copyright>
+        <lastBuildDate>Tue, 22 Jul 2025 17:09:54 +0800</lastBuildDate><atom:link href="http://localhost:1313/tags/%E5%8D%9A%E5%AE%A2/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>建博客成功！</title>
+        <link>http://localhost:1313/p/%E5%BB%BA%E5%8D%9A%E5%AE%A2%E6%88%90%E5%8A%9F/</link>
+        <pubDate>Tue, 22 Jul 2025 17:09:54 +0800</pubDate>
+        
+        <guid>http://localhost:1313/p/%E5%BB%BA%E5%8D%9A%E5%AE%A2%E6%88%90%E5%8A%9F/</guid>
+        <description>&lt;h2 id=&#34;-建博客成功&#34;&gt;🎉 建博客成功！
+&lt;/h2&gt;&lt;p&gt;欢迎来到我的技术博客！这是我的第一篇文章，标志着我正式开始了技术写作之旅。&lt;/p&gt;
+&lt;h3 id=&#34;关于这个博客&#34;&gt;关于这个博客
+&lt;/h3&gt;&lt;p&gt;这个博客主要用来分享我在编程学习和工作中的心得体会，主要会涉及以下技术领域：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;编程语言&lt;/strong&gt;: Java, Go, C++, Python&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;算法与数据结构&lt;/strong&gt;: 算法题解、数据结构分析&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;技术总结&lt;/strong&gt;: 项目经验、技术难点解决方案&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;学习笔记&lt;/strong&gt;: 新技术学习记录&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;未来计划&#34;&gt;未来计划
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;持续更新技术文章&lt;/li&gt;
+&lt;li&gt;分享实际项目经验&lt;/li&gt;
+&lt;li&gt;记录学习过程中的思考&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;期待与大家一起交流学习！ 🚀&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

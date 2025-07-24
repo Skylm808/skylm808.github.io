@@ -8,7 +8,7 @@
         <language>zh-cn</language>
         <copyright>Skylm</copyright>
         <lastBuildDate>Tue, 28 May 2019 00:00:00 +0000</lastBuildDate><atom:link href="https://skylm808.github.io/page/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>归档</title>
+        <title>归档 | Archives</title>
         <link>https://skylm808.github.io/archives/</link>
         <pubDate>Tue, 28 May 2019 00:00:00 +0000</pubDate>
         
@@ -16,16 +16,7 @@
         <description></description>
         </item>
         <item>
-        <title>关于</title>
-        <link>https://skylm808.github.io/%E5%85%B3%E4%BA%8E/</link>
-        <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-        
-        <guid>https://skylm808.github.io/%E5%85%B3%E4%BA%8E/</guid>
-        <description>&lt;p&gt;This is a test page for i18n support.&lt;/p&gt;
-</description>
-        </item>
-        <item>
-        <title>搜索</title>
+        <title>搜索 | Search</title>
         <link>https://skylm808.github.io/search/</link>
         <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
         
@@ -33,11 +24,11 @@
         <description></description>
         </item>
         <item>
-        <title>友情链接</title>
-        <link>https://skylm808.github.io/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/</link>
+        <title>友情链接 | Links</title>
+        <link>https://skylm808.github.io/links/</link>
         <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
         
-        <guid>https://skylm808.github.io/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/</guid>
+        <guid>https://skylm808.github.io/links/</guid>
         <description></description>
         </item>
         

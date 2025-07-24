@@ -7,45 +7,85 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Wed, 09 Sep 2020 00:00:00 +0000</lastBuildDate><atom:link href="https://skylm808.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>Test</title>
-        <link>https://skylm808.github.io/categories/test/</link>
-        <pubDate>Wed, 09 Sep 2020 00:00:00 +0000</pubDate>
+        <lastBuildDate>Tue, 22 Jul 2025 17:09:54 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>学习笔记</title>
+        <link>https://skylm808.github.io/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/</link>
+        <pubDate>Tue, 22 Jul 2025 17:09:54 +0800</pubDate>
         
-        <guid>https://skylm808.github.io/categories/test/</guid>
-        <description>&lt;img src="https://skylm808.github.io/categories/test/hutomo-abrianto-l2jk-uxb1BY-unsplash.jpg" alt="Featured image of post Test" /&gt;</description>
+        <guid>https://skylm808.github.io/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/</guid>
+        <description>&lt;h2 id=&#34;学习笔记&#34;&gt;学习笔记
+&lt;/h2&gt;&lt;p&gt;记录学习过程中的思考、总结和心得体会。&lt;/p&gt;
+</description>
         </item>
         <item>
-        <title>测试</title>
-        <link>https://skylm808.github.io/categories/%E6%B5%8B%E8%AF%95/</link>
-        <pubDate>Wed, 09 Sep 2020 00:00:00 +0000</pubDate>
+        <title>C&#43;&#43;</title>
+        <link>https://skylm808.github.io/categories/c&#43;&#43;/</link>
+        <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
         
-        <guid>https://skylm808.github.io/categories/%E6%B5%8B%E8%AF%95/</guid>
-        <description></description>
+        <guid>https://skylm808.github.io/categories/c&#43;&#43;/</guid>
+        <description>&lt;h2 id=&#34;c-编程&#34;&gt;C++ 编程
+&lt;/h2&gt;&lt;p&gt;C++ 语言的学习笔记、项目实践和技术分享。&lt;/p&gt;
+</description>
         </item>
         <item>
-        <title>Syntax</title>
-        <link>https://skylm808.github.io/categories/syntax/</link>
-        <pubDate>Mon, 11 Mar 2019 00:00:00 +0000</pubDate>
+        <title>Go</title>
+        <link>https://skylm808.github.io/categories/go/</link>
+        <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
         
-        <guid>https://skylm808.github.io/categories/syntax/</guid>
-        <description></description>
+        <guid>https://skylm808.github.io/categories/go/</guid>
+        <description>&lt;h2 id=&#34;go-语言&#34;&gt;Go 语言
+&lt;/h2&gt;&lt;p&gt;Go 语言的学习笔记、项目实践和技术分享。&lt;/p&gt;
+</description>
         </item>
         <item>
-        <title>Themes</title>
-        <link>https://skylm808.github.io/categories/themes/</link>
-        <pubDate>Mon, 11 Mar 2019 00:00:00 +0000</pubDate>
+        <title>Java</title>
+        <link>https://skylm808.github.io/categories/java/</link>
+        <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
         
-        <guid>https://skylm808.github.io/categories/themes/</guid>
-        <description></description>
+        <guid>https://skylm808.github.io/categories/java/</guid>
+        <description>&lt;img src="https://skylm808.github.io/categories/java/java-logo.png" alt="Featured image of post Java" /&gt;&lt;h2 id=&#34;java-编程&#34;&gt;Java 编程
+&lt;/h2&gt;&lt;p&gt;这里收录了所有关于 Java 编程语言的文章，包括基础语法、框架使用、最佳实践等内容。&lt;/p&gt;
+</description>
         </item>
         <item>
-        <title>Test With Whitespaces</title>
-        <link>https://skylm808.github.io/categories/test-with-whitespaces/</link>
-        <pubDate>Sat, 09 Mar 2019 00:00:00 +0000</pubDate>
+        <title>Python</title>
+        <link>https://skylm808.github.io/categories/python/</link>
+        <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
         
-        <guid>https://skylm808.github.io/categories/test-with-whitespaces/</guid>
-        <description></description>
+        <guid>https://skylm808.github.io/categories/python/</guid>
+        <description>&lt;h2 id=&#34;python-编程&#34;&gt;Python 编程
+&lt;/h2&gt;&lt;p&gt;Python 相关的技术文章，包括基础语法、库的使用、数据分析、机器学习等内容。&lt;/p&gt;
+</description>
+        </item>
+        <item>
+        <title>教程</title>
+        <link>https://skylm808.github.io/categories/%E6%95%99%E7%A8%8B/</link>
+        <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+        
+        <guid>https://skylm808.github.io/categories/%E6%95%99%E7%A8%8B/</guid>
+        <description>&lt;h2 id=&#34;教程&#34;&gt;教程
+&lt;/h2&gt;&lt;p&gt;技术教程、操作指南和实践经验分享。&lt;/p&gt;
+</description>
+        </item>
+        <item>
+        <title>数据结构</title>
+        <link>https://skylm808.github.io/categories/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/</link>
+        <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+        
+        <guid>https://skylm808.github.io/categories/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/</guid>
+        <description>&lt;h2 id=&#34;数据结构&#34;&gt;数据结构
+&lt;/h2&gt;&lt;p&gt;各种数据结构的原理、实现和应用场景分析。&lt;/p&gt;
+</description>
+        </item>
+        <item>
+        <title>算法</title>
+        <link>https://skylm808.github.io/categories/%E7%AE%97%E6%B3%95/</link>
+        <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+        
+        <guid>https://skylm808.github.io/categories/%E7%AE%97%E6%B3%95/</guid>
+        <description>&lt;h2 id=&#34;算法与数据结构&#34;&gt;算法与数据结构
+&lt;/h2&gt;&lt;p&gt;算法题解、数据结构分析、算法思路总结等内容。&lt;/p&gt;
+</description>
         </item>
         
     </channel>
