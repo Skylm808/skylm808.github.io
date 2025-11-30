@@ -6,7 +6,7 @@
 
 <link rel='canonical' href='https://skylm808.github.io/p/%E9%93%BE%E8%A1%A8%E5%8F%8D%E8%BD%AC%E5%A4%B4%E6%8F%92%E6%B3%95%E4%B8%8E%E5%8F%8C%E6%8C%87%E9%92%88%E8%BF%AD%E4%BB%A3%E6%B3%95%E7%9A%84%E5%8C%BA%E5%88%AB/'>
 
-<link rel="stylesheet" href="/scss/style.min.946cca6c6259ef94ac55abfae7c7bf3291ea3ed5eea17ef77500b257217c6710.css"><meta property='og:title' content="链表反转：头插法与双指针迭代法的区别">
+<link rel="stylesheet" href="/scss/style.min.6a692fd055deae459f2a9767f57f3855ba80cafd5041317f24f7360f6ca47cdf.css"><meta property='og:title' content="链表反转：头插法与双指针迭代法的区别">
 <meta property='og:description' content="链表反转：头插法与双指针迭代法的区别 链表反转是一个经典的算法问题，本文将介绍两种常见的方法：头插法和双指针迭代法。本文将讨论它们的区别，并附上核心代码示例（使用Go）。\n头插法 头插法通过不断将原链表的节点插入到一个新链表的头部来实现反转。这种方法需要一个辅助链表头部。比如力扣中的 92. 反转链表 II\n">
 <meta property='og:url' content='https://skylm808.github.io/p/%E9%93%BE%E8%A1%A8%E5%8F%8D%E8%BD%AC%E5%A4%B4%E6%8F%92%E6%B3%95%E4%B8%8E%E5%8F%8C%E6%8C%87%E9%92%88%E8%BF%AD%E4%BB%A3%E6%B3%95%E7%9A%84%E5%8C%BA%E5%88%AB/'>
 <meta property='og:site_name' content='Skylm'>
@@ -370,23 +370,23 @@
 </span><span class="lnt">16
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="kd">type</span> <span class="nx">ListNode</span> <span class="kd">struct</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nx">Val</span>  <span class="kt">int</span>
-</span></span><span class="line"><span class="cl">    <span class="nx">Next</span> <span class="o">*</span><span class="nx">ListNode</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c1">// 头插法：利用 dummy 头构建新链表</span>
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">reverseList</span><span class="p">(</span><span class="nx">head</span> <span class="o">*</span><span class="nx">ListNode</span><span class="p">)</span> <span class="o">*</span><span class="nx">ListNode</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="nx">dummy</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">ListNode</span><span class="p">{}</span>   <span class="c1">// 新链表的虚拟头</span>
-</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="nx">head</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nx">next</span> <span class="o">:=</span> <span class="nx">head</span><span class="p">.</span><span class="nx">Next</span>         <span class="c1">// 先保存后继</span>
-</span></span><span class="line"><span class="cl">        <span class="nx">head</span><span class="p">.</span><span class="nx">Next</span> <span class="p">=</span> <span class="nx">dummy</span><span class="p">.</span><span class="nx">Next</span>    <span class="c1">// 插到 dummy 后面</span>
-</span></span><span class="line"><span class="cl">        <span class="nx">dummy</span><span class="p">.</span><span class="nx">Next</span> <span class="p">=</span> <span class="nx">head</span>
-</span></span><span class="line"><span class="cl">        <span class="nx">head</span> <span class="p">=</span> <span class="nx">next</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nx">dummy</span><span class="p">.</span><span class="nx">Next</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></td></tr></table>
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="kd">type</span><span class="w"> </span><span class="nx">ListNode</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nx">Val</span><span class="w">  </span><span class="kt">int</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nx">Next</span><span class="w"> </span><span class="o">*</span><span class="nx">ListNode</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="c1">// 头插法：利用 dummy 头构建新链表</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="kd">func</span><span class="w"> </span><span class="nf">reverseList</span><span class="p">(</span><span class="nx">head</span><span class="w"> </span><span class="o">*</span><span class="nx">ListNode</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="nx">ListNode</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nx">dummy</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="o">&amp;</span><span class="nx">ListNode</span><span class="p">{}</span><span class="w">   </span><span class="c1">// 新链表的虚拟头</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">head</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nx">next</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">head</span><span class="p">.</span><span class="nx">Next</span><span class="w">         </span><span class="c1">// 先保存后继</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nx">head</span><span class="p">.</span><span class="nx">Next</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">dummy</span><span class="p">.</span><span class="nx">Next</span><span class="w">    </span><span class="c1">// 插到 dummy 后面</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nx">dummy</span><span class="p">.</span><span class="nx">Next</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">head</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nx">head</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">next</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">dummy</span><span class="p">.</span><span class="nx">Next</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="p">}</span><span class="w">
+</span></span></span></code></pre></td></tr></table>
 </div>
 </div><h2 id="双指针迭代法">双指针迭代法
 </h2><p>双指针迭代法使用两个指针（prev 和 curr）来反转链表的指向。比如力扣中的 25. <a class="link" href="https://leetcode.cn/problems/reverse-nodes-in-k-group/description/?envType=study-plan-v2&amp;envId=top-interview-150"  target="_blank" rel="noopener"
@@ -413,19 +413,19 @@
 </span><span class="lnt">12
 </span></code></pre></td>
 <td class="lntd">
-<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// 双指针迭代法：原地反转</span>
-</span></span><span class="line"><span class="cl"><span class="kd">func</span> <span class="nf">reverseList</span><span class="p">(</span><span class="nx">head</span> <span class="o">*</span><span class="nx">ListNode</span><span class="p">)</span> <span class="o">*</span><span class="nx">ListNode</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="kd">var</span> <span class="nx">prev</span> <span class="o">*</span><span class="nx">ListNode</span>
-</span></span><span class="line"><span class="cl">    <span class="nx">cur</span> <span class="o">:=</span> <span class="nx">head</span>
-</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="nx">cur</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">        <span class="nx">next</span> <span class="o">:=</span> <span class="nx">cur</span><span class="p">.</span><span class="nx">Next</span>   <span class="c1">// 保存后继</span>
-</span></span><span class="line"><span class="cl">        <span class="nx">cur</span><span class="p">.</span><span class="nx">Next</span> <span class="p">=</span> <span class="nx">prev</span>    <span class="c1">// 翻转指针</span>
-</span></span><span class="line"><span class="cl">        <span class="nx">prev</span> <span class="p">=</span> <span class="nx">cur</span>         <span class="c1">// prev 前进</span>
-</span></span><span class="line"><span class="cl">        <span class="nx">cur</span> <span class="p">=</span> <span class="nx">next</span>         <span class="c1">// cur 前进</span>
-</span></span><span class="line"><span class="cl">    <span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nx">prev</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span></code></pre></td></tr></table>
+<pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="line"><span class="cl"><span class="c1">// 双指针迭代法：原地反转</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="kd">func</span><span class="w"> </span><span class="nf">reverseList</span><span class="p">(</span><span class="nx">head</span><span class="w"> </span><span class="o">*</span><span class="nx">ListNode</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="nx">ListNode</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="kd">var</span><span class="w"> </span><span class="nx">prev</span><span class="w"> </span><span class="o">*</span><span class="nx">ListNode</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nx">cur</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">head</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="nx">cur</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nx">next</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">cur</span><span class="p">.</span><span class="nx">Next</span><span class="w">   </span><span class="c1">// 保存后继</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nx">cur</span><span class="p">.</span><span class="nx">Next</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">prev</span><span class="w">    </span><span class="c1">// 翻转指针</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nx">prev</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">cur</span><span class="w">         </span><span class="c1">// prev 前进</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">        </span><span class="nx">cur</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="nx">next</span><span class="w">         </span><span class="c1">// cur 前进</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="p">}</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">prev</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="p">}</span><span class="w">
+</span></span></span></code></pre></td></tr></table>
 </div>
 </div><h2 id="区别">区别
 </h2><ul>
@@ -433,7 +433,6 @@
 <li><strong>双指针迭代法</strong>：原地反转，不需要额外空间，效率更高。</li>
 </ul>
 <p>两种方法的时间复杂度均为 O(n)，空间复杂度为 O(1)。</p>
-<p>如果您有疑问，欢迎评论！</p>
 
 </section>
 
