@@ -7,14 +7,24 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Tue, 22 Jul 2025 17:09:54 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Fri, 16 Jan 2026 08:00:00 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>学习笔记</title>
         <link>https://skylm808.github.io/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/</link>
-        <pubDate>Tue, 22 Jul 2025 17:09:54 +0800</pubDate>
+        <pubDate>Fri, 16 Jan 2026 08:00:00 +0800</pubDate>
         
         <guid>https://skylm808.github.io/categories/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/</guid>
         <description>&lt;h2 id=&#34;学习笔记&#34;&gt;学习笔记
 &lt;/h2&gt;&lt;p&gt;记录学习过程中的思考、总结和心得体会。&lt;/p&gt;
+</description>
+        </item>
+        <item>
+        <title>Go</title>
+        <link>https://skylm808.github.io/categories/go/</link>
+        <pubDate>Thu, 15 Jan 2026 16:39:08 +0800</pubDate>
+        
+        <guid>https://skylm808.github.io/categories/go/</guid>
+        <description>&lt;h2 id=&#34;go-语言&#34;&gt;Go 语言
+&lt;/h2&gt;&lt;p&gt;Go 语言的学习笔记、项目实践和技术分享。&lt;/p&gt;
 </description>
         </item>
         <item>
@@ -35,16 +45,6 @@
         <guid>https://skylm808.github.io/categories/c&#43;&#43;/</guid>
         <description>&lt;h2 id=&#34;c-编程&#34;&gt;C++ 编程
 &lt;/h2&gt;&lt;p&gt;C++ 语言的学习笔记、项目实践和技术分享。&lt;/p&gt;
-</description>
-        </item>
-        <item>
-        <title>Go</title>
-        <link>https://skylm808.github.io/categories/go/</link>
-        <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-        
-        <guid>https://skylm808.github.io/categories/go/</guid>
-        <description>&lt;h2 id=&#34;go-语言&#34;&gt;Go 语言
-&lt;/h2&gt;&lt;p&gt;Go 语言的学习笔记、项目实践和技术分享。&lt;/p&gt;
 </description>
         </item>
         <item>
