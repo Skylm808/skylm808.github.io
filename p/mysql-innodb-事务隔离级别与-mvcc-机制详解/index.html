@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="在数据库系统中，事务（Transaction） 是一组原子性的 SQL 操作，要么全部执行成功，要么全部回滚。当多个事务同时执行时（并发），可能会出现各种数据一致性问题。">
+<title>MySQL InnoDB 事务隔离级别与 MVCC 机制详解</title>
+
+<link rel='canonical' href='https://skylm808.github.io/p/mysql-innodb-%E4%BA%8B%E5%8A%A1%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E4%B8%8E-mvcc-%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3/'>
+
+<link rel="stylesheet" href="/scss/style.min.96ba1c3608acf4f319504831a9a06a60c4c0f47ce65605b5ca2dab1981e36064.css"><meta property='og:title' content="MySQL InnoDB 事务隔离级别与 MVCC 机制详解">
+<meta property='og:description' content="在数据库系统中，事务（Transaction） 是一组原子性的 SQL 操作，要么全部执行成功，要么全部回滚。当多个事务同时执行时（并发），可能会出现各种数据一致性问题。">
+<meta property='og:url' content='https://skylm808.github.io/p/mysql-innodb-%E4%BA%8B%E5%8A%A1%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E4%B8%8E-mvcc-%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Mysql' /><meta property='article:published_time' content='2026-01-29T22:31:48&#43;08:00'/><meta property='article:modified_time' content='2026-01-29T22:31:48&#43;08:00'/>
+<meta name="twitter:title" content="MySQL InnoDB 事务隔离级别与 MVCC 机制详解">
+<meta name="twitter:description" content="在数据库系统中，事务（Transaction） 是一组原子性的 SQL 操作，要么全部执行成功，要么全部回滚。当多个事务同时执行时（并发），可能会出现各种数据一致性问题。">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页|home</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类&amp;标签|Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档 | Archives</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索 | Search</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友情链接 | Links</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#1-并发事务可能带来的问题">1. 并发事务可能带来的问题</a></li>
+    <li><a href="#2-四种隔离级别详解">2. 四种隔离级别详解</a>
+      <ol>
+        <li><a href="#21-read-uncommitted-读未提交">2.1 READ UNCOMMITTED (读未提交)</a></li>
+        <li><a href="#22-read-committed-读已提交--rc">2.2 READ COMMITTED (读已提交 / RC)</a></li>
+        <li><a href="#23-repeatable-read-可重复读--rr--mysql-默认级别">2.3 REPEATABLE READ (可重复读 / RR) —— <strong>MySQL 默认级别</strong></a></li>
+        <li><a href="#24-serializable-串行化">2.4 SERIALIZABLE (串行化)</a></li>
+      </ol>
+    </li>
+    <li><a href="#3-总结与对比">3. 总结与对比</a></li>
+    <li><a href="#4-极简通俗案例买限量手办">4. 极简通俗案例：买限量手办</a></li>
+    <li><a href="#5-深入理解-mvcc-多版本并发控制">5. 深入理解 MVCC (多版本并发控制)</a>
+      <ol>
+        <li><a href="#51-什么是-mvcc">5.1 什么是 MVCC？</a></li>
+        <li><a href="#52-mvcc-的三大核心组件">5.2 MVCC 的三大核心组件</a>
+          <ol>
+            <li><a href="#1-隐式字段">1. 隐式字段</a></li>
+            <li><a href="#2-undo-log-回滚日志--数据的版本链">2. Undo Log (回滚日志) —— 数据的“版本链”</a></li>
+            <li><a href="#3-read-view-读视图--数据的裁判">3. Read View (读视图) —— 数据的“裁判”</a></li>
+          </ol>
+        </li>
+        <li><a href="#53-核心逻辑版本可见性算法">5.3 核心逻辑：版本可见性算法</a>
+          <ol>
+            <li><a href="#1-规则一这是我自己改的吗">1. 规则一：这是我自己改的吗？</a></li>
+            <li><a href="#2-规则二这是老前辈改的吗">2. 规则二：这是“老前辈”改的吗？</a></li>
+            <li><a href="#3-规则三这是未来人改的吗">3. 规则三：这是“未来人”改的吗？</a></li>
+            <li><a href="#4-规则四这是还没交卷的同班同学改的吗">4. 规则四：这是“还没交卷的同班同学”改的吗？</a></li>
+          </ol>
+        </li>
+        <li><a href="#54-关键区别rc-和-rr-中的-mvcc">5.4 关键区别：RC 和 RR 中的 MVCC</a>
+          <ol>
+            <li><a href="#1-在-rc-读已提交-级别下">1. 在 RC (读已提交) 级别下</a></li>
+            <li><a href="#2-在-rr-可重复读--mysql-默认级别下">2. 在 RR (可重复读) —— MySQL 默认级别下</a></li>
+          </ol>
+        </li>
+        <li><a href="#55-总结">5.5 总结</a></li>
+      </ol>
+    </li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/mysql/" >
+                Mysql
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/mysql-innodb-%E4%BA%8B%E5%8A%A1%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E4%B8%8E-mvcc-%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3/">MySQL InnoDB 事务隔离级别与 MVCC 机制详解</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Jan 29, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 10 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="mysql-innodb-事务隔离级别与-mvcc-机制详解">MySQL InnoDB 事务隔离级别与 MVCC 机制详解
+</h1><p>在数据库系统中，<strong>事务（Transaction）</strong> 是一组原子性的 SQL 操作，要么全部执行成功，要么全部回滚。当多个事务同时执行时（并发），可能会出现各种数据一致性问题。</p>
+<p>MySQL 的 InnoDB 存储引擎提供了四种<strong>事务隔离级别（Isolation Level）</strong>，用来平衡<strong>数据安全性</strong>（一致性）和<strong>性能</strong>（并发性）。</p>
+<hr>
+<h2 id="1-并发事务可能带来的问题">1. 并发事务可能带来的问题
+</h2><p>在了解隔离级别之前，我们需要先知道如果不隔离，会发生什么：</p>
+<ol>
+<li><strong>脏读 (Dirty Read)</strong>：</li>
+</ol>
+<ul>
+<li>事务 A 读到了事务 B <strong>还没有提交</strong>的数据。</li>
+<li><em>风险</em>：如果事务 B 回滚了，事务 A 读到的就是“脏数据”（实际上从未存在过的数据）。</li>
+</ul>
+<ol start="2">
+<li><strong>不可重复读 (Non-repeatable Read)</strong>：</li>
+</ol>
+<ul>
+<li>事务 A 在自己的过程中，先后两次读取同一条记录。在两次读取之间，事务 B <strong>修改</strong>了这条记录并提交了。</li>
+<li><em>结果</em>：事务 A 发现两次读到的数据不一样。</li>
+</ul>
+<ol start="3">
+<li><strong>幻读 (Phantom Read)</strong>：</li>
+</ol>
+<ul>
+<li>事务 A 按某个条件查询（例如“所有分数为 100 分的学生”），第一次查到了 5 个人。此时，事务 B <strong>插入</strong>了一个新的 100 分学生并提交。事务 A 再次按相同条件查询，发现变成了 6 个人。</li>
+<li><em>结果</em>：就像产生了幻觉一样，多（或少）了一些行。</li>
+</ul>
+<blockquote>
+<p><strong>💡 核心区别辨析：不可重复读 vs 幻读</strong>
+很多人容易混淆这两个概念，关键区别在于 <strong>“变的是什么”</strong>：</p>
+<ul>
+<li><strong>不可重复读</strong> 关注的是 <strong>修改 (UPDATE)</strong>。即：<strong>以前读到的数据变了</strong>。解决它通常只需要锁住行（行锁）。</li>
+<li><strong>幻读</strong> 关注的是 <strong>插入 (INSERT)</strong>。即：<strong>以前没读到的数据突然冒出来了</strong>（或者原本有的消失了）。解决它需要锁住行之间的空隙（间隙锁）。</li>
+</ul>
+</blockquote>
+<hr>
+<h2 id="2-四种隔离级别详解">2. 四种隔离级别详解
+</h2><p>MySQL 按照 SQL 标准定义了四种隔离级别，严格程度从低到高。</p>
+<h3 id="21-read-uncommitted-读未提交">2.1 READ UNCOMMITTED (读未提交)
+</h3><ul>
+<li><strong>含义</strong>：这是最低的隔离级别。一个事务可以读取另一个<strong>未提交</strong>事务修改的数据。</li>
+<li><strong>通俗解释</strong>：
+<ul>
+<li>就像你在写作业（事务 B），还没交给老师（未提交），同桌（事务 A）就偷看了你的答案。如果你发现写错了擦掉重写（回滚），同桌抄的就是错的（脏读）。</li>
+</ul>
+</li>
+<li><strong>存在问题</strong>：脏读、不可重复读、幻读。</li>
+<li><strong>使用场景</strong>：极少使用，性能虽高但极不安全。</li>
+</ul>
+<h3 id="22-read-committed-读已提交--rc">2.2 READ COMMITTED (读已提交 / RC)
+</h3><ul>
+<li><strong>含义</strong>：一个事务只能读取已经<strong>提交</strong>的数据。这是大多数数据库（如 Oracle, PostgreSQL）的默认隔离级别。</li>
+<li><strong>通俗解释</strong>：
+<ul>
+<li>你（事务 A）在查账，看到余额是 100 元。此时你老婆（事务 B）花了 50 元并确认支付（提交）。你再次查账，发现余额变成了 50 元。</li>
+<li>虽然避免了读草稿（脏读），但同一个事务里数据变了，让你很困惑（不可重复读）。</li>
+</ul>
+</li>
+<li><strong>存在问题</strong>：不可重复读、幻读。</li>
+<li><strong>解决了</strong>：脏读。</li>
+</ul>
+<h3 id="23-repeatable-read-可重复读--rr--mysql-默认级别">2.3 REPEATABLE READ (可重复读 / RR) —— <strong>MySQL 默认级别</strong>
+</h3><ul>
+<li><strong>含义</strong>：确保在同一个事务中，多次读取同样的数据结果是一样的。即使其他事务提交了修改，本事务看到的依然是事务开始时的状态（快照）。</li>
+<li><strong>通俗解释</strong>：
+<ul>
+<li>你（事务 A）打开账本开始查账（开启事务），此时余额 100 元。这就好比你对账本拍了一张<strong>照片</strong>。无论你老婆（事务 B）怎么花钱、怎么提交，你盯着照片看，余额永远是 100 元。直到你自己结束查账（提交/回滚），放下照片。</li>
+</ul>
+</li>
+<li><strong>底层机制</strong>：InnoDB 主要通过 <strong>MVCC (多版本并发控制)</strong> 来实现。</li>
+<li><strong>关于幻读</strong>：
+<ul>
+<li>SQL 标准规定 RR 级别无法解决幻读。</li>
+<li><strong>但是</strong>，MySQL 的 InnoDB 引擎非常强大，它在 RR 级别下通过 <strong>Next-Key Lock (间隙锁)</strong> 机制，在很大程度上避免了幻读的发生。</li>
+</ul>
+</li>
+<li><strong>解决了</strong>：脏读、不可重复读。</li>
+</ul>
+<h3 id="24-serializable-串行化">2.4 SERIALIZABLE (串行化)
+</h3><ul>
+<li><strong>含义</strong>：最高的隔离级别。它强制事务串行执行（排队），通过强制对读取的数据加锁，避免一切冲突。</li>
+<li><strong>通俗解释</strong>：
+<ul>
+<li>你（事务 A）要查账，系统直接把账本锁进保险柜，钥匙给你。你老婆（事务 B）想花钱？对不起，排队等着，直到你查完把钥匙还回去。</li>
+</ul>
+</li>
+<li><strong>存在问题</strong>：性能极差，并发度极低。</li>
+<li><strong>解决了</strong>：所有并发问题（脏读、不可重复读、幻读）。</li>
+</ul>
+<hr>
+<h2 id="3-总结与对比">3. 总结与对比
+</h2><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>隔离级别</th>
+          <th>脏读 (Dirty Read)</th>
+          <th>不可重复读 (Non-Repeatable)</th>
+          <th>幻读 (Phantom Read)</th>
+          <th>性能</th>
+          <th>备注</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Read Uncommitted</strong></td>
+          <td>可能</td>
+          <td>可能</td>
+          <td>可能</td>
+          <td>极高</td>
+          <td>基本不用，数据不可靠</td>
+      </tr>
+      <tr>
+          <td><strong>Read Committed</strong></td>
+          <td>❌ 避免</td>
+          <td>可能</td>
+          <td>可能</td>
+          <td>高</td>
+          <td>Oracle/PG 默认，互联网大厂常用</td>
+      </tr>
+      <tr>
+          <td><strong>Repeatable Read</strong></td>
+          <td>❌ 避免</td>
+          <td>❌ 避免</td>
+          <td>可能 (InnoDB 大部分避免)</td>
+          <td>中</td>
+          <td><strong>MySQL 默认</strong>，够用且安全</td>
+      </tr>
+      <tr>
+          <td><strong>Serializable</strong></td>
+          <td>❌ 避免</td>
+          <td>❌ 避免</td>
+          <td>❌ 避免</td>
+          <td>低</td>
+          <td>只有极高一致性要求时才用</td>
+      </tr>
+  </tbody>
+</table></div>
+<hr>
+<h2 id="4-极简通俗案例买限量手办">4. 极简通俗案例：买限量手办
+</h2><p>假设商店里还剩 <strong>1 个</strong> 限量版手办，库存显示为 1。</p>
+<ol>
+<li><strong>读未提交</strong>：</li>
+</ol>
+<ul>
+<li>买家 A 下单了（库存-1，剩0），还没付款（未提交）。</li>
+<li>买家 B 一看，库存是 0，失望离开。</li>
+<li>结果买家 A 没钱付款取消了（回滚，库存+1）。</li>
+<li><strong>买家 B 被坑了</strong>（脏读）。</li>
+</ul>
+<ol start="2">
+<li><strong>读已提交</strong>：</li>
+</ol>
+<ul>
+<li>买家 A 下单并付款成功（提交，库存变 0）。</li>
+<li>买家 B 第一次看库存是 1，正高兴呢，刷新网页（第二次读），库存变成 0 了。</li>
+<li><strong>买家 B 心情大起大落</strong>（不可重复读）。</li>
+</ul>
+<ol start="3">
+<li><strong>可重复读 (MySQL 默认)</strong>：</li>
+</ol>
+<ul>
+<li>买家 B 进入购买页面（开启事务），看到库存是 1。</li>
+<li>此时买家 A 抢先买走并付款（库存变 0）。</li>
+<li>买家 B 只要不刷新退出，怎么看库存都是 1（看的是快照）。</li>
+<li><em>注：虽然看到的还是 1，但如果买家 B 尝试下单，数据库锁机制会告诉他其实没货了。</em></li>
+</ul>
+<ol start="4">
+<li><strong>串行化</strong>：</li>
+</ol>
+<ul>
+<li>买家 B 正在看手办详情页。</li>
+<li>买家 A 想下单？<strong>卡住不动</strong>，直到买家 B 关掉网页。</li>
+<li><strong>大家都要疯了</strong>（性能太差）。</li>
+</ul>
+<hr>
+<h2 id="5-深入理解-mvcc-多版本并发控制">5. 深入理解 MVCC (多版本并发控制)
+</h2><p>MySQL 的默认隔离级别 <strong>Repeatable Read (RR)</strong> 是如何做到“可重复读”且不加锁影响性能的呢？答案就是 <strong>MVCC (Multi-Version Concurrency Control)</strong>。</p>
+<h3 id="51-什么是-mvcc">5.1 什么是 MVCC？
+</h3><p>简单来说，MVCC 就是让每行数据都拥有<strong>多个版本</strong>。</p>
+<ul>
+<li><strong>读不加锁</strong>：读取数据时，不加锁，而是去读符合当前事务时间点的那个“旧版本”。</li>
+<li><strong>写加锁</strong>：写入数据时，会生成一个新的版本。</li>
+<li><strong>目的</strong>：最大程度提高数据库的并发性能，实现“读写不冲突”。</li>
+</ul>
+<blockquote>
+<p>📸 <strong>比喻</strong>：就像给文档做“版本控制”（如 Git）。你正在编辑 v2 版，别人可以放心读 v1 版，互不干扰。</p>
+</blockquote>
+<h3 id="52-mvcc-的三大核心组件">5.2 MVCC 的三大核心组件
+</h3><p>InnoDB 实现 MVCC 依赖三个东西：<strong>隐式字段</strong>、<strong>Undo Log</strong> 和 <strong>Read View</strong>。</p>
+<h4 id="1-隐式字段">1. 隐式字段
+</h4><p>每行记录除了你定义的列之外，InnoDB 会悄悄加几个隐藏列，最重要的两个是：</p>
+<ul>
+<li>
+<p><strong><code>DB_TRX_ID</code> (事务 ID) —— “最新修改者的身份证”</strong></p>
+<ul>
+<li>它记录了<strong>最后一次</strong>修改（或插入）这行记录的事务 ID。</li>
+<li><strong>注意</strong>：它标识的是<strong>当前这行数据内容</strong>是由哪个事务生成的。</li>
+<li><strong>【场景举例】</strong>：
+<ol>
+<li>事务 A (ID=10) 插入了一行数据 &ldquo;Name: Jack&rdquo;。此时这行数据的 <code>DB_TRX_ID</code> 就是 <strong>10</strong>。</li>
+<li>后来，事务 B (ID=20) 把 &ldquo;Jack&rdquo; 改成了 &ldquo;Rose&rdquo;。此时这行数据的 <code>DB_TRX_ID</code> 就变成了 <strong>20</strong>。</li>
+</ol>
+</li>
+<li><strong>结论</strong>：它就像商品的“生产批号”，标记了<strong>当前最新版数据</strong>是由哪个事务产生的。</li>
+</ul>
+</li>
+<li>
+<p><strong><code>DB_ROLL_PTR</code> (回滚指针) —— “穿越回旧版的时光隧道”</strong></p>
+<ul>
+<li>它是一个指针，指向 Undo Log 中这行数据的<strong>上一个版本</strong>。</li>
+<li>通过它，数据库可以像“穿糖葫芦”一样，顺藤摸瓜找到这行数据之前的所有历史状态。</li>
+<li><strong>【场景举例】</strong>：
+<ol>
+<li>当事务 B 把 &ldquo;Jack&rdquo; 改成 &ldquo;Rose&rdquo; 时，MySQL 不会直接把 &ldquo;Jack&rdquo; 删了。</li>
+<li>它会先把 &ldquo;Jack&rdquo; 这个旧版本拷贝一份扔进 <strong>Undo Log</strong> 里。</li>
+<li>然后，由 &ldquo;Rose&rdquo; 这行新数据身上的 <code>DB_ROLL_PTR</code> 指向 Undo Log 里的 &ldquo;Jack&rdquo;。</li>
+<li><strong>效果</strong>：新数据 (Rose) -&gt; 拿着绳子 (指针) -&gt; 拴着旧数据 (Jack)。</li>
+</ol>
+</li>
+</ul>
+</li>
+<li>
+<p><strong><code>DB_ROW_ID</code> (行 ID)</strong>：如果你没设主键，InnoDB 就用它自动生成主键。</p>
+</li>
+</ul>
+<h4 id="2-undo-log-回滚日志--数据的版本链">2. Undo Log (回滚日志) —— 数据的“版本链”
+</h4><p>当修改数据时，旧数据不会立刻消失，而是被放进了 <strong>Undo Log</strong>。
+通过 <code>DB_ROLL_PTR</code> 指针，新老数据连成了一个<strong>版本链</strong>。</p>
+<p><strong>【图解：版本链是如何形成的】</strong></p>
+<p>假设有一行数据 <code>id=1, name=A</code>，随时间发生了三次变化：</p>
+<ol>
+<li><strong>初始状态</strong>：事务 100 插入数据 &ldquo;A&rdquo;。</li>
+<li><strong>第一次修改</strong>：事务 200 把 &ldquo;A&rdquo; 改为 &ldquo;B&rdquo;。</li>
+<li><strong>第二次修改</strong>：事务 300 把 &ldquo;B&rdquo; 改为 &ldquo;C&rdquo;。</li>
+</ol>
+<p>内存中的记录（最新版）与 Undo Log（历史版）的连接关系如下：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>【内存中的最新记录】
+</span></span><span style="display:flex;"><span>--------------------------
+</span></span><span style="display:flex;"><span>| Name: C                | &lt;--- 当前数据
+</span></span><span style="display:flex;"><span>| DB_TRX_ID: 300         | &lt;--- 最近是被事务 300 改的
+</span></span><span style="display:flex;"><span>| DB_ROLL_PTR: 0x3333    | ---+
+</span></span><span style="display:flex;"><span>--------------------------    | 指向上一版
+</span></span><span style="display:flex;"><span>                              |
+</span></span><span style="display:flex;"><span>       +----------------------+
+</span></span><span style="display:flex;"><span>       |
+</span></span><span style="display:flex;"><span>       v
+</span></span><span style="display:flex;"><span>【Undo Log 中的历史记录】
+</span></span><span style="display:flex;"><span>--------------------------
+</span></span><span style="display:flex;"><span>| Name: B                | &lt;--- 历史版本 1
+</span></span><span style="display:flex;"><span>| DB_TRX_ID: 200         | &lt;--- 当时是被事务 200 改的
+</span></span><span style="display:flex;"><span>| DB_ROLL_PTR: 0x2222    | ---+
+</span></span><span style="display:flex;"><span>--------------------------    | 指向更早的一版
+</span></span><span style="display:flex;"><span>                              |
+</span></span><span style="display:flex;"><span>       +----------------------+
+</span></span><span style="display:flex;"><span>       |
+</span></span><span style="display:flex;"><span>       v
+</span></span><span style="display:flex;"><span>--------------------------
+</span></span><span style="display:flex;"><span>| Name: A                | &lt;--- 历史版本 2 (最早)
+</span></span><span style="display:flex;"><span>| DB_TRX_ID: 100         | &lt;--- 当时是被事务 100 插入的
+</span></span><span style="display:flex;"><span>| DB_ROLL_PTR: null      | &lt;--- 没有更早的了
+</span></span><span style="display:flex;"><span>--------------------------
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>解读</strong>：</p>
+<ul>
+<li>MVCC 就是靠着这个链条，根据 Read View 规则，判断自己该读哪一个方块里的数据。</li>
+<li>如果事务 300 还没提交，别的事务来看，发现 ID=300 还是活跃的（不可见），就会顺着 <code>0x3333</code> 找下去，读到 &ldquo;Name: B&rdquo;。</li>
+</ul>
+<h4 id="3-read-view-读视图--数据的裁判">3. Read View (读视图) —— 数据的“裁判”
+</h4><p>当事务进行<strong>快照读</strong>（普通的 <code>SELECT</code>）时，会生成一个 <strong>Read View</strong>。它决定了你能看到版本链上的哪一个版本。</p>
+<p>Read View 包含核心信息：</p>
+<ul>
+<li><strong><code>m_ids</code></strong>：生成 Read View 时，系统里所有**活跃（没提交）**的事务 ID 列表。</li>
+<li><strong><code>min_trx_id</code></strong>：<code>m_ids</code> 里最小的 ID。</li>
+<li><strong><code>max_trx_id</code></strong>：生成 Read View 时，系统将分配给下一个事务的 ID。</li>
+<li><strong><code>creator_trx_id</code></strong>：发起这个查询的事务 ID。</li>
+</ul>
+<h3 id="53-核心逻辑版本可见性算法">5.3 核心逻辑：版本可见性算法
+</h3><p>事务去读一行数据时，怎么判断能不能看到？这需要拿这行数据的 <strong>事务ID</strong> (<code>DB_TRX_ID</code>) 去跟我的 <strong>Read View</strong> 对照。</p>
+<p>为了让你彻底明白，我们来设定一个具体的**【实战场景】**：</p>
+<ul>
+<li>
+<p><strong>我是谁</strong>：事务 ID = <strong>300</strong>。</p>
+</li>
+<li>
+<p><strong>当时的局势 (Read View)</strong>：</p>
+<ul>
+<li>
+<p><strong><code>m_ids</code> (活跃列表)</strong>：<strong>[100, 200]</strong>。意思是：当我生成 Read View 这一刻，事务 100 和 200 还在跑，还没提交。</p>
+</li>
+<li>
+<p><strong><code>min_trx_id</code> (最小活跃)</strong>：<strong>100</strong>。</p>
+</li>
+<li>
+<p><strong><code>max_trx_id</code> (下个ID)</strong>：<strong>301</strong>。意思是：系统下一个要分配的事务 ID 是 301（即所有 &gt; 300 的都是未来才发生的）。</p>
+</li>
+</ul>
+</li>
+</ul>
+<p>现在，我去读一行数据，根据这行数据 <code>DB_TRX_ID</code> 的不同，会有 4 种情况：</p>
+<h4 id="1-规则一这是我自己改的吗">1. 规则一：这是我自己改的吗？
+</h4><ul>
+<li>
+<p><strong>判断</strong>：<code>DB_TRX_ID</code> == <strong>300 (我)</strong></p>
+</li>
+<li>
+<p><strong>结果</strong>：✅ <strong>可见</strong>。</p>
+</li>
+<li>
+<p><strong>解释</strong>：我当然能看到我自己修改的数据。</p>
+</li>
+</ul>
+<h4 id="2-规则二这是老前辈改的吗">2. 规则二：这是“老前辈”改的吗？
+</h4><ul>
+<li>
+<p><strong>判断</strong>：<code>DB_TRX_ID</code> &lt; <strong>100 (最小活跃)</strong></p>
+</li>
+<li>
+<p><strong>结果</strong>：✅ <strong>可见</strong>。</p>
+</li>
+<li>
+<p><strong>解释</strong>：比如 ID=50。说明在我生成 Read View 之前，这个事务早就提交完事了，数据已经稳定了。</p>
+</li>
+</ul>
+<h4 id="3-规则三这是未来人改的吗">3. 规则三：这是“未来人”改的吗？
+</h4><ul>
+<li>
+<p><strong>判断</strong>：<code>DB_TRX_ID</code> &gt;= <strong>301 (最大ID)</strong></p>
+</li>
+<li>
+<p><strong>结果</strong>：❌ <strong>不可见</strong>。</p>
+</li>
+<li>
+<p><strong>解释</strong>：比如 ID=400。这是在我启动（或拍照）之后，才新来的事务修改的。不管它提没提交，对于“过去”的我来说，这是未来的事，我不能穿越时空去看。</p>
+</li>
+</ul>
+<h4 id="4-规则四这是还没交卷的同班同学改的吗">4. 规则四：这是“还没交卷的同班同学”改的吗？
+</h4><ul>
+<li>
+<p><strong>判断</strong>：<code>DB_TRX_ID</code> 落在 [100, 301) 之间，且 <strong>在 <code>m_ids</code> 列表 [100, 200] 里</strong>。</p>
+</li>
+<li>
+<p><strong>结果</strong>：❌ <strong>不可见</strong>。</p>
+</li>
+<li>
+<p><strong>解释</strong>：比如 ID=100 或 200。虽然他们 ID 比我小（开始得早），但我生成快照的那一刻，他们<strong>还没提交</strong>。为了保证数据一致性（避免脏读），我不能看他们修改的数据。</p>
+<ul>
+<li><em>特例</em>：如果 ID=250（不在活跃列表里），说明他在我生成快照前已经迅速提交了，那就<strong>可见</strong>。</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p>🔄 <strong>如果不可见怎么办？</strong></p>
+</blockquote>
+<blockquote>
+<p>顺着版本链 (<code>DB_ROLL_PTR</code>) 往回找上一个版本，继续套用上述规则，直到找到一个可见的版本为止。</p>
+</blockquote>
+<h3 id="54-关键区别rc-和-rr-中的-mvcc">5.4 关键区别：RC 和 RR 中的 MVCC
+</h3><p><strong>重要提示</strong>：上面 <strong>5.3 节的可见性算法规则是通用的</strong>！无论是 RC 还是 RR 级别，InnoDB 在判断“能不能看”时，用的都是同一套规则。</p>
+<p>它们的唯一区别在于：<strong>Read View (那张照片) 生成的时机不同</strong>。</p>
+<h4 id="1-在-rc-读已提交-级别下">1. 在 RC (读已提交) 级别下
+</h4><ul>
+<li>
+<p><strong>时机</strong>：<strong>每次执行 <code>SELECT</code> 语句时，都会重新生成一个新的 Read View</strong>。</p>
+</li>
+<li>
+<p><strong>结果</strong>：</p>
+<ul>
+<li>
+<p>如果你执行了两次查询，中间有别的事务提交了。</p>
+</li>
+<li>
+<p>第二次查询时，生成的<strong>新 Read View</strong> 会发现那个事务已经不在活跃列表 (<code>m_ids</code>) 里了。</p>
+</li>
+<li>
+<p>根据规则，数据就变得<strong>可见</strong>了。</p>
+</li>
+<li>
+<p>这就是为什么 RC 会发生<strong>不可重复读</strong>。</p>
+</li>
+</ul>
+</li>
+</ul>
+<h4 id="2-在-rr-可重复读--mysql-默认级别下">2. 在 RR (可重复读) —— MySQL 默认级别下
+</h4><ul>
+<li>
+<p><strong>时机</strong>：<strong>只在事务第一次执行 <code>SELECT</code> 时生成一个 Read View</strong>，后续所有的查询都<strong>复用</strong>这同一个 Read View。</p>
+</li>
+<li>
+<p><strong>结果</strong>：</p>
+<ul>
+<li>
+<p>不管外部世界怎么变，你手里拿的永远是事务刚开始时的那张“旧照片”。</p>
+</li>
+<li>
+<p>在照片里，那些当时没提交的事务，永远都是“没提交”的状态（依然在 <code>m_ids</code> 里）。</p>
+</li>
+<li>
+<p>根据规则，他们修改的数据永远<strong>不可见</strong>。</p>
+</li>
+<li>
+<p>这就是为什么 RR 能实现<strong>可重复读</strong>。</p>
+</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p><strong>🔍 一句话总结</strong>：</p>
+</blockquote>
+<blockquote>
+<ul>
+<li><strong>RC</strong>：每次读都更新视图（实时直播）。</li>
+</ul>
+</blockquote>
+<blockquote>
+<ul>
+<li><strong>RR</strong>：只在开始时生成视图（录像回放）。</li>
+</ul>
+</blockquote>
+<blockquote>
+<ul>
+<li><strong>算法</strong>：拿着视图找数据的逻辑，两者完全一样。</li>
+</ul>
+</blockquote>
+<h3 id="55-总结">5.5 总结
+</h3><p><strong>MVCC = 隐藏字段 + Undo Log (版本链) + Read View (可见性判断)</strong></p>
+<ul>
+<li>它让 MySQL 在 RR 级别下，读操作不需要加锁，极大提升了并发性能。</li>
+<li>它像一个时光机，让事务只能看到属于它那个时刻的数据快照。</li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/mysql/">Mysql</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm808.github.io\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+    </body>
+</html>
