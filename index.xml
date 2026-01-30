@@ -7,7 +7,147 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Thu, 29 Jan 2026 22:31:48 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Fri, 30 Jan 2026 10:56:48 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>MySQL InnoDB 事务隔离级别与 MVCC 机制详解</title>
+        <link>https://skylm808.github.io/p/mysql-innodb-%E4%BA%8B%E5%8A%A1%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E4%B8%8E-mvcc-%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3/</link>
+        <pubDate>Fri, 30 Jan 2026 10:56:48 +0800</pubDate>
+        
+        <guid>https://skylm808.github.io/p/mysql-innodb-%E4%BA%8B%E5%8A%A1%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E4%B8%8E-mvcc-%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3/</guid>
+        <description>&lt;h1 id=&#34;mysql-innodb-在-rr-级别下解决幻读的两种方案详解&#34;&gt;MySQL InnoDB 在 RR 级别下解决幻读的两种方案详解
+&lt;/h1&gt;&lt;p&gt;关于 &lt;strong&gt;幻读 (Phantom Read)&lt;/strong&gt;，很多人的理解仅停留在“插入了一条新数据”，但更深入的问题是：&lt;strong&gt;MySQL 默认的 Repeatable Read (RR) 到底有没有完全解决幻读？&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;答案是：&lt;strong&gt;大部分解决了，但没完全解决。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;InnoDB 使用了两套不同的机制来应对不同的读取场景（快照读 vs 当前读）。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;1-场景一快照读-snapshot-read&#34;&gt;1. 场景一：快照读 (Snapshot Read)
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;SQL 语句&lt;/strong&gt;：普通的 &lt;code&gt;SELECT * FROM table ...&lt;/code&gt;（不加锁）&lt;/p&gt;
+&lt;h3 id=&#34;机制mvcc-多版本并发控制&#34;&gt;机制：MVCC (多版本并发控制)
+&lt;/h3&gt;&lt;p&gt;在 RR 级别下，事务启动后的&lt;strong&gt;第一次查询&lt;/strong&gt;会生成一个 &lt;strong&gt;Read View (一致性视图)&lt;/strong&gt;，后续所有的查询都复用这个视图。&lt;/p&gt;
+&lt;h3 id=&#34;为什么能解决幻读&#34;&gt;为什么能解决幻读？
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;就像拍了一张照片。&lt;/li&gt;
+&lt;li&gt;即使别的事务 B &lt;strong&gt;插入 (Insert)&lt;/strong&gt; 了几百条新数据并提交了。&lt;/li&gt;
+&lt;li&gt;事务 A 再次查询时，拿着手里的 Read View 一比对，发现这些新数据的事务 ID (&lt;code&gt;DB_TRX_ID&lt;/code&gt;) 比自己的 Read View 还大（属于未来数据）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;结果&lt;/strong&gt;：事务 A 根本看不见这些新数据。对它来说，幻读从未发生。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;结论&lt;/strong&gt;：在纯粹的快照读场景下，&lt;strong&gt;MVCC 完美解决了幻读&lt;/strong&gt;。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;2-场景二当前读-current-read&#34;&gt;2. 场景二：当前读 (Current Read)
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;SQL 语句&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;SELECT ... FOR UPDATE&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;SELECT ... LOCK IN SHARE MODE&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;UPDATE ...&lt;/code&gt; / &lt;code&gt;DELETE ...&lt;/code&gt; / &lt;code&gt;INSERT ...&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;注意&lt;/strong&gt;：这些操作需要读取数据库&lt;strong&gt;最新、最真实&lt;/strong&gt;的数据，不能看老照片，否则会覆盖别人的更新，导致数据错乱。&lt;/p&gt;
+&lt;h3 id=&#34;机制next-key-lock-临键锁&#34;&gt;机制：Next-Key Lock (临键锁)
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;Next-Key Lock = Record Lock (行锁) + Gap Lock (间隙锁)&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;InnoDB 不仅锁住扫描到的&lt;strong&gt;行&lt;/strong&gt;，还会锁住行与行之间的&lt;strong&gt;间隙&lt;/strong&gt;，彻底杜绝别人在这个范围内“插队”。&lt;/p&gt;
+&lt;h3 id=&#34;案例演示如何锁死幻读&#34;&gt;案例演示：如何锁死幻读？
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;Next-Key Lock&lt;/strong&gt; 的核心在于“左开右闭”区间。&lt;/p&gt;
+&lt;p&gt;假设表里现有数据：&lt;code&gt;id = 3, 5&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;事务 A 执行&lt;/strong&gt;：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;FROM&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;table&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;WHERE&lt;/span&gt; id &lt;span style=&#34;color:#ff79c6&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;3&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;FOR&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;UPDATE&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;em&gt;注：虽然这里是等值查询，但如果 id 不是主键/唯一索引，或者查询条件是范围，InnoDB 依然会加间隙锁。为了方便理解范围锁，我们假设这是一个范围查询或者非唯一索引查询。&lt;/em&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;更典型的范围查询例子&lt;/strong&gt;：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;FROM&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;table&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;WHERE&lt;/span&gt; id &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;3&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;FOR&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;UPDATE&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;InnoDB 的锁定范围 (Next-Key Lock)&lt;/strong&gt;：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;记录锁&lt;/strong&gt;：锁住 &lt;code&gt;id = 5&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;间隙锁&lt;/strong&gt;：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;锁住 &lt;code&gt;(3, 5]&lt;/code&gt;：即 3 到 5 之间的空隙（含 5）。&lt;/li&gt;
+&lt;li&gt;锁住 &lt;code&gt;(5, +∞)&lt;/code&gt;：5 之后的无限空间。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;结果&lt;/strong&gt;：
+此时，如果事务 B 尝试操作：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;INSERT 4&lt;/strong&gt;：落在 &lt;code&gt;(3, 5]&lt;/code&gt; 区间 -&amp;gt; &lt;strong&gt;阻塞 (Blocked)&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;INSERT 10&lt;/strong&gt;：落在 &lt;code&gt;(5, +∞)&lt;/code&gt; 区间 -&amp;gt; &lt;strong&gt;阻塞 (Blocked)&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;INSERT 1&lt;/strong&gt;：落在 &lt;code&gt;(-∞, 3]&lt;/code&gt; 区间（没被锁） -&amp;gt; &lt;strong&gt;✅ 成功插入！&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;&lt;strong&gt;结论&lt;/strong&gt;：
+Next-Key Lock 精准地锁住了&lt;strong&gt;查询条件覆盖的范围及其后续间隙&lt;/strong&gt;。它并没有锁住全表，不相关的区间（比如 id=1）依然可以自由插入，既防止了幻读，又保留了一定的并发性能。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;3-特殊场景幻读在哪里露馅了&#34;&gt;3. 特殊场景：幻读在哪里“露馅”了？
+&lt;/h3&gt;&lt;p&gt;虽然 MVCC 和 Next-Key Lock 守卫森严，但在一种极其刁钻的“先查后改”场景下，幻读依然会发生。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;欺骗场景复现&lt;/strong&gt;：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;初始状态&lt;/strong&gt;：表中无 &lt;code&gt;id=3&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;事务 A&lt;/strong&gt;：&lt;code&gt;SELECT * FROM table WHERE id=3;&lt;/code&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;结果&lt;/em&gt;：空集（MVCC 快照读，正常）。&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;状态&lt;/em&gt;：生成了 Read View，此时看不到 id=3。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;&lt;strong&gt;事务 B&lt;/strong&gt;：&lt;code&gt;INSERT INTO table VALUES (3); COMMIT;&lt;/code&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;动作&lt;/em&gt;：插入并提交。因为事务 A 没加锁（只是快照读），所以事务 B 成功插入。&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;状态&lt;/em&gt;：数据库物理文件里有了 id=3，其 &lt;code&gt;DB_TRX_ID&lt;/code&gt; = 事务 B。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;&lt;strong&gt;事务 A&lt;/strong&gt;：&lt;code&gt;UPDATE table SET name=&#39;Hack&#39; WHERE id=3;&lt;/code&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;动作&lt;/em&gt;：&lt;strong&gt;UPDATE 是当前读！&lt;/strong&gt; 它必须读取物理上最新的数据。&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;结果&lt;/em&gt;：更新成功！&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;关键变化&lt;/em&gt;：&lt;strong&gt;这行数据的 &lt;code&gt;DB_TRX_ID&lt;/code&gt; 被修改成了事务 A 自己的 ID！&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;5&#34;&gt;
+&lt;li&gt;&lt;strong&gt;事务 A&lt;/strong&gt;：&lt;code&gt;SELECT * FROM table WHERE id=3;&lt;/code&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;灵异事件&lt;/em&gt;：查到了！&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;原因&lt;/em&gt;：再次复用 Read View 进行检查时：
+&lt;ul&gt;
+&lt;li&gt;数据的 &lt;code&gt;DB_TRX_ID&lt;/code&gt; 是事务 A 自己。&lt;/li&gt;
+&lt;li&gt;符合 MVCC 规则一：&lt;strong&gt;“我自己修改的数据可见”&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;所以，幻读发生了。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;总结&lt;/strong&gt;：
+这并不是 Bug，而是 MVCC 的规则逻辑自洽的结果。这也提醒我们：&lt;strong&gt;不要在同一个事务里混用快照读和当前读来处理同一批数据&lt;/strong&gt;。如果业务逻辑需要“先查后改”，第一次查询就必须使用 &lt;code&gt;FOR UPDATE&lt;/code&gt; 加锁。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;4-最终结论&#34;&gt;4. 最终结论
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;“MySQL 的 RR 级别有没有解决幻读？”&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;对于普通查询 (快照读)&lt;/strong&gt;：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;靠 &lt;strong&gt;MVCC&lt;/strong&gt; 解决。通过复用 Read View，像看老照片一样屏蔽了外界的插入。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;&lt;strong&gt;对于加锁查询/修改 (当前读)&lt;/strong&gt;：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;靠 &lt;strong&gt;Next-Key Lock&lt;/strong&gt; 解决。通过锁住行和间隙，物理上阻止了新数据的插入。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;&lt;strong&gt;例外情况&lt;/strong&gt;：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;如果一个事务先进行快照读，然后进行当前读（UPDATE/DELETE），再进行快照读，可能会因为自己更新了别事务插入的数据，导致幻读显形。&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        <item>
         <title>MySQL InnoDB 事务隔离级别与 MVCC 机制详解</title>
         <link>https://skylm808.github.io/p/mysql-innodb-%E4%BA%8B%E5%8A%A1%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E4%B8%8E-mvcc-%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3/</link>
         <pubDate>Thu, 29 Jan 2026 22:31:48 +0800</pubDate>
