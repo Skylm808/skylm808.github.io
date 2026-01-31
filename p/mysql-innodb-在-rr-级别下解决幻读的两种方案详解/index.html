@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="InnoDB 使用了两套不同的机制来应对不同的读取场景（快照读 vs 当前读）">
+<title>MySQL InnoDB 在 RR 级别下解决幻读的两种方案详解</title>
+
+<link rel='canonical' href='https://skylm808.github.io/p/mysql-innodb-%E5%9C%A8-rr-%E7%BA%A7%E5%88%AB%E4%B8%8B%E8%A7%A3%E5%86%B3%E5%B9%BB%E8%AF%BB%E7%9A%84%E4%B8%A4%E7%A7%8D%E6%96%B9%E6%A1%88%E8%AF%A6%E8%A7%A3/'>
+
+<link rel="stylesheet" href="/scss/style.min.96ba1c3608acf4f319504831a9a06a60c4c0f47ce65605b5ca2dab1981e36064.css"><meta property='og:title' content="MySQL InnoDB 在 RR 级别下解决幻读的两种方案详解">
+<meta property='og:description' content="InnoDB 使用了两套不同的机制来应对不同的读取场景（快照读 vs 当前读）">
+<meta property='og:url' content='https://skylm808.github.io/p/mysql-innodb-%E5%9C%A8-rr-%E7%BA%A7%E5%88%AB%E4%B8%8B%E8%A7%A3%E5%86%B3%E5%B9%BB%E8%AF%BB%E7%9A%84%E4%B8%A4%E7%A7%8D%E6%96%B9%E6%A1%88%E8%AF%A6%E8%A7%A3/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Mysql' /><meta property='article:published_time' content='2026-01-30T10:56:48&#43;08:00'/><meta property='article:modified_time' content='2026-01-30T10:56:48&#43;08:00'/>
+<meta name="twitter:title" content="MySQL InnoDB 在 RR 级别下解决幻读的两种方案详解">
+<meta name="twitter:description" content="InnoDB 使用了两套不同的机制来应对不同的读取场景（快照读 vs 当前读）">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页|home</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类&amp;标签|Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档 | Archives</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索 | Search</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友情链接 | Links</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#1-场景一快照读-snapshot-read">1. 场景一：快照读 (Snapshot Read)</a>
+      <ol>
+        <li><a href="#机制mvcc-多版本并发控制">机制：MVCC (多版本并发控制)</a></li>
+        <li><a href="#为什么能解决幻读">为什么能解决幻读？</a></li>
+      </ol>
+    </li>
+    <li><a href="#2-场景二当前读-current-read">2. 场景二：当前读 (Current Read)</a>
+      <ol>
+        <li><a href="#机制next-key-lock-临键锁">机制：Next-Key Lock (临键锁)</a></li>
+        <li><a href="#案例演示如何锁死幻读">案例演示：如何锁死幻读？</a></li>
+        <li><a href="#3-特殊场景幻读在哪里露馅了">3. 特殊场景：幻读在哪里“露馅”了？</a></li>
+      </ol>
+    </li>
+    <li><a href="#4-最终结论">4. 最终结论</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/mysql/" >
+                Mysql
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/mysql-innodb-%E5%9C%A8-rr-%E7%BA%A7%E5%88%AB%E4%B8%8B%E8%A7%A3%E5%86%B3%E5%B9%BB%E8%AF%BB%E7%9A%84%E4%B8%A4%E7%A7%8D%E6%96%B9%E6%A1%88%E8%AF%A6%E8%A7%A3/">MySQL InnoDB 在 RR 级别下解决幻读的两种方案详解</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Jan 30, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 4 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="mysql-innodb-在-rr-级别下解决幻读的两种方案详解">MySQL InnoDB 在 RR 级别下解决幻读的两种方案详解
+</h1><p>关于 <strong>幻读 (Phantom Read)</strong>，很多人的理解仅停留在“插入了一条新数据”，但更深入的问题是：<strong>MySQL 默认的 Repeatable Read (RR) 到底有没有完全解决幻读？</strong></p>
+<p>答案是：<strong>大部分解决了，但没完全解决。</strong></p>
+<p>InnoDB 使用了两套不同的机制来应对不同的读取场景（快照读 vs 当前读）。</p>
+<hr>
+<h2 id="1-场景一快照读-snapshot-read">1. 场景一：快照读 (Snapshot Read)
+</h2><p><strong>SQL 语句</strong>：普通的 <code>SELECT * FROM table ...</code>（不加锁）</p>
+<h3 id="机制mvcc-多版本并发控制">机制：MVCC (多版本并发控制)
+</h3><p>在 RR 级别下，事务启动后的<strong>第一次查询</strong>会生成一个 <strong>Read View (一致性视图)</strong>，后续所有的查询都复用这个视图。</p>
+<h3 id="为什么能解决幻读">为什么能解决幻读？
+</h3><ul>
+<li>就像拍了一张照片。</li>
+<li>即使别的事务 B <strong>插入 (Insert)</strong> 了几百条新数据并提交了。</li>
+<li>事务 A 再次查询时，拿着手里的 Read View 一比对，发现这些新数据的事务 ID (<code>DB_TRX_ID</code>) 比自己的 Read View 还大（属于未来数据）。</li>
+<li><strong>结果</strong>：事务 A 根本看不见这些新数据。对它来说，幻读从未发生。</li>
+</ul>
+<p><strong>结论</strong>：在纯粹的快照读场景下，<strong>MVCC 完美解决了幻读</strong>。</p>
+<hr>
+<h2 id="2-场景二当前读-current-read">2. 场景二：当前读 (Current Read)
+</h2><p><strong>SQL 语句</strong>：</p>
+<ul>
+<li><code>SELECT ... FOR UPDATE</code></li>
+<li><code>SELECT ... LOCK IN SHARE MODE</code></li>
+<li><code>UPDATE ...</code> / <code>DELETE ...</code> / <code>INSERT ...</code></li>
+</ul>
+<p><strong>注意</strong>：这些操作需要读取数据库<strong>最新、最真实</strong>的数据，不能看老照片，否则会覆盖别人的更新，导致数据错乱。</p>
+<h3 id="机制next-key-lock-临键锁">机制：Next-Key Lock (临键锁)
+</h3><p><strong>Next-Key Lock = Record Lock (行锁) + Gap Lock (间隙锁)</strong></p>
+<p>InnoDB 不仅锁住扫描到的<strong>行</strong>，还会锁住行与行之间的<strong>间隙</strong>，彻底杜绝别人在这个范围内“插队”。</p>
+<h3 id="案例演示如何锁死幻读">案例演示：如何锁死幻读？
+</h3><p><strong>Next-Key Lock</strong> 的核心在于“左开右闭”区间。</p>
+<p>假设表里现有数据：<code>id = 3, 5</code>。</p>
+<p><strong>事务 A 执行</strong>：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#ff79c6">SELECT</span> <span style="color:#ff79c6">*</span> <span style="color:#ff79c6">FROM</span> <span style="color:#ff79c6">table</span> <span style="color:#ff79c6">WHERE</span> id <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">3</span> <span style="color:#ff79c6">FOR</span> <span style="color:#ff79c6">UPDATE</span>;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><em>注：虽然这里是等值查询，但如果 id 不是主键/唯一索引，或者查询条件是范围，InnoDB 依然会加间隙锁。为了方便理解范围锁，我们假设这是一个范围查询或者非唯一索引查询。</em></p>
+<p><strong>更典型的范围查询例子</strong>：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#ff79c6">SELECT</span> <span style="color:#ff79c6">*</span> <span style="color:#ff79c6">FROM</span> <span style="color:#ff79c6">table</span> <span style="color:#ff79c6">WHERE</span> id <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">3</span> <span style="color:#ff79c6">FOR</span> <span style="color:#ff79c6">UPDATE</span>;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>InnoDB 的锁定范围 (Next-Key Lock)</strong>：</p>
+<ol>
+<li><strong>记录锁</strong>：锁住 <code>id = 5</code>。</li>
+<li><strong>间隙锁</strong>：</li>
+</ol>
+<ul>
+<li>锁住 <code>(3, 5]</code>：即 3 到 5 之间的空隙（含 5）。</li>
+<li>锁住 <code>(5, +∞)</code>：5 之后的无限空间。</li>
+</ul>
+<p><strong>结果</strong>：
+此时，如果事务 B 尝试操作：</p>
+<ol>
+<li><strong>INSERT 4</strong>：落在 <code>(3, 5]</code> 区间 -&gt; <strong>阻塞 (Blocked)</strong>。</li>
+<li><strong>INSERT 10</strong>：落在 <code>(5, +∞)</code> 区间 -&gt; <strong>阻塞 (Blocked)</strong>。</li>
+<li><strong>INSERT 1</strong>：落在 <code>(-∞, 3]</code> 区间（没被锁） -&gt; <strong>✅ 成功插入！</strong></li>
+</ol>
+<p><strong>结论</strong>：
+Next-Key Lock 精准地锁住了<strong>查询条件覆盖的范围及其后续间隙</strong>。它并没有锁住全表，不相关的区间（比如 id=1）依然可以自由插入，既防止了幻读，又保留了一定的并发性能。</p>
+<hr>
+<h3 id="3-特殊场景幻读在哪里露馅了">3. 特殊场景：幻读在哪里“露馅”了？
+</h3><p>虽然 MVCC 和 Next-Key Lock 守卫森严，但在一种极其刁钻的“先查后改”场景下，幻读依然会发生。</p>
+<p><strong>欺骗场景复现</strong>：</p>
+<ol>
+<li><strong>初始状态</strong>：表中无 <code>id=3</code>。</li>
+<li><strong>事务 A</strong>：<code>SELECT * FROM table WHERE id=3;</code></li>
+</ol>
+<ul>
+<li><em>结果</em>：空集（MVCC 快照读，正常）。</li>
+<li><em>状态</em>：生成了 Read View，此时看不到 id=3。</li>
+</ul>
+<ol start="3">
+<li><strong>事务 B</strong>：<code>INSERT INTO table VALUES (3); COMMIT;</code></li>
+</ol>
+<ul>
+<li><em>动作</em>：插入并提交。因为事务 A 没加锁（只是快照读），所以事务 B 成功插入。</li>
+<li><em>状态</em>：数据库物理文件里有了 id=3，其 <code>DB_TRX_ID</code> = 事务 B。</li>
+</ul>
+<ol start="4">
+<li><strong>事务 A</strong>：<code>UPDATE table SET name='Hack' WHERE id=3;</code></li>
+</ol>
+<ul>
+<li><em>动作</em>：<strong>UPDATE 是当前读！</strong> 它必须读取物理上最新的数据。</li>
+<li><em>结果</em>：更新成功！</li>
+<li><em>关键变化</em>：<strong>这行数据的 <code>DB_TRX_ID</code> 被修改成了事务 A 自己的 ID！</strong></li>
+</ul>
+<ol start="5">
+<li><strong>事务 A</strong>：<code>SELECT * FROM table WHERE id=3;</code></li>
+</ol>
+<ul>
+<li><em>灵异事件</em>：查到了！</li>
+<li><em>原因</em>：再次复用 Read View 进行检查时：
+<ul>
+<li>数据的 <code>DB_TRX_ID</code> 是事务 A 自己。</li>
+<li>符合 MVCC 规则一：<strong>“我自己修改的数据可见”</strong>。</li>
+<li>所以，幻读发生了。</li>
+</ul>
+</li>
+</ul>
+<p><strong>总结</strong>：
+这并不是 Bug，而是 MVCC 的规则逻辑自洽的结果。这也提醒我们：<strong>不要在同一个事务里混用快照读和当前读来处理同一批数据</strong>。如果业务逻辑需要“先查后改”，第一次查询就必须使用 <code>FOR UPDATE</code> 加锁。</p>
+<hr>
+<h2 id="4-最终结论">4. 最终结论
+</h2><p><strong>“MySQL 的 RR 级别有没有解决幻读？”</strong></p>
+<ol>
+<li><strong>对于普通查询 (快照读)</strong>：</li>
+</ol>
+<ul>
+<li>靠 <strong>MVCC</strong> 解决。通过复用 Read View，像看老照片一样屏蔽了外界的插入。</li>
+</ul>
+<ol start="2">
+<li><strong>对于加锁查询/修改 (当前读)</strong>：</li>
+</ol>
+<ul>
+<li>靠 <strong>Next-Key Lock</strong> 解决。通过锁住行和间隙，物理上阻止了新数据的插入。</li>
+</ul>
+<ol start="3">
+<li><strong>例外情况</strong>：</li>
+</ol>
+<ul>
+<li>如果一个事务先进行快照读，然后进行当前读（UPDATE/DELETE），再进行快照读，可能会因为自己更新了别事务插入的数据，导致幻读显形。</li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/mysql/">Mysql</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/mysql-innodb-%E4%BA%8B%E5%8A%A1%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E4%B8%8E-mvcc-%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">MySQL InnoDB 事务隔离级别与 MVCC 机制详解</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm808.github.io\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+    </body>
+</html>
