@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="深入解析 MySQL 中的全局锁、表级锁（表锁、MDL、意向锁）以及 InnoDB 行级锁（Record Lock, Gap Lock, Next-Key Lock）的原理与应用场景。">
+<title>MySQL_lock</title>
+
+<link rel='canonical' href='https://skylm808.github.io/p/mysql_lock/'>
+
+<link rel="stylesheet" href="/scss/style.min.96ba1c3608acf4f319504831a9a06a60c4c0f47ce65605b5ca2dab1981e36064.css"><meta property='og:title' content="MySQL_lock">
+<meta property='og:description' content="深入解析 MySQL 中的全局锁、表级锁（表锁、MDL、意向锁）以及 InnoDB 行级锁（Record Lock, Gap Lock, Next-Key Lock）的原理与应用场景。">
+<meta property='og:url' content='https://skylm808.github.io/p/mysql_lock/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Mysql' /><meta property='article:published_time' content='2026-02-02T11:54:09&#43;08:00'/><meta property='article:modified_time' content='2026-02-02T11:54:09&#43;08:00'/>
+<meta name="twitter:title" content="MySQL_lock">
+<meta name="twitter:description" content="深入解析 MySQL 中的全局锁、表级锁（表锁、MDL、意向锁）以及 InnoDB 行级锁（Record Lock, Gap Lock, Next-Key Lock）的原理与应用场景。">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页|home</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类&amp;标签|Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档 | Archives</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索 | Search</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友情链接 | Links</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#前置知识连接线程与事务">前置知识：连接、线程与事务</a></li>
+    <li><a href="#一全局锁">一、全局锁</a>
+      <ol>
+        <li><a href="#11-命令与效果">1.1 命令与效果</a></li>
+        <li><a href="#12-使用场景">1.2 使用场景</a></li>
+        <li><a href="#13-潜在风险">1.3 潜在风险</a></li>
+      </ol>
+    </li>
+    <li><a href="#二表级锁">二、表级锁</a>
+      <ol>
+        <li><a href="#21-表锁-table-lock---显式">2.1 表锁 (Table Lock) - [显式]</a></li>
+        <li><a href="#22-元数据锁-mdl---metadata-lock---隐式">2.2 元数据锁 (MDL - Metadata Lock) - [隐式]</a></li>
+        <li><a href="#23-意向锁-intention-locks---隐式">2.3 意向锁 (Intention Locks) - [隐式]</a>
+          <ol>
+            <li><a href="#-通俗解释教学楼与坑位">💡 通俗解释（教学楼与坑位）</a></li>
+            <li><a href="#-技术细节">🔒 技术细节</a></li>
+          </ol>
+        </li>
+      </ol>
+    </li>
+    <li><a href="#三行级锁-innodb">三、行级锁 (InnoDB)</a>
+      <ol>
+        <li><a href="#31-锁的类型">3.1 锁的类型</a></li>
+        <li><a href="#32-锁的算法-核心">3.2 锁的算法 (核心)</a>
+          <ol>
+            <li><a href="#-灾难警示没有索引--锁全表">⚠️ 灾难警示：没有索引 = 锁全表</a></li>
+            <li><a href="#a-record-lock-记录锁">A. Record Lock (记录锁)</a></li>
+            <li><a href="#b-gap-lock-间隙锁">B. Gap Lock (间隙锁)</a></li>
+            <li><a href="#c-next-key-lock-临键锁">C. Next-Key Lock (临键锁)</a></li>
+          </ol>
+        </li>
+        <li><a href="#33-加锁规则实战-图解-rr-级别">3.3 加锁规则实战 (图解 RR 级别)</a>
+          <ol>
+            <li><a href="#1-唯一索引等值查询-查-id">1. 唯一索引等值查询 (查 id)</a></li>
+            <li><a href="#2-非唯一索引等值查询-查-c">2. 非唯一索引等值查询 (查 c)</a></li>
+          </ol>
+        </li>
+      </ol>
+    </li>
+    <li><a href="#四死锁与处理">四、死锁与处理</a>
+      <ol>
+        <li><a href="#41-示例">4.1 示例</a></li>
+        <li><a href="#42-处理策略">4.2 处理策略</a></li>
+        <li><a href="#43-避免死锁的建议">4.3 避免死锁的建议</a></li>
+      </ol>
+    </li>
+    <li><a href="#五进阶隔离级别mvcc-与锁的关系">五、进阶：隔离级别、MVCC 与锁的关系</a>
+      <ol>
+        <li><a href="#51-锁在不同隔离级别的区别">5.1 锁在不同隔离级别的区别</a></li>
+        <li><a href="#52-mvcc-是用的临键锁吗">5.2 MVCC 是用的临键锁吗？</a></li>
+      </ol>
+    </li>
+    <li><a href="#六总结">六、总结</a>
+      <ol>
+        <li><a href="#61-锁的释放时机-生命周期">6.1 锁的释放时机 (生命周期)</a></li>
+        <li><a href="#62-优缺点对比">6.2 优缺点对比</a></li>
+      </ol>
+    </li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/mysql/" >
+                Mysql
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/mysql_lock/">MySQL_lock</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Feb 02, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 11 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>在数据库系统中，<strong>锁</strong>是用于管理对共享资源并发访问的机制。MySQL 的锁机制设计非常精巧，主要为了保证数据的一致性和并发性。根据加锁的范围，MySQL 的锁大致可以分为三类：<strong>全局锁</strong>、<strong>表级锁</strong>和<strong>行级锁</strong>。</p>
+<h2 id="前置知识连接线程与事务">前置知识：连接、线程与事务
+</h2><p>在深入理解锁之前，必须先理清 MySQL 的架构层级，这就像“俄罗斯套娃”一样：</p>
+<p>(客户端 APP)
+↓
+[ TCP 连接 (Connection) ] &lt;&ndash; 物理管道
+↓
+[ MySQL 线程 (Thread/Session) ] &lt;&ndash; 服务端办事员 (1对1绑定连接)
+↓
+├─ [ 事务 A (Transaction) ] &lt;&ndash; 逻辑工作单元 (开始 -&gt; 干活 -&gt; 提交)
+│ └─ SQL: SELECT &hellip; (持有 MDL 锁、行锁)
+│
+└─ [ 事务 B ] &hellip;</p>
+<ol>
+<li><strong>连接 (Connection)</strong>：客户端与服务器的物理 TCP 通道。</li>
+<li><strong>线程 (Thread/Session)</strong>：MySQL 为每个连接分配一个线程。<strong>表锁 (<code>lock tables</code>)</strong> 通常与会话绑定，连接不断，锁可能不释放。</li>
+<li><strong>事务 (Transaction)</strong>：逻辑操作单元。<strong>MDL 锁</strong> 和 <strong>InnoDB 行锁</strong> 都是与事务绑定的。<strong>只有事务提交 (Commit) 后，这些锁才会释放</strong>。</li>
+</ol>
+<blockquote>
+<p><strong>⚠️ 核心认知</strong>：MDL 锁的危险之处在于，它不是 SQL 执行完就释放，而是<strong>事务提交才释放</strong>。如果一个长事务查了一次表后就挂起了，它会一直持有 MDL 读锁，导致后续的表结构修改（DDL）被阻塞，进而阻塞所有查询。</p>
+<ol>
+<li>表锁 是 会话（线程）级 的。</li>
+<li>MDL 和 行锁 是 事务级 的（这是重点，事务不提交，MDL 就不释放）。</li>
+</ol>
+</blockquote>
+<hr>
+<h2 id="一全局锁">一、全局锁
+</h2><p>全局锁就是对整个数据库实例加锁。</p>
+<h3 id="11-命令与效果">1.1 命令与效果
+</h3><p>MySQL 提供了一个加全局读锁的方法，命令是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span>Flush tables <span style="color:#ff79c6">with</span> <span style="color:#ff79c6">read</span> <span style="color:#ff79c6">lock</span> (FTWRL);
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>执行后，整个库处于<strong>只读状态</strong>。之后其他线程的以下语句会被阻塞：</p>
+<ul>
+<li>数据更新语句（数据的增删改）。</li>
+<li>数据定义语句（包括建表、修改表结构等）。</li>
+<li>更新类事务的提交语句。</li>
+</ul>
+<h3 id="12-使用场景">1.2 使用场景
+</h3><p>全局锁的主要应用场景是做<strong>全库逻辑备份</strong>（mysqldump）。在备份过程中，为了保证所有表的数据在同一逻辑时间点上一致，需要冻结所有更新操作。</p>
+<h3 id="13-潜在风险">1.3 潜在风险
+</h3><ul>
+<li><strong>主库备份</strong>：业务停摆，无法处理更新请求。</li>
+<li><strong>从库备份</strong>：从库不能执行主库同步过来的 binlog，导致主从延迟。</li>
+</ul>
+<blockquote>
+<p><strong>优化方案</strong>：如果使用的是 InnoDB 引擎，由于其支持 MVCC（多版本并发控制），可以使用 <code>mysqldump --single-transaction</code> 参数。这会在备份开始时启动一个事务，拿到一致性视图，从而在不阻塞更新的情况下实现备份。</p>
+</blockquote>
+<hr>
+<h2 id="二表级锁">二、表级锁
+</h2><p>表级锁是 MySQL 中最常用的锁策略。为了理解透彻，我们需要区分 <strong>显式锁</strong> 和 <strong>隐式锁</strong>：</p>
+<ol>
+<li>
+<p><strong>显式表锁</strong>：必须手动执行命令（<code>LOCK TABLES</code>）才会生效。日常开发很少使用。</p>
+</li>
+<li>
+<p><strong>隐式表锁</strong>：MySQL 内部自动加的，无处不在。包括 <strong>MDL</strong>（保护表结构）和 <strong>意向锁</strong>（配合行锁）。</p>
+</li>
+</ol>
+<h3 id="21-表锁-table-lock---显式">2.1 表锁 (Table Lock) - [显式]
+</h3><ul>
+<li><strong>语法</strong>：<code>lock tables t1 read, t2 write;</code></li>
+<li><strong>解锁</strong>：<code>unlock tables;</code> 或客户端断开连接自动释放。</li>
+<li><strong>特点</strong>：<code>lock tables</code> 语法除了限制别的线程的读写外，也限制了本线程的操作。具体规则如下：
+<ul>
+<li><strong>读锁 (Read Lock)</strong>：<code>lock tables t1 read</code>
+<ul>
+<li><strong>当前线程</strong>：只能读 t1，<strong>不能写</strong> t1，也不能访问其他未锁定的表。</li>
+<li><strong>其他线程</strong>：可以读 t1，<strong>不能写</strong> t1（写操作会被阻塞，直到锁释放）。</li>
+</ul>
+</li>
+<li><strong>写锁 (Write Lock)</strong>：<code>lock tables t1 write</code>
+<ul>
+<li><strong>当前线程</strong>：可以<strong>读和写</strong> t1，不能访问其他未锁定的表。</li>
+<li><strong>其他线程</strong>：<strong>不能读也不能写</strong> t1（读写操作均会被阻塞，直到锁释放）。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p><strong>🔍 深度理解：锁、线程与事务的关系</strong></p>
+<ul>
+<li><strong>线程即会话</strong>：这里的“线程”指的是<strong>客户端连接 (Session)</strong>。MySQL 为每个连接分配一个线程，锁的所有权属于这个连接。</li>
+<li><strong>隐式提交 (Implicit Commit)</strong>：这是一个关键点。执行 <code>LOCK TABLES</code> 时，如果当前会话中有未提交的事务，MySQL 会先自动执行 <code>COMMIT</code>。
+&gt;   - 这意味着：<strong>显式表锁不能在一个事务的中间使用</strong>，否则会打断原有的事务逻辑。它是会话级别的资源控制，独立于 InnoDB 的事务机制之外。</li>
+</ul>
+</blockquote>
+<h3 id="22-元数据锁-mdl---metadata-lock---隐式">2.2 元数据锁 (MDL - Metadata Lock) - [隐式]
+</h3><p>MDL 不需要显式使用，在访问一个表的时候会被自动加上。</p>
+<ul>
+<li>
+<p><strong>作用</strong>：保证读写的正确性。防止在查询表数据时，另一个线程修改了表结构（如删了一列）。</p>
+</li>
+<li>
+<p><strong>规则</strong>：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>*   **读锁 (MDL read lock)**：对表做增删改查操作时加。
+</span></span><span style="display:flex;"><span>*   **写锁 (MDL write lock)**：对表做结构变更操作时加。
+</span></span></code></pre></td></tr></table>
+</div>
+</div><blockquote>
+<p><strong>⚖️ 核心辨析：MDL 读锁 vs 数据写操作</strong></p>
+<ul>
+<li><strong>误区</strong>：“加了 MDL 读锁，别人就不能写数据了吗？” —— <strong>错！</strong></li>
+<li><strong>真相</strong>：MDL 读锁之间是<strong>互不冲突</strong>的。
+&gt;   - 你 <code>UPDATE</code>，我也 <code>UPDATE</code>，我们都持有 MDL 读锁。我们可以并发执行（数据冲突由 InnoDB 行锁解决）。
+<ul>
+<li>MDL 读锁<strong>只防 DDL</strong>（修改表结构）。它就像大门口的保安，只管防止有人来<strong>拆房子</strong>，不管房子里的人怎么<strong>打架</strong>（数据竞争）。</li>
+</ul>
+</li>
+<li><strong>幻读谁管？</strong> MDL 不管幻读。幻读由 InnoDB 的 <strong>Next-Key Lock</strong> 和 <strong>MVCC</strong> 负责。</li>
+</ul>
+</blockquote>
+<ul>
+<li><strong>互斥性</strong>：读锁之间不互斥；读写锁之间、写锁之间是互斥的。</li>
+</ul>
+</li>
+<li>
+<p><strong>坑</strong>：给一个小表加字段（MDL 写锁），可能会阻塞后续所有的查询（MDL 读锁），导致数据库连接爆满。</p>
+</li>
+</ul>
+<blockquote>
+<p><strong>🛑 什么是“事务挂起”？为什么可怕？</strong></p>
+<ul>
+<li><strong>挂起含义</strong>：指事务开启并执行了查询（拿到了 MDL 读锁）后，客户端迟迟没有发送 <code>COMMIT</code>。
+&gt;   - <strong>场景 1</strong>：代码在事务中调用了耗时的第三方 API（如支付接口），导致事务长时间不提交。
+<ul>
+<li><strong>场景 2</strong>：开发人员在命令行 <code>BEGIN</code> 后去开会了，没关终端。</li>
+</ul>
+</li>
+<li><strong>连锁反应 (Blocking Chain)</strong>：
+&gt;
+&gt;   1. <strong>事务 A</strong>（挂起）：持有 MDL 读锁。
+2. <strong>事务 B</strong>（DDL）：想加字段，需要 MDL <strong>写锁</strong>。-&gt; <strong>被 A 阻塞</strong>。
+3. <strong>事务 C/D/E</strong>（普通查询）：需要 MDL 读锁。由于写锁优先级高，B 在排队，<strong>C/D/E 也必须在 B 后面排队</strong>。
+&gt;
+&gt;   - <strong>结果</strong>：一个不显眼的读锁，导致后续针对该表的所有读写请求全部卡死。</li>
+</ul>
+</blockquote>
+<h3 id="23-意向锁-intention-locks---隐式">2.3 意向锁 (Intention Locks) - [隐式]
+</h3><p>意向锁是 InnoDB <strong>自动加</strong>的表级锁，它的名字听起来很抽象，但原理非常简单。</p>
+<h4 id="-通俗解释教学楼与坑位">💡 通俗解释（教学楼与坑位）
+</h4><ul>
+<li>
+<p><strong>场景</strong>：把一张表看作一栋<strong>教学楼</strong>，把每一行数据看作楼里的<strong>厕所坑位</strong>。</p>
+</li>
+<li>
+<p><strong>行锁</strong>：你去上厕所，锁住了某一个坑位。</p>
+</li>
+<li>
+<p><strong>表锁</strong>：校长想“周末封楼”，锁住教学楼大门。</p>
+</li>
+<li>
+<p><strong>矛盾</strong>：校长想锁大门（表锁）时，他必须确保楼里<strong>每一个坑位</strong>都没人（行锁）。如果没有意向锁，校长得挨个检查几万个坑位，效率极低。</p>
+</li>
+<li>
+<p><strong>意向锁的作用</strong>：学校规定，谁要进楼上厕所，必须先在大门口亮起一盏 <strong>“楼里有人”的红灯</strong>。</p>
+<ul>
+<li>
+<p>当你去锁具体行时，MySQL 会先自动在表上加个 <strong>意向锁</strong>（点亮红灯）。</p>
+</li>
+<li>
+<p>当别人想加 <strong>表锁</strong>（封楼）时，一看大门口红灯亮着，就知道不能锁，直接等待。不需要进楼挨个检查。</p>
+</li>
+</ul>
+</li>
+</ul>
+<h4 id="-技术细节">🔒 技术细节
+</h4><ul>
+<li>
+<p><strong>意向共享锁 (IS)</strong>：事务打算给数据行加行级共享锁（读），必须先取得该表的 IS 锁。</p>
+</li>
+<li>
+<p><strong>意向排他锁 (IX)</strong>：事务打算给数据行加行级排他锁（写），必须先取得该表的 IX 锁。</p>
+</li>
+</ul>
+<blockquote>
+<p><strong>🔄 逻辑梳理：谁加锁？给谁看？</strong></p>
+</blockquote>
+<blockquote>
+<ul>
+<li><strong>谁加意向锁？</strong> 是想<strong>操作行</strong>的人（比如 <code>UPDATE</code> 线程）。</li>
+</ul>
+</blockquote>
+<blockquote>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>*   规则：你在锁住行之前，必须先在表门口贴个条子（加 IS/IX），声明“我要进去了”。
+</span></span></code></pre></td></tr></table>
+</div>
+</div></blockquote>
+<blockquote>
+<ul>
+<li><strong>给谁看？</strong> 是想<strong>锁整张表</strong>的人（比如 <code>LOCK TABLES</code> 线程）。</li>
+</ul>
+</blockquote>
+<blockquote>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>*   规则：他在锁表前，先看门口有没有条子。有条子（IS/IX），他就知道里面有人，只能在门口等。
+</span></span></code></pre></td></tr></table>
+</div>
+</div></blockquote>
+<blockquote>
+<p><strong>关键点</strong>：</p>
+</blockquote>
+<blockquote>
+<ol>
+<li>意向锁之间是<strong>完全兼容</strong>的（你亮灯我也亮灯，不冲突，大家各上各的厕所）。</li>
+</ol>
+</blockquote>
+<blockquote>
+<ol start="2">
+<li>意向锁主要是为了<strong>解决行锁与表锁的冲突</strong>（快速拒绝 <code>LOCK TABLES</code> 请求），极大提高了加表锁的判断效率。</li>
+</ol>
+</blockquote>
+<hr>
+<h2 id="三行级锁-innodb">三、行级锁 (InnoDB)
+</h2><p>行级锁是 InnoDB 引擎的一大特色，支持高并发。行锁是在需要的时候才加上的，但并不是不需要了就立刻释放，而是要等到事务结束时才释放（<strong>两阶段锁协议</strong>）。</p>
+<h3 id="31-锁的类型">3.1 锁的类型
+</h3><ul>
+<li>
+<p><strong>共享锁 (S Lock)</strong>：允许事务读一行数据。</p>
+<ul>
+<li>
+<p><code>SELECT ... LOCK IN SHARE MODE;</code> (MySQL 8.0: <code>FOR SHARE</code>)</p>
+</li>
+<li>
+<p><strong>核心特征</strong>：<strong>读读共享，读写互斥</strong>。</p>
+<ul>
+<li>
+<p>“允许”的意思是：<strong>允许多个事务同时持有 S 锁</strong>。哪怕有 100 个人同时加 S 锁读同一行，都不会阻塞。</p>
+</li>
+<li>
+<p><strong>只防一点</strong>：防止别人<strong>修改</strong>（X 锁）。</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>场景</strong>：父子表引用检查。</p>
+</li>
+<li>
+<p><strong>例子</strong>：在插入订单前，检查用户是否存在。</p>
+</li>
+<li>
+<p><code>SELECT * FROM user WHERE id=1 LOCK IN SHARE MODE;</code></p>
+</li>
+<li>
+<p><strong>作用</strong>：确保在查询那一刻用户存在，并且<strong>在整个事务结束前，不允许其他事务删除或修改该用户</strong>（S 锁与 X 锁互斥）。这就防止了“我刚查到人，别人就把人删了”的数据不一致问题。</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>排他锁 (X Lock)</strong>：允许事务删除或更新一行数据。</p>
+<ul>
+<li>
+<p><code>SELECT ... FOR UPDATE;</code></p>
+</li>
+<li>
+<p><code>UPDATE</code>, <code>DELETE</code>, <code>INSERT</code> 自动加 X 锁。</p>
+</li>
+<li>
+<p><strong>⚠️ 重要：锁的生命周期 (两阶段锁)</strong></p>
+<ul>
+<li>
+<p><strong>误区</strong>：以为 SQL 执行完，锁就自动释放了。</p>
+</li>
+<li>
+<p><strong>真相</strong>：锁是在事务提交 (<code>COMMIT</code>) 或回滚 (<code>ROLLBACK</code>) 的<strong>最后一刻</strong>才释放的。</p>
+</li>
+<li>
+<p><strong>后果</strong>：如果你 <code>UPDATE</code> 了一行，然后去执行了 10 秒钟的其他逻辑（发邮件、调接口），这 10 秒钟内，<strong>没有任何人能改这一行</strong>。所以，事务一定要<strong>越短越好</strong>。</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p><strong>❓ 疑问：为什么 SELECT 要加排他锁？</strong></p>
+<ul>
+<li><strong>场景</strong>：并发抢购（检查库存 -&gt; 扣减库存）。</li>
+<li><strong>问题</strong>：如果用普通 <code>SELECT</code>，A 和 B 同时读到库存为 1，都去扣减，导致超卖（库存变 -1）。</li>
+<li><strong>解决</strong>：<code>SELECT ... FOR UPDATE</code> 是一种 <strong>当前读</strong>。
+&gt;   - 含义：“我读它是为了马上改它。在我改完之前，谁也别想动这一行！”
+<ul>
+<li>效果：A 读完后，这一行就被锁死。B 再想读（FOR UPDATE）或改，必须等待 A 提交事务。这是解决“读-改-写”原子性问题的标准方案。</li>
+</ul>
+</li>
+</ul>
+</blockquote>
+<h3 id="32-锁的算法-核心">3.2 锁的算法 (核心)
+</h3><p>InnoDB 的行锁是<strong>锁住索引</strong>，而不是锁住记录本身。这是一个颠覆性的概念。</p>
+<h4 id="-灾难警示没有索引--锁全表">⚠️ 灾难警示：没有索引 = 锁全表
+</h4><p>如果你的 update/delete/for update 语句<strong>没有用到索引</strong>，InnoDB 只能进行全表扫描。</p>
+<ul>
+<li>
+<p><strong>机制</strong>：MySQL 会挨个扫描每一行记录，并给<strong>每一行</strong>都加上锁。</p>
+</li>
+<li>
+<p><strong>后果</strong>：虽然你只改了一行数据，但整张表几百万行数据全被锁死了！这在效果上等同于表锁，并发量瞬间降为 0。</p>
+</li>
+<li>
+<p><strong>案例</strong>：<code>UPDATE user SET age=20 WHERE name='ZhangSan';</code></p>
+<ul>
+<li>如果 <code>name</code> 字段没索引，全表所有人的记录都会被锁住，其他人连 <code>UPDATE user SET age=21 WHERE id=1</code> 都做不了。</li>
+</ul>
+</li>
+</ul>
+<h4 id="a-record-lock-记录锁">A. Record Lock (记录锁)
+</h4><ul>
+<li>仅仅锁住索引记录的一行。</li>
+<li>例如：<code>SELECT * FROM t WHERE id = 1 FOR UPDATE;</code> (id 为主键)</li>
+</ul>
+<h4 id="b-gap-lock-间隙锁">B. Gap Lock (间隙锁)
+</h4><ul>
+<li>锁住索引记录之间的<strong>间隙</strong>（不包含记录本身），确保索引记录的间隙不变。</li>
+<li><strong>目的</strong>：防止其他事务在这个范围内插入数据，从而解决<strong>幻读</strong>问题。</li>
+<li><strong>注意</strong>：Gap Lock 只在 <strong>可重复读 (RR)</strong> 隔离级别下有效。</li>
+</ul>
+<h4 id="c-next-key-lock-临键锁">C. Next-Key Lock (临键锁)
+</h4><ul>
+<li><strong>Record Lock + Gap Lock</strong> 的组合。</li>
+<li>锁住一个左开右闭的区间 <code>(negative_infinity, record]</code>。</li>
+<li><strong>默认行为</strong>：InnoDB 在 RR 隔离级别下，默认使用 Next-Key Lock。只有在某些特定场景下（如唯一索引等值查询且记录存在），才会退化为 Record Lock。</li>
+</ul>
+<h3 id="33-加锁规则实战-图解-rr-级别">3.3 加锁规则实战 (图解 RR 级别)
+</h3><p>为了理解透彻，我们用具体数字来演示。</p>
+<p>假设表 <code>t</code> 有主键 <code>id</code> 和 <strong>普通索引 <code>c</code></strong>。</p>
+<p>现有记录 <code>c</code> 的值为：<code>0, 5, 10, 15, 20, 25</code>。</p>
+<h4 id="1-唯一索引等值查询-查-id">1. 唯一索引等值查询 (查 id)
+</h4><ul>
+<li>
+<p><strong>查 <code>id = 5</code> (存在)</strong>：</p>
+<ul>
+<li>退化为 <strong>Record Lock</strong>。只锁 id=5 这一行。</li>
+</ul>
+</li>
+<li>
+<p><strong>查 <code>id = 7</code> (不存在)</strong>：</p>
+<ul>
+<li>
+<p><strong>并没有锁全表！</strong> 这一点至关重要。</p>
+</li>
+<li>
+<p>虽然查不到数据，但<strong>查询使用了索引</strong>（通过 B+ 树精准定位到了 5 和 10 之间）。</p>
+</li>
+<li>
+<p>退化为 <strong>Gap Lock</strong>。只锁住间隙 <strong>(5, 10)</strong>。</p>
+</li>
+<li>
+<p><strong>后果</strong>：别人插入 id=6, 8, 9 会被阻塞，但插 id=100 没事。</p>
+</li>
+</ul>
+</li>
+</ul>
+<h4 id="2-非唯一索引等值查询-查-c">2. 非唯一索引等值查询 (查 c)
+</h4><p>这是一个大坑点。因为普通索引允许重复，锁范围取决于<strong>左右邻居</strong>。</p>
+<ul>
+<li>
+<p><strong>假设数据是 <code>0, 5, 10</code>，查 <code>c = 5</code></strong>：</p>
+<ul>
+<li>
+<p>左邻居是 0，右邻居是 10。</p>
+</li>
+<li>
+<p>锁住 <strong>(0, 5]</strong> (Next-Key) + <strong>(5, 10)</strong> (Gap)。范围：<code>(0, 10)</code>。</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>假设数据是 <code>0, 3, 5, 10</code>，查 <code>c = 5</code></strong>：</p>
+<ul>
+<li>
+<p>左邻居变成了 3。</p>
+</li>
+<li>
+<p>锁住 <strong>(3, 5]</strong> (Next-Key) + <strong>(5, 10)</strong> (Gap)。范围：<code>(3, 10)</code>。</p>
+</li>
+<li>
+<p><strong>注意</strong>：0 到 3 之间是安全的！别人可以插入 <code>c=2</code>。</p>
+</li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p><strong>🧠 记忆口诀</strong>：普通索引查等值，<strong>锁住自己，还要锁住左右最近邻居之间的空隙</strong>。</p>
+</blockquote>
+<hr>
+<h2 id="四死锁与处理">四、死锁与处理
+</h2><p>当并发系统中不同线程出现循环资源依赖，涉及的线程都在等待别的线程释放资源时，就会导致死锁。</p>
+<h3 id="41-示例">4.1 示例
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>事务 A</th>
+          <th>事务 B</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>update t set k=k+1 where id=1;</code> (获 id=1 X锁)</td>
+          <td></td>
+      </tr>
+      <tr>
+          <td></td>
+          <td><code>update t set k=k+1 where id=2;</code> (获 id=2 X锁)</td>
+      </tr>
+      <tr>
+          <td><code>update t set k=k+1 where id=2;</code> (等 id=2 X锁)</td>
+          <td></td>
+      </tr>
+      <tr>
+          <td></td>
+          <td><code>update t set k=k+1 where id=1;</code> (等 id=1 X锁)</td>
+      </tr>
+      <tr>
+          <td><strong>死锁！</strong></td>
+          <td></td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="42-处理策略">4.2 处理策略
+</h3><ol>
+<li><strong>超时等待</strong>：通过参数 <code>innodb_lock_wait_timeout</code> 设置超时时间（默认 50s）。</li>
+<li><strong>死锁检测</strong>：通过参数 <code>innodb_deadlock_detect</code> 设置为 <code>on</code>（默认开启）。InnoDB 会主动检测死锁，发现死锁后，主动回滚死锁链条中某一个事务，让其他事务得以继续执行。</li>
+</ol>
+<h3 id="43-避免死锁的建议">4.3 避免死锁的建议
+</h3><ul>
+<li>以固定的顺序访问表和行。</li>
+<li>大事务拆小。</li>
+<li>在同一个事务中，尽可能一次锁定所有需要的资源。</li>
+<li>为表添加合理的索引，避免全表扫描导致锁定所有行。</li>
+</ul>
+<hr>
+<h2 id="五进阶隔离级别mvcc-与锁的关系">五、进阶：隔离级别、MVCC 与锁的关系
+</h2><p>这是一个极易混淆的高频面试点，必须厘清。</p>
+<h3 id="51-锁在不同隔离级别的区别">5.1 锁在不同隔离级别的区别
+</h3><p>虽然 RC（读已提交）和 RR（可重复读）都会加行锁，但加锁的**范围（算法）**截然不同：</p>
+<ul>
+<li><strong>RC 级别</strong>：只有 <strong>Record Lock</strong>。
+<ul>
+<li>只锁住存在的记录。<strong>不加 Gap Lock</strong>（外键检查等特殊情况除外）。</li>
+<li><strong>后果</strong>：允许其他事务在间隙插入数据，所以 RC 会出现<strong>幻读</strong>。</li>
+</ul>
+</li>
+<li><strong>RR 级别</strong>：默认使用 <strong>Next-Key Lock</strong>。
+<ul>
+<li>锁住记录 + 间隙。</li>
+<li><strong>目的</strong>：严防死守，禁止插入，<strong>解决幻读</strong>。</li>
+</ul>
+</li>
+</ul>
+<h3 id="52-mvcc-是用的临键锁吗">5.2 MVCC 是用的临键锁吗？
+</h3><p><strong>绝对不是！</strong> 它们是两套互补的机制。</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>机制</th>
+          <th>全称</th>
+          <th>作用对象</th>
+          <th>核心原理</th>
+          <th>解决什么问题？</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>MVCC</strong></td>
+          <td>多版本并发控制</td>
+          <td><strong>普通 SELECT</strong> (快照读)</td>
+          <td>通过 Undo Log 维护数据的历史版本</td>
+          <td>解决<strong>读写冲突</strong>，实现无锁的非阻塞读。</td>
+      </tr>
+      <tr>
+          <td><strong>Next-Key Lock</strong></td>
+          <td>临键锁 (行锁的一种)</td>
+          <td><strong>FOR UPDATE</strong> / UPDATE (当前读)</td>
+          <td>也就是真锁，锁住索引区间</td>
+          <td>解决<strong>当前读下的幻读</strong>问题。</td>
+      </tr>
+  </tbody>
+</table></div>
+<blockquote>
+<p><strong>结论</strong>：MySQL InnoDB 在 RR 级别下解决幻读采用了“双保险”策略：</p>
+<ol>
+<li>对于<strong>快照读</strong>，靠 <strong>MVCC</strong> 解决（看老版本）。</li>
+<li>对于<strong>当前读</strong>，靠 <strong>Next-Key Lock</strong> 解决（锁住间隙不让插）。</li>
+</ol>
+</blockquote>
+<hr>
+<h2 id="六总结">六、总结
+</h2><h3 id="61-锁的释放时机-生命周期">6.1 锁的释放时机 (生命周期)
+</h3><p>这是一个区分高手的重要细节：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>锁类别</th>
+          <th>具体锁</th>
+          <th>释放时机</th>
+          <th>备注</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>跟着事务走</strong></td>
+          <td>行锁、Gap锁、Next-Key</td>
+          <td><strong>COMMIT / ROLLBACK</strong></td>
+          <td>遵守两阶段锁协议。事务不提交，锁死不放。</td>
+      </tr>
+      <tr>
+          <td><strong>跟着事务走</strong></td>
+          <td>MDL (元数据锁)、意向锁</td>
+          <td><strong>COMMIT / ROLLBACK</strong></td>
+          <td>同上。事务挂起会导致 MDL 锁一直占用。</td>
+      </tr>
+      <tr>
+          <td><strong>跟着会话走</strong></td>
+          <td>全局锁 (FTWRL)</td>
+          <td><code>UNLOCK TABLES</code> 或 断开连接</td>
+          <td>需要显式解锁。</td>
+      </tr>
+      <tr>
+          <td><strong>跟着会话走</strong></td>
+          <td>显式表锁 (<code>LOCK TABLES</code>)</td>
+          <td><code>UNLOCK TABLES</code> 或 断开连接</td>
+          <td>需要显式解锁。</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="62-优缺点对比">6.2 优缺点对比
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>锁类别</th>
+          <th>描述</th>
+          <th>典型命令</th>
+          <th>优点</th>
+          <th>缺点</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>全局锁</strong></td>
+          <td>锁整个库</td>
+          <td><code>FTWRL</code></td>
+          <td>简单、安全（备份）</td>
+          <td>杀伤力大，业务停摆</td>
+      </tr>
+      <tr>
+          <td><strong>表级锁</strong></td>
+          <td>锁整张表</td>
+          <td><code>LOCK TABLES</code>, MDL</td>
+          <td>开销小，无死锁</td>
+          <td>并发度低</td>
+      </tr>
+      <tr>
+          <td><strong>行级锁</strong></td>
+          <td>锁索引记录</td>
+          <td><code>FOR UPDATE</code>, <code>UPDATE</code></td>
+          <td>并发度高</td>
+          <td>开销大，会有死锁</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>理解 MySQL 锁机制的核心在于理解 <strong>InnoDB 的行锁是基于索引实现的</strong>，以及 <strong>Next-Key Lock 是解决幻读的关键</strong>。在实际开发中，合理设计索引和事务大小，是避免锁性能问题的关键。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/mysql/">Mysql</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/mysql-innodb-%E5%9C%A8-rr-%E7%BA%A7%E5%88%AB%E4%B8%8B%E8%A7%A3%E5%86%B3%E5%B9%BB%E8%AF%BB%E7%9A%84%E4%B8%A4%E7%A7%8D%E6%96%B9%E6%A1%88%E8%AF%A6%E8%A7%A3/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">MySQL InnoDB 在 RR 级别下解决幻读的两种方案详解</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/mysql-innodb-%E4%BA%8B%E5%8A%A1%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E4%B8%8E-mvcc-%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">MySQL InnoDB 事务隔离级别与 MVCC 机制详解</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm808.github.io\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+    </body>
+</html>

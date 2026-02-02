@@ -7,7 +7,598 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Fri, 30 Jan 2026 10:56:48 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/post/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 02 Feb 2026 11:54:09 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/post/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>MySQL_lock</title>
+        <link>https://skylm808.github.io/p/mysql_lock/</link>
+        <pubDate>Mon, 02 Feb 2026 11:54:09 +0800</pubDate>
+        
+        <guid>https://skylm808.github.io/p/mysql_lock/</guid>
+        <description>&lt;p&gt;在数据库系统中，&lt;strong&gt;锁&lt;/strong&gt;是用于管理对共享资源并发访问的机制。MySQL 的锁机制设计非常精巧，主要为了保证数据的一致性和并发性。根据加锁的范围，MySQL 的锁大致可以分为三类：&lt;strong&gt;全局锁&lt;/strong&gt;、&lt;strong&gt;表级锁&lt;/strong&gt;和&lt;strong&gt;行级锁&lt;/strong&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;前置知识连接线程与事务&#34;&gt;前置知识：连接、线程与事务
+&lt;/h2&gt;&lt;p&gt;在深入理解锁之前，必须先理清 MySQL 的架构层级，这就像“俄罗斯套娃”一样：&lt;/p&gt;
+&lt;p&gt;(客户端 APP)
+↓
+[ TCP 连接 (Connection) ] &amp;lt;&amp;ndash; 物理管道
+↓
+[ MySQL 线程 (Thread/Session) ] &amp;lt;&amp;ndash; 服务端办事员 (1对1绑定连接)
+↓
+├─ [ 事务 A (Transaction) ] &amp;lt;&amp;ndash; 逻辑工作单元 (开始 -&amp;gt; 干活 -&amp;gt; 提交)
+│ └─ SQL: SELECT &amp;hellip; (持有 MDL 锁、行锁)
+│
+└─ [ 事务 B ] &amp;hellip;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;连接 (Connection)&lt;/strong&gt;：客户端与服务器的物理 TCP 通道。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;线程 (Thread/Session)&lt;/strong&gt;：MySQL 为每个连接分配一个线程。&lt;strong&gt;表锁 (&lt;code&gt;lock tables&lt;/code&gt;)&lt;/strong&gt; 通常与会话绑定，连接不断，锁可能不释放。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;事务 (Transaction)&lt;/strong&gt;：逻辑操作单元。&lt;strong&gt;MDL 锁&lt;/strong&gt; 和 &lt;strong&gt;InnoDB 行锁&lt;/strong&gt; 都是与事务绑定的。&lt;strong&gt;只有事务提交 (Commit) 后，这些锁才会释放&lt;/strong&gt;。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;⚠️ 核心认知&lt;/strong&gt;：MDL 锁的危险之处在于，它不是 SQL 执行完就释放，而是&lt;strong&gt;事务提交才释放&lt;/strong&gt;。如果一个长事务查了一次表后就挂起了，它会一直持有 MDL 读锁，导致后续的表结构修改（DDL）被阻塞，进而阻塞所有查询。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;表锁 是 会话（线程）级 的。&lt;/li&gt;
+&lt;li&gt;MDL 和 行锁 是 事务级 的（这是重点，事务不提交，MDL 就不释放）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;一全局锁&#34;&gt;一、全局锁
+&lt;/h2&gt;&lt;p&gt;全局锁就是对整个数据库实例加锁。&lt;/p&gt;
+&lt;h3 id=&#34;11-命令与效果&#34;&gt;1.1 命令与效果
+&lt;/h3&gt;&lt;p&gt;MySQL 提供了一个加全局读锁的方法，命令是：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;Flush tables &lt;span style=&#34;color:#ff79c6&#34;&gt;with&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;read&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;lock&lt;/span&gt; (FTWRL);
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;执行后，整个库处于&lt;strong&gt;只读状态&lt;/strong&gt;。之后其他线程的以下语句会被阻塞：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;数据更新语句（数据的增删改）。&lt;/li&gt;
+&lt;li&gt;数据定义语句（包括建表、修改表结构等）。&lt;/li&gt;
+&lt;li&gt;更新类事务的提交语句。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;12-使用场景&#34;&gt;1.2 使用场景
+&lt;/h3&gt;&lt;p&gt;全局锁的主要应用场景是做&lt;strong&gt;全库逻辑备份&lt;/strong&gt;（mysqldump）。在备份过程中，为了保证所有表的数据在同一逻辑时间点上一致，需要冻结所有更新操作。&lt;/p&gt;
+&lt;h3 id=&#34;13-潜在风险&#34;&gt;1.3 潜在风险
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;主库备份&lt;/strong&gt;：业务停摆，无法处理更新请求。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;从库备份&lt;/strong&gt;：从库不能执行主库同步过来的 binlog，导致主从延迟。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;优化方案&lt;/strong&gt;：如果使用的是 InnoDB 引擎，由于其支持 MVCC（多版本并发控制），可以使用 &lt;code&gt;mysqldump --single-transaction&lt;/code&gt; 参数。这会在备份开始时启动一个事务，拿到一致性视图，从而在不阻塞更新的情况下实现备份。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;二表级锁&#34;&gt;二、表级锁
+&lt;/h2&gt;&lt;p&gt;表级锁是 MySQL 中最常用的锁策略。为了理解透彻，我们需要区分 &lt;strong&gt;显式锁&lt;/strong&gt; 和 &lt;strong&gt;隐式锁&lt;/strong&gt;：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;显式表锁&lt;/strong&gt;：必须手动执行命令（&lt;code&gt;LOCK TABLES&lt;/code&gt;）才会生效。日常开发很少使用。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;隐式表锁&lt;/strong&gt;：MySQL 内部自动加的，无处不在。包括 &lt;strong&gt;MDL&lt;/strong&gt;（保护表结构）和 &lt;strong&gt;意向锁&lt;/strong&gt;（配合行锁）。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;21-表锁-table-lock---显式&#34;&gt;2.1 表锁 (Table Lock) - [显式]
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;语法&lt;/strong&gt;：&lt;code&gt;lock tables t1 read, t2 write;&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;解锁&lt;/strong&gt;：&lt;code&gt;unlock tables;&lt;/code&gt; 或客户端断开连接自动释放。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;特点&lt;/strong&gt;：&lt;code&gt;lock tables&lt;/code&gt; 语法除了限制别的线程的读写外，也限制了本线程的操作。具体规则如下：
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;读锁 (Read Lock)&lt;/strong&gt;：&lt;code&gt;lock tables t1 read&lt;/code&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;当前线程&lt;/strong&gt;：只能读 t1，&lt;strong&gt;不能写&lt;/strong&gt; t1，也不能访问其他未锁定的表。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;其他线程&lt;/strong&gt;：可以读 t1，&lt;strong&gt;不能写&lt;/strong&gt; t1（写操作会被阻塞，直到锁释放）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;写锁 (Write Lock)&lt;/strong&gt;：&lt;code&gt;lock tables t1 write&lt;/code&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;当前线程&lt;/strong&gt;：可以&lt;strong&gt;读和写&lt;/strong&gt; t1，不能访问其他未锁定的表。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;其他线程&lt;/strong&gt;：&lt;strong&gt;不能读也不能写&lt;/strong&gt; t1（读写操作均会被阻塞，直到锁释放）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;🔍 深度理解：锁、线程与事务的关系&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;线程即会话&lt;/strong&gt;：这里的“线程”指的是&lt;strong&gt;客户端连接 (Session)&lt;/strong&gt;。MySQL 为每个连接分配一个线程，锁的所有权属于这个连接。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;隐式提交 (Implicit Commit)&lt;/strong&gt;：这是一个关键点。执行 &lt;code&gt;LOCK TABLES&lt;/code&gt; 时，如果当前会话中有未提交的事务，MySQL 会先自动执行 &lt;code&gt;COMMIT&lt;/code&gt;。
+&amp;gt;   - 这意味着：&lt;strong&gt;显式表锁不能在一个事务的中间使用&lt;/strong&gt;，否则会打断原有的事务逻辑。它是会话级别的资源控制，独立于 InnoDB 的事务机制之外。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;22-元数据锁-mdl---metadata-lock---隐式&#34;&gt;2.2 元数据锁 (MDL - Metadata Lock) - [隐式]
+&lt;/h3&gt;&lt;p&gt;MDL 不需要显式使用，在访问一个表的时候会被自动加上。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;作用&lt;/strong&gt;：保证读写的正确性。防止在查询表数据时，另一个线程修改了表结构（如删了一列）。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;规则&lt;/strong&gt;：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-fallback&#34; data-lang=&#34;fallback&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;*   **读锁 (MDL read lock)**：对表做增删改查操作时加。
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;*   **写锁 (MDL write lock)**：对表做结构变更操作时加。
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;⚖️ 核心辨析：MDL 读锁 vs 数据写操作&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;误区&lt;/strong&gt;：“加了 MDL 读锁，别人就不能写数据了吗？” —— &lt;strong&gt;错！&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;真相&lt;/strong&gt;：MDL 读锁之间是&lt;strong&gt;互不冲突&lt;/strong&gt;的。
+&amp;gt;   - 你 &lt;code&gt;UPDATE&lt;/code&gt;，我也 &lt;code&gt;UPDATE&lt;/code&gt;，我们都持有 MDL 读锁。我们可以并发执行（数据冲突由 InnoDB 行锁解决）。
+&lt;ul&gt;
+&lt;li&gt;MDL 读锁&lt;strong&gt;只防 DDL&lt;/strong&gt;（修改表结构）。它就像大门口的保安，只管防止有人来&lt;strong&gt;拆房子&lt;/strong&gt;，不管房子里的人怎么&lt;strong&gt;打架&lt;/strong&gt;（数据竞争）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;幻读谁管？&lt;/strong&gt; MDL 不管幻读。幻读由 InnoDB 的 &lt;strong&gt;Next-Key Lock&lt;/strong&gt; 和 &lt;strong&gt;MVCC&lt;/strong&gt; 负责。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;互斥性&lt;/strong&gt;：读锁之间不互斥；读写锁之间、写锁之间是互斥的。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;坑&lt;/strong&gt;：给一个小表加字段（MDL 写锁），可能会阻塞后续所有的查询（MDL 读锁），导致数据库连接爆满。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;🛑 什么是“事务挂起”？为什么可怕？&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;挂起含义&lt;/strong&gt;：指事务开启并执行了查询（拿到了 MDL 读锁）后，客户端迟迟没有发送 &lt;code&gt;COMMIT&lt;/code&gt;。
+&amp;gt;   - &lt;strong&gt;场景 1&lt;/strong&gt;：代码在事务中调用了耗时的第三方 API（如支付接口），导致事务长时间不提交。
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;场景 2&lt;/strong&gt;：开发人员在命令行 &lt;code&gt;BEGIN&lt;/code&gt; 后去开会了，没关终端。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;连锁反应 (Blocking Chain)&lt;/strong&gt;：
+&amp;gt;
+&amp;gt;   1. &lt;strong&gt;事务 A&lt;/strong&gt;（挂起）：持有 MDL 读锁。
+2. &lt;strong&gt;事务 B&lt;/strong&gt;（DDL）：想加字段，需要 MDL &lt;strong&gt;写锁&lt;/strong&gt;。-&amp;gt; &lt;strong&gt;被 A 阻塞&lt;/strong&gt;。
+3. &lt;strong&gt;事务 C/D/E&lt;/strong&gt;（普通查询）：需要 MDL 读锁。由于写锁优先级高，B 在排队，&lt;strong&gt;C/D/E 也必须在 B 后面排队&lt;/strong&gt;。
+&amp;gt;
+&amp;gt;   - &lt;strong&gt;结果&lt;/strong&gt;：一个不显眼的读锁，导致后续针对该表的所有读写请求全部卡死。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;23-意向锁-intention-locks---隐式&#34;&gt;2.3 意向锁 (Intention Locks) - [隐式]
+&lt;/h3&gt;&lt;p&gt;意向锁是 InnoDB &lt;strong&gt;自动加&lt;/strong&gt;的表级锁，它的名字听起来很抽象，但原理非常简单。&lt;/p&gt;
+&lt;h4 id=&#34;-通俗解释教学楼与坑位&#34;&gt;💡 通俗解释（教学楼与坑位）
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;场景&lt;/strong&gt;：把一张表看作一栋&lt;strong&gt;教学楼&lt;/strong&gt;，把每一行数据看作楼里的&lt;strong&gt;厕所坑位&lt;/strong&gt;。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;行锁&lt;/strong&gt;：你去上厕所，锁住了某一个坑位。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;表锁&lt;/strong&gt;：校长想“周末封楼”，锁住教学楼大门。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;矛盾&lt;/strong&gt;：校长想锁大门（表锁）时，他必须确保楼里&lt;strong&gt;每一个坑位&lt;/strong&gt;都没人（行锁）。如果没有意向锁，校长得挨个检查几万个坑位，效率极低。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;意向锁的作用&lt;/strong&gt;：学校规定，谁要进楼上厕所，必须先在大门口亮起一盏 &lt;strong&gt;“楼里有人”的红灯&lt;/strong&gt;。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;当你去锁具体行时，MySQL 会先自动在表上加个 &lt;strong&gt;意向锁&lt;/strong&gt;（点亮红灯）。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;当别人想加 &lt;strong&gt;表锁&lt;/strong&gt;（封楼）时，一看大门口红灯亮着，就知道不能锁，直接等待。不需要进楼挨个检查。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;-技术细节&#34;&gt;🔒 技术细节
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;意向共享锁 (IS)&lt;/strong&gt;：事务打算给数据行加行级共享锁（读），必须先取得该表的 IS 锁。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;意向排他锁 (IX)&lt;/strong&gt;：事务打算给数据行加行级排他锁（写），必须先取得该表的 IX 锁。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;🔄 逻辑梳理：谁加锁？给谁看？&lt;/strong&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;谁加意向锁？&lt;/strong&gt; 是想&lt;strong&gt;操作行&lt;/strong&gt;的人（比如 &lt;code&gt;UPDATE&lt;/code&gt; 线程）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-fallback&#34; data-lang=&#34;fallback&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;*   规则：你在锁住行之前，必须先在表门口贴个条子（加 IS/IX），声明“我要进去了”。
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;给谁看？&lt;/strong&gt; 是想&lt;strong&gt;锁整张表&lt;/strong&gt;的人（比如 &lt;code&gt;LOCK TABLES&lt;/code&gt; 线程）。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-fallback&#34; data-lang=&#34;fallback&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;*   规则：他在锁表前，先看门口有没有条子。有条子（IS/IX），他就知道里面有人，只能在门口等。
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;关键点&lt;/strong&gt;：&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;ol&gt;
+&lt;li&gt;意向锁之间是&lt;strong&gt;完全兼容&lt;/strong&gt;的（你亮灯我也亮灯，不冲突，大家各上各的厕所）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;意向锁主要是为了&lt;strong&gt;解决行锁与表锁的冲突&lt;/strong&gt;（快速拒绝 &lt;code&gt;LOCK TABLES&lt;/code&gt; 请求），极大提高了加表锁的判断效率。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;三行级锁-innodb&#34;&gt;三、行级锁 (InnoDB)
+&lt;/h2&gt;&lt;p&gt;行级锁是 InnoDB 引擎的一大特色，支持高并发。行锁是在需要的时候才加上的，但并不是不需要了就立刻释放，而是要等到事务结束时才释放（&lt;strong&gt;两阶段锁协议&lt;/strong&gt;）。&lt;/p&gt;
+&lt;h3 id=&#34;31-锁的类型&#34;&gt;3.1 锁的类型
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;共享锁 (S Lock)&lt;/strong&gt;：允许事务读一行数据。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;SELECT ... LOCK IN SHARE MODE;&lt;/code&gt; (MySQL 8.0: &lt;code&gt;FOR SHARE&lt;/code&gt;)&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;核心特征&lt;/strong&gt;：&lt;strong&gt;读读共享，读写互斥&lt;/strong&gt;。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;“允许”的意思是：&lt;strong&gt;允许多个事务同时持有 S 锁&lt;/strong&gt;。哪怕有 100 个人同时加 S 锁读同一行，都不会阻塞。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;只防一点&lt;/strong&gt;：防止别人&lt;strong&gt;修改&lt;/strong&gt;（X 锁）。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;场景&lt;/strong&gt;：父子表引用检查。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;例子&lt;/strong&gt;：在插入订单前，检查用户是否存在。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;SELECT * FROM user WHERE id=1 LOCK IN SHARE MODE;&lt;/code&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;作用&lt;/strong&gt;：确保在查询那一刻用户存在，并且&lt;strong&gt;在整个事务结束前，不允许其他事务删除或修改该用户&lt;/strong&gt;（S 锁与 X 锁互斥）。这就防止了“我刚查到人，别人就把人删了”的数据不一致问题。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;排他锁 (X Lock)&lt;/strong&gt;：允许事务删除或更新一行数据。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;SELECT ... FOR UPDATE;&lt;/code&gt;&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;UPDATE&lt;/code&gt;, &lt;code&gt;DELETE&lt;/code&gt;, &lt;code&gt;INSERT&lt;/code&gt; 自动加 X 锁。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;⚠️ 重要：锁的生命周期 (两阶段锁)&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;误区&lt;/strong&gt;：以为 SQL 执行完，锁就自动释放了。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;真相&lt;/strong&gt;：锁是在事务提交 (&lt;code&gt;COMMIT&lt;/code&gt;) 或回滚 (&lt;code&gt;ROLLBACK&lt;/code&gt;) 的&lt;strong&gt;最后一刻&lt;/strong&gt;才释放的。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;后果&lt;/strong&gt;：如果你 &lt;code&gt;UPDATE&lt;/code&gt; 了一行，然后去执行了 10 秒钟的其他逻辑（发邮件、调接口），这 10 秒钟内，&lt;strong&gt;没有任何人能改这一行&lt;/strong&gt;。所以，事务一定要&lt;strong&gt;越短越好&lt;/strong&gt;。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;❓ 疑问：为什么 SELECT 要加排他锁？&lt;/strong&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;场景&lt;/strong&gt;：并发抢购（检查库存 -&amp;gt; 扣减库存）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;问题&lt;/strong&gt;：如果用普通 &lt;code&gt;SELECT&lt;/code&gt;，A 和 B 同时读到库存为 1，都去扣减，导致超卖（库存变 -1）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;解决&lt;/strong&gt;：&lt;code&gt;SELECT ... FOR UPDATE&lt;/code&gt; 是一种 &lt;strong&gt;当前读&lt;/strong&gt;。
+&amp;gt;   - 含义：“我读它是为了马上改它。在我改完之前，谁也别想动这一行！”
+&lt;ul&gt;
+&lt;li&gt;效果：A 读完后，这一行就被锁死。B 再想读（FOR UPDATE）或改，必须等待 A 提交事务。这是解决“读-改-写”原子性问题的标准方案。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&#34;32-锁的算法-核心&#34;&gt;3.2 锁的算法 (核心)
+&lt;/h3&gt;&lt;p&gt;InnoDB 的行锁是&lt;strong&gt;锁住索引&lt;/strong&gt;，而不是锁住记录本身。这是一个颠覆性的概念。&lt;/p&gt;
+&lt;h4 id=&#34;-灾难警示没有索引--锁全表&#34;&gt;⚠️ 灾难警示：没有索引 = 锁全表
+&lt;/h4&gt;&lt;p&gt;如果你的 update/delete/for update 语句&lt;strong&gt;没有用到索引&lt;/strong&gt;，InnoDB 只能进行全表扫描。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;机制&lt;/strong&gt;：MySQL 会挨个扫描每一行记录，并给&lt;strong&gt;每一行&lt;/strong&gt;都加上锁。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;后果&lt;/strong&gt;：虽然你只改了一行数据，但整张表几百万行数据全被锁死了！这在效果上等同于表锁，并发量瞬间降为 0。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;案例&lt;/strong&gt;：&lt;code&gt;UPDATE user SET age=20 WHERE name=&#39;ZhangSan&#39;;&lt;/code&gt;&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;如果 &lt;code&gt;name&lt;/code&gt; 字段没索引，全表所有人的记录都会被锁住，其他人连 &lt;code&gt;UPDATE user SET age=21 WHERE id=1&lt;/code&gt; 都做不了。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;a-record-lock-记录锁&#34;&gt;A. Record Lock (记录锁)
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;仅仅锁住索引记录的一行。&lt;/li&gt;
+&lt;li&gt;例如：&lt;code&gt;SELECT * FROM t WHERE id = 1 FOR UPDATE;&lt;/code&gt; (id 为主键)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;b-gap-lock-间隙锁&#34;&gt;B. Gap Lock (间隙锁)
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;锁住索引记录之间的&lt;strong&gt;间隙&lt;/strong&gt;（不包含记录本身），确保索引记录的间隙不变。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;目的&lt;/strong&gt;：防止其他事务在这个范围内插入数据，从而解决&lt;strong&gt;幻读&lt;/strong&gt;问题。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;注意&lt;/strong&gt;：Gap Lock 只在 &lt;strong&gt;可重复读 (RR)&lt;/strong&gt; 隔离级别下有效。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;c-next-key-lock-临键锁&#34;&gt;C. Next-Key Lock (临键锁)
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Record Lock + Gap Lock&lt;/strong&gt; 的组合。&lt;/li&gt;
+&lt;li&gt;锁住一个左开右闭的区间 &lt;code&gt;(negative_infinity, record]&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;默认行为&lt;/strong&gt;：InnoDB 在 RR 隔离级别下，默认使用 Next-Key Lock。只有在某些特定场景下（如唯一索引等值查询且记录存在），才会退化为 Record Lock。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;33-加锁规则实战-图解-rr-级别&#34;&gt;3.3 加锁规则实战 (图解 RR 级别)
+&lt;/h3&gt;&lt;p&gt;为了理解透彻，我们用具体数字来演示。&lt;/p&gt;
+&lt;p&gt;假设表 &lt;code&gt;t&lt;/code&gt; 有主键 &lt;code&gt;id&lt;/code&gt; 和 &lt;strong&gt;普通索引 &lt;code&gt;c&lt;/code&gt;&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;现有记录 &lt;code&gt;c&lt;/code&gt; 的值为：&lt;code&gt;0, 5, 10, 15, 20, 25&lt;/code&gt;。&lt;/p&gt;
+&lt;h4 id=&#34;1-唯一索引等值查询-查-id&#34;&gt;1. 唯一索引等值查询 (查 id)
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;查 &lt;code&gt;id = 5&lt;/code&gt; (存在)&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;退化为 &lt;strong&gt;Record Lock&lt;/strong&gt;。只锁 id=5 这一行。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;查 &lt;code&gt;id = 7&lt;/code&gt; (不存在)&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;并没有锁全表！&lt;/strong&gt; 这一点至关重要。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;虽然查不到数据，但&lt;strong&gt;查询使用了索引&lt;/strong&gt;（通过 B+ 树精准定位到了 5 和 10 之间）。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;退化为 &lt;strong&gt;Gap Lock&lt;/strong&gt;。只锁住间隙 &lt;strong&gt;(5, 10)&lt;/strong&gt;。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;后果&lt;/strong&gt;：别人插入 id=6, 8, 9 会被阻塞，但插 id=100 没事。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;2-非唯一索引等值查询-查-c&#34;&gt;2. 非唯一索引等值查询 (查 c)
+&lt;/h4&gt;&lt;p&gt;这是一个大坑点。因为普通索引允许重复，锁范围取决于&lt;strong&gt;左右邻居&lt;/strong&gt;。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;假设数据是 &lt;code&gt;0, 5, 10&lt;/code&gt;，查 &lt;code&gt;c = 5&lt;/code&gt;&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;左邻居是 0，右邻居是 10。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;锁住 &lt;strong&gt;(0, 5]&lt;/strong&gt; (Next-Key) + &lt;strong&gt;(5, 10)&lt;/strong&gt; (Gap)。范围：&lt;code&gt;(0, 10)&lt;/code&gt;。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;假设数据是 &lt;code&gt;0, 3, 5, 10&lt;/code&gt;，查 &lt;code&gt;c = 5&lt;/code&gt;&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;左邻居变成了 3。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;锁住 &lt;strong&gt;(3, 5]&lt;/strong&gt; (Next-Key) + &lt;strong&gt;(5, 10)&lt;/strong&gt; (Gap)。范围：&lt;code&gt;(3, 10)&lt;/code&gt;。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;注意&lt;/strong&gt;：0 到 3 之间是安全的！别人可以插入 &lt;code&gt;c=2&lt;/code&gt;。&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;🧠 记忆口诀&lt;/strong&gt;：普通索引查等值，&lt;strong&gt;锁住自己，还要锁住左右最近邻居之间的空隙&lt;/strong&gt;。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;四死锁与处理&#34;&gt;四、死锁与处理
+&lt;/h2&gt;&lt;p&gt;当并发系统中不同线程出现循环资源依赖，涉及的线程都在等待别的线程释放资源时，就会导致死锁。&lt;/p&gt;
+&lt;h3 id=&#34;41-示例&#34;&gt;4.1 示例
+&lt;/h3&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;事务 A&lt;/th&gt;
+          &lt;th&gt;事务 B&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;update t set k=k+1 where id=1;&lt;/code&gt; (获 id=1 X锁)&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;update t set k=k+1 where id=2;&lt;/code&gt; (获 id=2 X锁)&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;update t set k=k+1 where id=2;&lt;/code&gt; (等 id=2 X锁)&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;update t set k=k+1 where id=1;&lt;/code&gt; (等 id=1 X锁)&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;死锁！&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;42-处理策略&#34;&gt;4.2 处理策略
+&lt;/h3&gt;&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;超时等待&lt;/strong&gt;：通过参数 &lt;code&gt;innodb_lock_wait_timeout&lt;/code&gt; 设置超时时间（默认 50s）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;死锁检测&lt;/strong&gt;：通过参数 &lt;code&gt;innodb_deadlock_detect&lt;/code&gt; 设置为 &lt;code&gt;on&lt;/code&gt;（默认开启）。InnoDB 会主动检测死锁，发现死锁后，主动回滚死锁链条中某一个事务，让其他事务得以继续执行。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&#34;43-避免死锁的建议&#34;&gt;4.3 避免死锁的建议
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;以固定的顺序访问表和行。&lt;/li&gt;
+&lt;li&gt;大事务拆小。&lt;/li&gt;
+&lt;li&gt;在同一个事务中，尽可能一次锁定所有需要的资源。&lt;/li&gt;
+&lt;li&gt;为表添加合理的索引，避免全表扫描导致锁定所有行。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;五进阶隔离级别mvcc-与锁的关系&#34;&gt;五、进阶：隔离级别、MVCC 与锁的关系
+&lt;/h2&gt;&lt;p&gt;这是一个极易混淆的高频面试点，必须厘清。&lt;/p&gt;
+&lt;h3 id=&#34;51-锁在不同隔离级别的区别&#34;&gt;5.1 锁在不同隔离级别的区别
+&lt;/h3&gt;&lt;p&gt;虽然 RC（读已提交）和 RR（可重复读）都会加行锁，但加锁的**范围（算法）**截然不同：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;RC 级别&lt;/strong&gt;：只有 &lt;strong&gt;Record Lock&lt;/strong&gt;。
+&lt;ul&gt;
+&lt;li&gt;只锁住存在的记录。&lt;strong&gt;不加 Gap Lock&lt;/strong&gt;（外键检查等特殊情况除外）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;后果&lt;/strong&gt;：允许其他事务在间隙插入数据，所以 RC 会出现&lt;strong&gt;幻读&lt;/strong&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;RR 级别&lt;/strong&gt;：默认使用 &lt;strong&gt;Next-Key Lock&lt;/strong&gt;。
+&lt;ul&gt;
+&lt;li&gt;锁住记录 + 间隙。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;目的&lt;/strong&gt;：严防死守，禁止插入，&lt;strong&gt;解决幻读&lt;/strong&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;52-mvcc-是用的临键锁吗&#34;&gt;5.2 MVCC 是用的临键锁吗？
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;绝对不是！&lt;/strong&gt; 它们是两套互补的机制。&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;机制&lt;/th&gt;
+          &lt;th&gt;全称&lt;/th&gt;
+          &lt;th&gt;作用对象&lt;/th&gt;
+          &lt;th&gt;核心原理&lt;/th&gt;
+          &lt;th&gt;解决什么问题？&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;MVCC&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;多版本并发控制&lt;/td&gt;
+          &lt;td&gt;&lt;strong&gt;普通 SELECT&lt;/strong&gt; (快照读)&lt;/td&gt;
+          &lt;td&gt;通过 Undo Log 维护数据的历史版本&lt;/td&gt;
+          &lt;td&gt;解决&lt;strong&gt;读写冲突&lt;/strong&gt;，实现无锁的非阻塞读。&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;Next-Key Lock&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;临键锁 (行锁的一种)&lt;/td&gt;
+          &lt;td&gt;&lt;strong&gt;FOR UPDATE&lt;/strong&gt; / UPDATE (当前读)&lt;/td&gt;
+          &lt;td&gt;也就是真锁，锁住索引区间&lt;/td&gt;
+          &lt;td&gt;解决&lt;strong&gt;当前读下的幻读&lt;/strong&gt;问题。&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;结论&lt;/strong&gt;：MySQL InnoDB 在 RR 级别下解决幻读采用了“双保险”策略：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;对于&lt;strong&gt;快照读&lt;/strong&gt;，靠 &lt;strong&gt;MVCC&lt;/strong&gt; 解决（看老版本）。&lt;/li&gt;
+&lt;li&gt;对于&lt;strong&gt;当前读&lt;/strong&gt;，靠 &lt;strong&gt;Next-Key Lock&lt;/strong&gt; 解决（锁住间隙不让插）。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;六总结&#34;&gt;六、总结
+&lt;/h2&gt;&lt;h3 id=&#34;61-锁的释放时机-生命周期&#34;&gt;6.1 锁的释放时机 (生命周期)
+&lt;/h3&gt;&lt;p&gt;这是一个区分高手的重要细节：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;锁类别&lt;/th&gt;
+          &lt;th&gt;具体锁&lt;/th&gt;
+          &lt;th&gt;释放时机&lt;/th&gt;
+          &lt;th&gt;备注&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;跟着事务走&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;行锁、Gap锁、Next-Key&lt;/td&gt;
+          &lt;td&gt;&lt;strong&gt;COMMIT / ROLLBACK&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;遵守两阶段锁协议。事务不提交，锁死不放。&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;跟着事务走&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;MDL (元数据锁)、意向锁&lt;/td&gt;
+          &lt;td&gt;&lt;strong&gt;COMMIT / ROLLBACK&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;同上。事务挂起会导致 MDL 锁一直占用。&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;跟着会话走&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;全局锁 (FTWRL)&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;UNLOCK TABLES&lt;/code&gt; 或 断开连接&lt;/td&gt;
+          &lt;td&gt;需要显式解锁。&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;跟着会话走&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;显式表锁 (&lt;code&gt;LOCK TABLES&lt;/code&gt;)&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;UNLOCK TABLES&lt;/code&gt; 或 断开连接&lt;/td&gt;
+          &lt;td&gt;需要显式解锁。&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;62-优缺点对比&#34;&gt;6.2 优缺点对比
+&lt;/h3&gt;&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;锁类别&lt;/th&gt;
+          &lt;th&gt;描述&lt;/th&gt;
+          &lt;th&gt;典型命令&lt;/th&gt;
+          &lt;th&gt;优点&lt;/th&gt;
+          &lt;th&gt;缺点&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;全局锁&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;锁整个库&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;FTWRL&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;简单、安全（备份）&lt;/td&gt;
+          &lt;td&gt;杀伤力大，业务停摆&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;表级锁&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;锁整张表&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;LOCK TABLES&lt;/code&gt;, MDL&lt;/td&gt;
+          &lt;td&gt;开销小，无死锁&lt;/td&gt;
+          &lt;td&gt;并发度低&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;strong&gt;行级锁&lt;/strong&gt;&lt;/td&gt;
+          &lt;td&gt;锁索引记录&lt;/td&gt;
+          &lt;td&gt;&lt;code&gt;FOR UPDATE&lt;/code&gt;, &lt;code&gt;UPDATE&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;并发度高&lt;/td&gt;
+          &lt;td&gt;开销大，会有死锁&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;理解 MySQL 锁机制的核心在于理解 &lt;strong&gt;InnoDB 的行锁是基于索引实现的&lt;/strong&gt;，以及 &lt;strong&gt;Next-Key Lock 是解决幻读的关键&lt;/strong&gt;。在实际开发中，合理设计索引和事务大小，是避免锁性能问题的关键。&lt;/p&gt;
+</description>
+        </item>
+        <item>
         <title>MySQL InnoDB 在 RR 级别下解决幻读的两种方案详解</title>
         <link>https://skylm808.github.io/p/mysql-innodb-%E5%9C%A8-rr-%E7%BA%A7%E5%88%AB%E4%B8%8B%E8%A7%A3%E5%86%B3%E5%B9%BB%E8%AF%BB%E7%9A%84%E4%B8%A4%E7%A7%8D%E6%96%B9%E6%A1%88%E8%AF%A6%E8%A7%A3/</link>
         <pubDate>Fri, 30 Jan 2026 10:56:48 +0800</pubDate>
