@@ -389,14 +389,18 @@
     <p>在数据库系统中，<strong>锁</strong>是用于管理对共享资源并发访问的机制。MySQL 的锁机制设计非常精巧，主要为了保证数据的一致性和并发性。根据加锁的范围，MySQL 的锁大致可以分为三类：<strong>全局锁</strong>、<strong>表级锁</strong>和<strong>行级锁</strong>。</p>
 <h2 id="前置知识连接线程与事务">前置知识：连接、线程与事务
 </h2><p>在深入理解锁之前，必须先理清 MySQL 的架构层级，这就像“俄罗斯套娃”一样：</p>
-<p><img src="/img.png"
-	
-	
-	
+<p><img src="/p/mysql-%E9%94%81%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3/img.png"
+	width="796"
+	height="357"
+	srcset="/p/mysql-%E9%94%81%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3/img_hu_910ed6dc9d1778c8.png 480w, /p/mysql-%E9%94%81%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3/img_hu_b3a1a00575298c62.png 1024w"
 	loading="lazy"
 	
 		alt="img.png"
 	
+	
+		class="gallery-image" 
+		data-flex-grow="222"
+		data-flex-basis="535px"
 	
 ></p>
 <ol>
