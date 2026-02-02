@@ -16,16 +16,16 @@
         <description>&lt;p&gt;在数据库系统中，&lt;strong&gt;锁&lt;/strong&gt;是用于管理对共享资源并发访问的机制。MySQL 的锁机制设计非常精巧，主要为了保证数据的一致性和并发性。根据加锁的范围，MySQL 的锁大致可以分为三类：&lt;strong&gt;全局锁&lt;/strong&gt;、&lt;strong&gt;表级锁&lt;/strong&gt;和&lt;strong&gt;行级锁&lt;/strong&gt;。&lt;/p&gt;
 &lt;h2 id=&#34;前置知识连接线程与事务&#34;&gt;前置知识：连接、线程与事务
 &lt;/h2&gt;&lt;p&gt;在深入理解锁之前，必须先理清 MySQL 的架构层级，这就像“俄罗斯套娃”一样：&lt;/p&gt;
-&lt;p&gt;(客户端 APP)
-↓
-[ TCP 连接 (Connection) ] &amp;lt;&amp;ndash; 物理管道
-↓
-[ MySQL 线程 (Thread/Session) ] &amp;lt;&amp;ndash; 服务端办事员 (1对1绑定连接)
-↓
-├─ [ 事务 A (Transaction) ] &amp;lt;&amp;ndash; 逻辑工作单元 (开始 -&amp;gt; 干活 -&amp;gt; 提交)
-│ └─ SQL: SELECT &amp;hellip; (持有 MDL 锁、行锁)
-│
-└─ [ 事务 B ] &amp;hellip;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://skylm808.github.io/img.png&#34;
+	
+	
+	
+	loading=&#34;lazy&#34;
+	
+		alt=&#34;img.png&#34;
+	
+	
+&gt;&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;连接 (Connection)&lt;/strong&gt;：客户端与服务器的物理 TCP 通道。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;线程 (Thread/Session)&lt;/strong&gt;：MySQL 为每个连接分配一个线程。&lt;strong&gt;表锁 (&lt;code&gt;lock tables&lt;/code&gt;)&lt;/strong&gt; 通常与会话绑定，连接不断，锁可能不释放。&lt;/li&gt;

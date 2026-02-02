@@ -389,16 +389,16 @@
     <p>在数据库系统中，<strong>锁</strong>是用于管理对共享资源并发访问的机制。MySQL 的锁机制设计非常精巧，主要为了保证数据的一致性和并发性。根据加锁的范围，MySQL 的锁大致可以分为三类：<strong>全局锁</strong>、<strong>表级锁</strong>和<strong>行级锁</strong>。</p>
 <h2 id="前置知识连接线程与事务">前置知识：连接、线程与事务
 </h2><p>在深入理解锁之前，必须先理清 MySQL 的架构层级，这就像“俄罗斯套娃”一样：</p>
-<p>(客户端 APP)
-↓
-[ TCP 连接 (Connection) ] &lt;&ndash; 物理管道
-↓
-[ MySQL 线程 (Thread/Session) ] &lt;&ndash; 服务端办事员 (1对1绑定连接)
-↓
-├─ [ 事务 A (Transaction) ] &lt;&ndash; 逻辑工作单元 (开始 -&gt; 干活 -&gt; 提交)
-│ └─ SQL: SELECT &hellip; (持有 MDL 锁、行锁)
-│
-└─ [ 事务 B ] &hellip;</p>
+<p><img src="/img.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="img.png"
+	
+	
+></p>
 <ol>
 <li><strong>连接 (Connection)</strong>：客户端与服务器的物理 TCP 通道。</li>
 <li><strong>线程 (Thread/Session)</strong>：MySQL 为每个连接分配一个线程。<strong>表锁 (<code>lock tables</code>)</strong> 通常与会话绑定，连接不断，锁可能不释放。</li>
