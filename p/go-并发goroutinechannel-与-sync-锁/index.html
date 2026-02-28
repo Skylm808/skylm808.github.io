@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Go 最核心的并发哲学是：**“不要通过共享内存来通信，而应通过通信来共享内存">
+<title>Go 并发：Goroutine、Channel 与 Sync 锁</title>
+
+<link rel='canonical' href='https://skylm808.github.io/p/go-%E5%B9%B6%E5%8F%91goroutinechannel-%E4%B8%8E-sync-%E9%94%81/'>
+
+<link rel="stylesheet" href="/scss/style.min.96ba1c3608acf4f319504831a9a06a60c4c0f47ce65605b5ca2dab1981e36064.css"><meta property='og:title' content="Go 并发：Goroutine、Channel 与 Sync 锁">
+<meta property='og:description' content="Go 最核心的并发哲学是：**“不要通过共享内存来通信，而应通过通信来共享内存">
+<meta property='og:url' content='https://skylm808.github.io/p/go-%E5%B9%B6%E5%8F%91goroutinechannel-%E4%B8%8E-sync-%E9%94%81/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Go' /><meta property='article:published_time' content='2026-02-28T22:14:06&#43;08:00'/><meta property='article:modified_time' content='2026-02-28T22:14:06&#43;08:00'/>
+<meta name="twitter:title" content="Go 并发：Goroutine、Channel 与 Sync 锁">
+<meta name="twitter:description" content="Go 最核心的并发哲学是：**“不要通过共享内存来通信，而应通过通信来共享内存">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页|home</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类&amp;标签|Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档 | Archives</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索 | Search</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友情链接 | Links</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#1-三者定位与关系">1. 三者定位与关系</a></li>
+    <li><a href="#2-channel-底层详解">2. Channel 底层详解</a>
+      <ol>
+        <li><a href="#核心数据结构-runtimehchan">核心数据结构 (<code>runtime.hchan</code>)</a></li>
+        <li><a href="#有缓冲-channel-vs-无缓冲-channel">有缓冲 Channel vs 无缓冲 Channel</a></li>
+        <li><a href="#核心工作流程按场景拆解">核心工作流程（按场景拆解）</a>
+          <ol>
+            <li><a href="#场景一无缓冲-channel">场景一：无缓冲 Channel</a></li>
+            <li><a href="#场景二有缓冲-channel">场景二：有缓冲 Channel</a></li>
+          </ol>
+        </li>
+      </ol>
+    </li>
+    <li><a href="#3-sync-常用机制与适用场景">3. Sync 常用机制与适用场景</a></li>
+    <li><a href="#4-三者协同worker-pool-工作池模式">4. 三者协同：Worker Pool (工作池模式)</a>
+      <ol>
+        <li><a href="#运行结果示例实际顺序随机但逻辑一定如下">运行结果示例（实际顺序随机，但逻辑一定如下）</a></li>
+      </ol>
+    </li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/go/" >
+                Go
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/go-%E5%B9%B6%E5%8F%91goroutinechannel-%E4%B8%8E-sync-%E9%94%81/">Go 并发：Goroutine、Channel 与 Sync 锁</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Feb 28, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 7 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="go-并发goroutinechannel-与-sync-锁">Go 并发：Goroutine、Channel 与 Sync 锁
+</h1><p>Go 最核心的并发哲学是：<strong>“不要通过共享内存来通信，而应通过通信来共享内存。”</strong></p>
+<h2 id="1-三者定位与关系">1. 三者定位与关系
+</h2><ul>
+<li><strong>Goroutine</strong>：并发执行体（“干活的工人”）。</li>
+<li><strong>Channel</strong>：通信管道（“传送带”）。以<strong>转移数据所有权</strong>的方式避免竞争。</li>
+<li><strong>Sync 锁</strong>：状态保护（“排队机制”）。通过<strong>共享内存加锁</strong>的方式防止数据被写坏。</li>
+</ul>
+<p><strong>选择标准</strong>：需要<strong>控制数据流转、任务分发</strong>用 Channel；只需**保护共享变量（如计数器、缓存字典）**用 Sync 锁。</p>
+<hr>
+<h2 id="2-channel-底层详解">2. Channel 底层详解
+</h2><p>虽然 Channel 在使用时给人“无锁通信”的优雅感，但在 Go runtime 源码中，它的核心结构 <code>hchan</code> 实际上是一个<strong>基于锁机制的并发安全队列</strong>。</p>
+<h3 id="核心数据结构-runtimehchan">核心数据结构 (<code>runtime.hchan</code>)
+</h3><ul>
+<li><strong>环形队列（数据缓冲）</strong>：
+<ul>
+<li><code>buf</code>：指向底层数据数组的指针（仅有缓冲 Channel 拥有）。</li>
+<li><code>qcount</code> / <code>dataqsiz</code>：当前队列中元素的数量 / 环形队列的容量。</li>
+<li><code>sendx</code> / <code>recvx</code>：记录发送和接收在环形数组中的索引位置。</li>
+<li><strong>注意</strong>：无缓冲和有缓冲 Channel 用的是同一个 <code>hchan</code> 结构体，这些字段都存在。区别在于无缓冲时 <code>buf</code> 指向 nil（不分配数组）、<code>dataqsiz</code> 为 0、<code>sendx</code>/<code>recvx</code> 无意义——整组缓冲字段形同虚设。无缓冲时真正干活的是下面的 <code>sendq</code>、<code>recvq</code> 和 <code>lock</code>。</li>
+</ul>
+</li>
+<li><strong>等待队列（双向链表）</strong>：
+<ul>
+<li><code>sendq</code>：<strong>发送等待队列</strong>——可以理解为&quot;发货排队区&quot;。当一个 Goroutine 执行 <code>ch &lt;- val</code> 但数据塞不进去时（缓冲满了，或者根本没缓冲），这个 Goroutine 就会被&quot;冻结&quot;：runtime 把它连同要发送的数据一起打包成一个 <code>sudog</code> 结构体，挂到 <code>sendq</code> 链表上，然后让出 CPU 去睡觉。直到有人来 <code>&lt;-ch</code> 取数据，才会把它唤醒。</li>
+<li><code>recvq</code>：<strong>接收等待队列</strong>——可以理解为&quot;取货排队区&quot;。当一个 Goroutine 执行 <code>val := &lt;-ch</code> 但没有数据可取时（缓冲为空，或者根本没缓冲），同样被冻结打包成 <code>sudog</code> 挂到 <code>recvq</code> 上睡觉。直到有人往 Channel 发数据，才会被唤醒并拿到数据。</li>
+<li><strong>一句话总结</strong>：<code>sendq</code> 和 <code>recvq</code> 就是两个&quot;休息室&quot;，分别存放着&quot;想发但发不出去&quot;和&quot;想收但收不到&quot;的 Goroutine。</li>
+</ul>
+</li>
+<li><strong>并发保护</strong>：
+<ul>
+<li><code>lock</code>（互斥锁）：用于保护整个 <code>hchan</code> 结构。任何对 Channel 的读写操作，都必须先获取此锁。</li>
+</ul>
+</li>
+</ul>
+<h3 id="有缓冲-channel-vs-无缓冲-channel">有缓冲 Channel vs 无缓冲 Channel
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th></th>
+          <th>无缓冲 <code>make(chan int)</code></th>
+          <th>有缓冲 <code>make(chan int, 5)</code></th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>本质</strong></td>
+          <td>没有&quot;传送带&quot;，必须<strong>手递手</strong></td>
+          <td>有一条长度为 5 的&quot;传送带&quot;</td>
+      </tr>
+      <tr>
+          <td><strong>发送阻塞条件</strong></td>
+          <td>对面没人接 → 立刻阻塞</td>
+          <td>传送带放满了 → 才阻塞</td>
+      </tr>
+      <tr>
+          <td><strong>接收阻塞条件</strong></td>
+          <td>对面没人发 → 立刻阻塞</td>
+          <td>传送带是空的 → 才阻塞</td>
+      </tr>
+      <tr>
+          <td><strong>同步性</strong></td>
+          <td>强同步：发送和接收必须<strong>同时就绪</strong>才能完成</td>
+          <td>异步解耦：只要缓冲没满/没空，双方互不等待</td>
+      </tr>
+      <tr>
+          <td><strong>典型用途</strong></td>
+          <td>信号通知、Goroutine 间严格同步</td>
+          <td>生产者-消费者模型、任务队列、削峰缓冲</td>
+      </tr>
+  </tbody>
+</table></div>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#6272a4">// 无缓冲示例：发送方会阻塞，直到接收方准备好</span>
+</span></span><span style="display:flex;"><span>ch <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">make</span>(<span style="color:#8be9fd;font-style:italic">chan</span> <span style="color:#8be9fd">int</span>)
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">go</span> <span style="color:#8be9fd;font-style:italic">func</span>() { ch <span style="color:#ff79c6">&lt;-</span> <span style="color:#bd93f9">42</span> }() <span style="color:#6272a4">// 如果没人读，这里会一直卡住</span>
+</span></span><span style="display:flex;"><span>val <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">&lt;-</span>ch              <span style="color:#6272a4">// 此时发送方才被唤醒</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 有缓冲示例：缓冲没满就不阻塞</span>
+</span></span><span style="display:flex;"><span>ch <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">make</span>(<span style="color:#8be9fd;font-style:italic">chan</span> <span style="color:#8be9fd">int</span>, <span style="color:#bd93f9">2</span>)
+</span></span><span style="display:flex;"><span>ch <span style="color:#ff79c6">&lt;-</span> <span style="color:#bd93f9">1</span>  <span style="color:#6272a4">// 不阻塞，放入缓冲</span>
+</span></span><span style="display:flex;"><span>ch <span style="color:#ff79c6">&lt;-</span> <span style="color:#bd93f9">2</span>  <span style="color:#6272a4">// 不阻塞，缓冲刚好满</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// ch &lt;- 3  // 这里才会阻塞！因为缓冲已满，没人取走数据</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="核心工作流程按场景拆解">核心工作流程（按场景拆解）
+</h3><h4 id="场景一无缓冲-channel">场景一：无缓冲 Channel
+</h4><p>没有 <code>buf</code>，所有数据必须在发送方和接收方之间<strong>直接传递</strong>。</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>操作</th>
+          <th>情况</th>
+          <th>发生了什么</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>ch &lt;- val</code></td>
+          <td><code>recvq</code> 里有人在等</td>
+          <td>直接把数据拷贝给那个等待的接收者，唤醒它。发送方不阻塞。</td>
+      </tr>
+      <tr>
+          <td><code>ch &lt;- val</code></td>
+          <td><code>recvq</code> 没人</td>
+          <td>发送方被打包成 <code>sudog</code> 挂到 <code>sendq</code>，<strong>睡觉等人来取</strong>。</td>
+      </tr>
+      <tr>
+          <td><code>&lt;-ch</code></td>
+          <td><code>sendq</code> 里有人在等</td>
+          <td>直接从那个等待的发送者手里拷贝数据，唤醒它。接收方不阻塞。</td>
+      </tr>
+      <tr>
+          <td><code>&lt;-ch</code></td>
+          <td><code>sendq</code> 没人</td>
+          <td>接收方被打包成 <code>sudog</code> 挂到 <code>recvq</code>，<strong>睡觉等人来送</strong>。</td>
+      </tr>
+  </tbody>
+</table></div>
+<blockquote>
+<p>核心规律：无缓冲 = 必须&quot;握手&quot;，一方先到就等另一方。</p>
+</blockquote>
+<h4 id="场景二有缓冲-channel">场景二：有缓冲 Channel
+</h4><p>有 <code>buf</code> 环形队列作为中间缓冲区。</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>操作</th>
+          <th>情况</th>
+          <th>发生了什么</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>ch &lt;- val</code></td>
+          <td><code>recvq</code> 里有人在等</td>
+          <td>跳过缓冲，直接拷贝给接收者并唤醒（性能最高路径）。</td>
+      </tr>
+      <tr>
+          <td><code>ch &lt;- val</code></td>
+          <td>没人等，<code>buf</code> 没满</td>
+          <td>数据拷入 <code>buf</code> 尾部，发送方继续执行，不阻塞。</td>
+      </tr>
+      <tr>
+          <td><code>ch &lt;- val</code></td>
+          <td>没人等，<code>buf</code> 满了</td>
+          <td>发送方挂到 <code>sendq</code> 睡觉，等有人取走数据后被唤醒。</td>
+      </tr>
+      <tr>
+          <td><code>&lt;-ch</code></td>
+          <td><code>sendq</code> 有人等（说明 <code>buf</code> 一定是满的）</td>
+          <td>从 <code>buf</code> 头部取一个数据给接收方，再把 <code>sendq</code> 里等待的发送者的数据补入 <code>buf</code> 尾部，唤醒发送者。</td>
+      </tr>
+      <tr>
+          <td><code>&lt;-ch</code></td>
+          <td><code>sendq</code> 没人，<code>buf</code> 有数据</td>
+          <td>直接从 <code>buf</code> 头部取出数据。</td>
+      </tr>
+      <tr>
+          <td><code>&lt;-ch</code></td>
+          <td><code>sendq</code> 没人，<code>buf</code> 也空</td>
+          <td>接收方挂到 <code>recvq</code> 睡觉，等有人发数据后被唤醒。</td>
+      </tr>
+  </tbody>
+</table></div>
+<blockquote>
+<p>核心规律：有缓冲 = 先往传送带上放，放满了才排队等。</p>
+</blockquote>
+<hr>
+<h2 id="3-sync-常用机制与适用场景">3. Sync 常用机制与适用场景
+</h2><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>工具</th>
+          <th>作用说明</th>
+          <th>最佳适用场景</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong><code>sync.Mutex</code></strong><br>(互斥锁)</td>
+          <td><strong>独占锁</strong>。同一时刻只能有一个 Goroutine 拿到锁进行读写。</td>
+          <td>保护会被并发读写的单一变量或状态（如：全局并发计数器、状态标志位）。</td>
+      </tr>
+      <tr>
+          <td><strong><code>sync.RWMutex</code></strong><br>(读写锁)</td>
+          <td><strong>读共享，写独占</strong>。多 Goroutine 可同时读，但写时全部阻塞。</td>
+          <td><strong>读多写少</strong>的并发场景（如：内存缓存的读取、全局配置的读取）。性能远高于 Mutex。</td>
+      </tr>
+      <tr>
+          <td><strong><code>sync.WaitGroup</code></strong><br>(等待组)</td>
+          <td><strong>并发计数器</strong>。<code>Add</code> 增加计数，<code>Done</code> 减少计数，<code>Wait</code> 阻塞直到归零。</td>
+          <td>主 Goroutine 需要<strong>等待一组子任务全部执行完毕</strong>后才能继续往下走的操作（如：并行下载分片后合并数据）。</td>
+      </tr>
+  </tbody>
+</table></div>
+<hr>
+<h2 id="4-三者协同worker-pool-工作池模式">4. 三者协同：Worker Pool (工作池模式)
+</h2><ul>
+<li><strong>场景</strong>：并发处理 5 个任务，但最多只允许 3 个 Goroutine 同时运行。</li>
+<li><strong>三者分工</strong>：Goroutine 是工人，Channel 是任务队列和结果队列，WaitGroup 负责等所有工人下班。</li>
+</ul>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">43
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">44
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">45
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">46
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">47
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">48
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">49
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">50
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">package</span> main
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">import</span> (
+</span></span><span style="display:flex;"><span>    “fmt”
+</span></span><span style="display:flex;"><span>    “sync”
+</span></span><span style="display:flex;"><span>    “time”
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">worker</span>(id <span style="color:#8be9fd">int</span>, jobs <span style="color:#ff79c6">&lt;-</span><span style="color:#8be9fd;font-style:italic">chan</span> <span style="color:#8be9fd">int</span>, results <span style="color:#8be9fd;font-style:italic">chan</span><span style="color:#ff79c6">&lt;-</span> <span style="color:#8be9fd">int</span>, wg <span style="color:#ff79c6">*</span>sync.WaitGroup) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">defer</span> wg.<span style="color:#50fa7b">Done</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> j <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> jobs {
+</span></span><span style="display:flex;"><span>        fmt.<span style="color:#50fa7b">Printf</span>(“Worker <span style="color:#ff79c6">%</span>d 开始处理任务 <span style="color:#ff79c6">%</span>d\n”, id, j)
+</span></span><span style="display:flex;"><span>        time.<span style="color:#50fa7b">Sleep</span>(time.Second) <span style="color:#6272a4">// 模拟耗时 1 秒</span>
+</span></span><span style="display:flex;"><span>        result <span style="color:#ff79c6">:=</span> j <span style="color:#ff79c6">*</span> <span style="color:#bd93f9">2</span>
+</span></span><span style="display:flex;"><span>        fmt.<span style="color:#50fa7b">Printf</span>(“Worker <span style="color:#ff79c6">%</span>d 完成任务 <span style="color:#ff79c6">%</span>d → 结果 <span style="color:#ff79c6">%</span>d\n”, id, j, result)
+</span></span><span style="display:flex;"><span>        results <span style="color:#ff79c6">&lt;-</span> result
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">const</span> numJobs = <span style="color:#bd93f9">5</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">const</span> numWorkers = <span style="color:#bd93f9">3</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    jobs <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">make</span>(<span style="color:#8be9fd;font-style:italic">chan</span> <span style="color:#8be9fd">int</span>, numJobs)
+</span></span><span style="display:flex;"><span>    results <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">make</span>(<span style="color:#8be9fd;font-style:italic">chan</span> <span style="color:#8be9fd">int</span>, numJobs)
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">var</span> wg sync.WaitGroup
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 1. 启动 3 个 Worker</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> w <span style="color:#ff79c6">:=</span> <span style="color:#bd93f9">1</span>; w <span style="color:#ff79c6">&lt;=</span> numWorkers; w<span style="color:#ff79c6">++</span> {
+</span></span><span style="display:flex;"><span>        wg.<span style="color:#50fa7b">Add</span>(<span style="color:#bd93f9">1</span>)
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">go</span> <span style="color:#50fa7b">worker</span>(w, jobs, results, <span style="color:#ff79c6">&amp;</span>wg)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 2. 塞入 5 个任务</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> j <span style="color:#ff79c6">:=</span> <span style="color:#bd93f9">1</span>; j <span style="color:#ff79c6">&lt;=</span> numJobs; j<span style="color:#ff79c6">++</span> {
+</span></span><span style="display:flex;"><span>        jobs <span style="color:#ff79c6">&lt;-</span> j
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">close</span>(jobs)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 3. 等待所有 Worker 完工后关闭 results</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">go</span> <span style="color:#8be9fd;font-style:italic">func</span>() {
+</span></span><span style="display:flex;"><span>        wg.<span style="color:#50fa7b">Wait</span>()
+</span></span><span style="display:flex;"><span>        <span style="color:#8be9fd;font-style:italic">close</span>(results)
+</span></span><span style="display:flex;"><span>    }()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#6272a4">// 4. 收集结果</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> r <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> results {
+</span></span><span style="display:flex;"><span>        fmt.<span style="color:#50fa7b">Println</span>(“收到结果:”, r)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="运行结果示例实际顺序随机但逻辑一定如下">运行结果示例（实际顺序随机，但逻辑一定如下）
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>// ===== 第 1 秒：3 个 Worker 同时抢到任务 1、2、3 并开始处理 =====
+</span></span><span style="display:flex;"><span>Worker 1 开始处理任务 1
+</span></span><span style="display:flex;"><span>Worker 2 开始处理任务 2
+</span></span><span style="display:flex;"><span>Worker 3 开始处理任务 3
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>// ===== 1 秒后：首批 3 个任务完成，结果产出 =====
+</span></span><span style="display:flex;"><span>Worker 1 完成任务 1 → 结果 2
+</span></span><span style="display:flex;"><span>Worker 2 完成任务 2 → 结果 4
+</span></span><span style="display:flex;"><span>Worker 3 完成任务 3 → 结果 6
+</span></span><span style="display:flex;"><span>收到结果: 2
+</span></span><span style="display:flex;"><span>收到结果: 4
+</span></span><span style="display:flex;"><span>收到结果: 6
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>// ===== 紧接着：空闲的 Worker 继续抢剩余的任务 4、5（只有 2 个任务，所以 1 个 Worker 闲置）=====
+</span></span><span style="display:flex;"><span>Worker 1 开始处理任务 4
+</span></span><span style="display:flex;"><span>Worker 2 开始处理任务 5
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>// ===== 再过 1 秒：最后 2 个任务完成 =====
+</span></span><span style="display:flex;"><span>Worker 1 完成任务 4 → 结果 8
+</span></span><span style="display:flex;"><span>Worker 2 完成任务 5 → 结果 10
+</span></span><span style="display:flex;"><span>收到结果: 8
+</span></span><span style="display:flex;"><span>收到结果: 10
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>执行流程逐步拆解</strong>：</p>
+<ol>
+<li><code>main</code> 启动 3 个 Worker Goroutine，它们都在 <code>for j := range jobs</code> 处等待任务。</li>
+<li><code>main</code> 往 <code>jobs</code> 塞入任务 1~5，3 个 Worker 各抢到一个（比如 1、2、3），开始并行处理。此时任务 4、5 留在 <code>jobs</code> 缓冲区里。</li>
+<li>约 1 秒后，3 个 Worker 各自完成手头任务，把结果（2、4、6）发到 <code>results</code>，然后立刻回到 <code>range jobs</code> 抢下一个任务。</li>
+<li>Worker 1 抢到任务 4，Worker 2 抢到任务 5，Worker 3 发现 <code>jobs</code> 已空且已 <code>close</code>，<code>range</code> 循环退出，调用 <code>wg.Done()</code>。</li>
+<li>再过 1 秒，Worker 1 和 2 完成任务 4、5，结果（8、10）发到 <code>results</code>，然后也退出循环并 <code>wg.Done()</code>。</li>
+<li>后台的 <code>wg.Wait()</code> 检测到计数归零，执行 <code>close(results)</code>。</li>
+<li><code>main</code> 中的 <code>for r := range results</code> 读完所有结果后循环结束，程序退出。</li>
+</ol>
+<blockquote>
+<p><strong>关键点</strong>：Worker 的编号和抢到哪个任务是完全随机的（取决于 Go 调度器），但同一时刻最多只有 3 个任务在并行处理——这就是 Worker Pool 的并发控制效果。</p>
+</blockquote>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/go/">Go</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/go-%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D%E7%AD%96%E7%95%A5%E5%86%85%E5%AD%98%E9%80%83%E9%80%B8%E4%B8%8E-gc-%E6%9C%BA%E5%88%B6/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Go 内存分配策略、内存逃逸、与 GC 机制</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/golang-slice-%E4%B8%8E-map-%E5%BA%95%E5%B1%82%E8%AF%A6%E8%A7%A3/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Golang slice 与 map 底层详解</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm808.github.io\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+    </body>
+</html>
