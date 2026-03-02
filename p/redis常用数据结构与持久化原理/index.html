@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Redis 五大基础数据结构的底层实现与使用场景，以及 RDB/AOF 两种持久化机制的原理对比">
+<title>Redis：常用数据结构与持久化原理</title>
+
+<link rel='canonical' href='https://skylm808.github.io/p/redis%E5%B8%B8%E7%94%A8%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E4%B8%8E%E6%8C%81%E4%B9%85%E5%8C%96%E5%8E%9F%E7%90%86/'>
+
+<link rel="stylesheet" href="/scss/style.min.96ba1c3608acf4f319504831a9a06a60c4c0f47ce65605b5ca2dab1981e36064.css"><meta property='og:title' content="Redis：常用数据结构与持久化原理">
+<meta property='og:description' content="Redis 五大基础数据结构的底层实现与使用场景，以及 RDB/AOF 两种持久化机制的原理对比">
+<meta property='og:url' content='https://skylm808.github.io/p/redis%E5%B8%B8%E7%94%A8%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E4%B8%8E%E6%8C%81%E4%B9%85%E5%8C%96%E5%8E%9F%E7%90%86/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Redis' /><meta property='article:tag' content='数据结构' /><meta property='article:published_time' content='2026-03-02T21:25:02&#43;08:00'/><meta property='article:modified_time' content='2026-03-02T21:25:02&#43;08:00'/>
+<meta name="twitter:title" content="Redis：常用数据结构与持久化原理">
+<meta name="twitter:description" content="Redis 五大基础数据结构的底层实现与使用场景，以及 RDB/AOF 两种持久化机制的原理对比">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页|home</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类&amp;标签|Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档 | Archives</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索 | Search</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友情链接 | Links</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#1-五大基础数据结构">1. 五大基础数据结构</a>
+      <ol>
+        <li><a href="#string字符串">String（字符串）</a></li>
+        <li><a href="#list列表">List（列表）</a></li>
+        <li><a href="#hash哈希">Hash（哈希）</a></li>
+        <li><a href="#set集合">Set（集合）</a></li>
+        <li><a href="#sorted-set--zset有序集合">Sorted Set / ZSet（有序集合）</a>
+          <ol>
+            <li><a href="#跳表skip-list原理">跳表（Skip List）原理</a></li>
+            <li><a href="#zset-核心应用场景详解">ZSet 核心应用场景详解</a></li>
+          </ol>
+        </li>
+        <li><a href="#速查对比表">速查对比表</a></li>
+      </ol>
+    </li>
+    <li><a href="#2-持久化rdb-vs-aof">2. 持久化：RDB vs AOF</a>
+      <ol>
+        <li><a href="#rdbredis-database-快照">RDB（Redis Database）— 快照</a></li>
+        <li><a href="#aofappend-only-file-追加日志">AOF（Append Only File）— 追加日志</a></li>
+        <li><a href="#rdb-vs-aof-对比">RDB vs AOF 对比</a></li>
+        <li><a href="#混合持久化redis-40">混合持久化（Redis 4.0+）</a></li>
+        <li><a href="#实际生产建议">实际生产建议</a></li>
+      </ol>
+    </li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" >
+                数据库
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/redis%E5%B8%B8%E7%94%A8%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E4%B8%8E%E6%8C%81%E4%B9%85%E5%8C%96%E5%8E%9F%E7%90%86/">Redis：常用数据结构与持久化原理</a>
+        </h2>
+    
+        
+        <h3 class="article-subtitle">
+            Redis 五大基础数据结构的底层实现与使用场景，以及 RDB/AOF 两种持久化机制的原理对比
+        </h3>
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Mar 02, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 9 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="redis常用数据结构与持久化原理">Redis：常用数据结构与持久化原理
+</h1><h2 id="1-五大基础数据结构">1. 五大基础数据结构
+</h2><h3 id="string字符串">String（字符串）
+</h3><p>Redis 最基础的类型，<code>SET key value</code> 中的 <strong>value</strong> 就是 String 类型（key 永远是字符串）。值最大 512MB。</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>底层实现</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>SDS</strong>（Simple Dynamic String）</td>
+          <td>不用 C 原生字符串，而是自己封装了一层，额外记录 <code>len</code>（已用长度）和 <code>free</code>（剩余空间），获取长度 O(1)，且二进制安全</td>
+      </tr>
+      <tr>
+          <td><strong>int 编码</strong></td>
+          <td>当值是整数且范围在 long 内时，直接用整数存储，不走 SDS</td>
+      </tr>
+  </tbody>
+</table></div>
+<p><strong>SDS 结构详解</strong>：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#ff79c6">struct</span> sdshdr {
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">int</span> len;      <span style="color:#6272a4">// 已使用长度
+</span></span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">int</span> free;     <span style="color:#6272a4">// 剩余可用空间
+</span></span></span><span style="display:flex;"><span>    <span style="color:#8be9fd">char</span> buf[];   <span style="color:#6272a4">// 实际存储数据的字节数组
+</span></span></span><span style="display:flex;"><span>};
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><strong>为什么不用 C 字符串</strong>：C 字符串以 <code>\0</code> 结尾，获取长度需要遍历 O(N)，且无法存储二进制数据（图片、序列化对象等）</li>
+<li><strong>预分配策略</strong>：修改字符串时，如果 <code>len &lt; 1MB</code> 就分配 <code>len</code> 两倍的空间；如果 <code>len &gt;= 1MB</code> 就多分配 1MB。减少频繁内存分配</li>
+</ul>
+<p><strong>常用场景</strong>：</p>
+<ul>
+<li><strong>缓存</strong>：<code>SET user:1001 &quot;{name:张三}&quot;</code> — 最经典的用法，缓存热点数据</li>
+<li><strong>计数器</strong>：<code>INCR article:1001:views</code> — 原子自增，天然适合阅读量、点赞数</li>
+<li><strong>分布式锁</strong>：<code>SET lock:order NX EX 30</code> — NX 保证只有一个客户端能拿到锁</li>
+<li><strong>分布式 Session</strong>：多个服务节点共享用户登录态</li>
+</ul>
+<hr>
+<h3 id="list列表">List（列表）
+</h3><p>有序、可重复的元素集合，两端都能操作。</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>底层实现</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>quicklist</strong>（Redis 3.2+）</td>
+          <td>由多个 <strong>ziplist</strong>（压缩列表）通过双向指针串起来。兼顾了 ziplist 的内存紧凑和链表的快速两端操作</td>
+      </tr>
+  </tbody>
+</table></div>
+<p><strong>常用场景</strong>：</p>
+<ul>
+<li><strong>消息队列</strong>：<code>LPUSH</code> 生产 + <code>BRPOP</code> 阻塞消费，简易版 MQ</li>
+<li><strong>最新列表</strong>：<code>LPUSH + LTRIM</code> 维护最新 N 条记录（如朋友圈动态、最近浏览）</li>
+<li><strong>时间线 Feed</strong>：按时间顺序存储，<code>LRANGE</code> 分页获取</li>
+</ul>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>LPUSH news:feed <span style="color:#f1fa8c">&#34;文章A&#34;</span> <span style="color:#f1fa8c">&#34;文章B&#34;</span> <span style="color:#f1fa8c">&#34;文章C&#34;</span>
+</span></span><span style="display:flex;"><span>LRANGE news:feed <span style="color:#bd93f9">0</span> <span style="color:#bd93f9">9</span>   <span style="color:#6272a4"># 取最新 10 条</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h3 id="hash哈希">Hash（哈希）
+</h3><p>一个 key 下面挂多个 field-value 对，类似一张&quot;小表&quot;。</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>底层实现</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>ziplist</strong></td>
+          <td>元素少且值短时使用（默认 field 数 ≤ 512 且值 ≤ 64 字节），内存紧凑</td>
+      </tr>
+      <tr>
+          <td><strong>hashtable</strong></td>
+          <td>超过阈值后转为真正的哈希表，查找 O(1)</td>
+      </tr>
+  </tbody>
+</table></div>
+<p><strong>常用场景</strong>：</p>
+<ul>
+<li><strong>对象存储</strong>：比 String 存 JSON 更灵活，可以单独读写某个字段</li>
+<li><strong>购物车</strong>：<code>HSET cart:user1001 sku_001 2</code> — field 是商品 ID，value 是数量</li>
+</ul>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>HSET user:1001 name <span style="color:#f1fa8c">&#34;张三&#34;</span> age <span style="color:#bd93f9">25</span> city <span style="color:#f1fa8c">&#34;北京&#34;</span>
+</span></span><span style="display:flex;"><span>HGET user:1001 name       <span style="color:#6272a4"># → &#34;张三&#34;</span>
+</span></span><span style="display:flex;"><span>HINCRBY user:1001 age <span style="color:#bd93f9">1</span>   <span style="color:#6272a4"># 单独给 age +1，不用读写整个对象</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h3 id="set集合">Set（集合）
+</h3><p>无序、不重复的元素集合，支持交并差运算。</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>底层实现</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>intset</strong></td>
+          <td>全是整数且元素少时使用，内存紧凑</td>
+      </tr>
+      <tr>
+          <td><strong>hashtable</strong></td>
+          <td>其他情况，value 全部设为 NULL 的哈希表</td>
+      </tr>
+  </tbody>
+</table></div>
+<p><strong>常用场景</strong>：</p>
+<ul>
+<li><strong>去重</strong>：<code>SADD</code> 天然去重，如统计 UV（独立访客）</li>
+<li><strong>标签系统</strong>：每个用户一个 Set 存标签，<code>SINTER</code> 求共同标签</li>
+<li><strong>社交关系</strong>：共同关注 <code>SINTER</code>、可能认识 <code>SDIFF</code>、全部关注 <code>SUNION</code></li>
+<li><strong>抽奖</strong>：<code>SADD</code> 加入参与者，<code>SRANDMEMBER</code> 随机抽取，<code>SPOP</code> 抽完移除</li>
+</ul>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>SADD user:1001:follow <span style="color:#f1fa8c">&#34;张三&#34;</span> <span style="color:#f1fa8c">&#34;李四&#34;</span> <span style="color:#f1fa8c">&#34;王五&#34;</span>
+</span></span><span style="display:flex;"><span>SADD user:1002:follow <span style="color:#f1fa8c">&#34;张三&#34;</span> <span style="color:#f1fa8c">&#34;赵六&#34;</span>
+</span></span><span style="display:flex;"><span>SINTER user:1001:follow user:1002:follow  <span style="color:#6272a4"># → &#34;张三&#34;（共同关注）</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h3 id="sorted-set--zset有序集合">Sorted Set / ZSet（有序集合）
+</h3><p>每个元素带一个 <code>score</code>（分数），按 score 排序，元素不重复。</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>底层实现</th>
+          <th>说明</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>ziplist</strong></td>
+          <td>元素少且值短时使用</td>
+      </tr>
+      <tr>
+          <td><strong>skiplist + hashtable</strong></td>
+          <td>跳表负责按 score 排序和范围查询 O(logN)，哈希表负责按 member 精确查找 O(1)，两者配合</td>
+      </tr>
+  </tbody>
+</table></div>
+<h4 id="跳表skip-list原理">跳表（Skip List）原理
+</h4><p>跳表是一种<strong>多层链表</strong>结构，通过&quot;跳跃&quot;减少查找次数，性能接近平衡树但实现简单得多。</p>
+<p><strong>结构示意</strong>（以查找 score=50 为例）：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>Level 3:  1 -----------------------&gt; 50 ----------&gt; 100
+</span></span><span style="display:flex;"><span>Level 2:  1 -------&gt; 20 -----------&gt; 50 ----------&gt; 100
+</span></span><span style="display:flex;"><span>Level 1:  1 -&gt; 10 -&gt; 20 -&gt; 30 -&gt; 40 -&gt; 50 -&gt; 60 -&gt; 100  (最底层完整链表)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>查找过程</strong>：</p>
+<ol>
+<li>从最高层开始，向右走到第一个 ≥ 目标值的节点</li>
+<li>如果相等就找到了；如果大了就下降一层，从上一个节点继续向右找</li>
+<li>重复直到找到或到达底层</li>
+</ol>
+<p><strong>为什么快</strong>：</p>
+<ul>
+<li>普通链表查找 O(N)，跳表通过&quot;高速公路&quot;跳过大量节点，平均 O(logN)</li>
+<li>插入/删除时，新节点随机决定层数（抛硬币），期望层数 logN，无需像红黑树那样旋转平衡</li>
+</ul>
+<p><strong>Redis 中的实现细节</strong>：</p>
+<ul>
+<li>每个节点最多 32 层</li>
+<li>同时维护一个哈希表，key 是 member，value 是 score，用于 O(1) 查找某个元素的分数</li>
+<li>跳表按 score 排序，score 相同时按 member 字典序排序</li>
+</ul>
+<h4 id="zset-核心应用场景详解">ZSet 核心应用场景详解
+</h4><h5 id="1-排行榜系统">1. 排行榜系统
+</h5><p><strong>需求</strong>：游戏积分榜、文章热度榜、销量排行等，需要实时更新分数并快速查询 Top N。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 玩家得分（自动累加）</span>
+</span></span><span style="display:flex;"><span>ZINCRBY game:rank <span style="color:#bd93f9">100</span> <span style="color:#f1fa8c">&#34;player_A&#34;</span>
+</span></span><span style="display:flex;"><span>ZINCRBY game:rank <span style="color:#bd93f9">50</span> <span style="color:#f1fa8c">&#34;player_B&#34;</span>
+</span></span><span style="display:flex;"><span>ZINCRBY game:rank <span style="color:#bd93f9">200</span> <span style="color:#f1fa8c">&#34;player_C&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 查询 Top 3（降序）</span>
+</span></span><span style="display:flex;"><span>ZREVRANGE game:rank <span style="color:#bd93f9">0</span> <span style="color:#bd93f9">2</span> WITHSCORES
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 输出：</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 1) &#34;player_C&#34;  2) &#34;200&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 3) &#34;player_A&#34;  4) &#34;100&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 5) &#34;player_B&#34;  6) &#34;50&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 查询某玩家排名（0 表示第一名）</span>
+</span></span><span style="display:flex;"><span>ZREVRANK game:rank <span style="color:#f1fa8c">&#34;player_A&#34;</span>  <span style="color:#6272a4"># → 1（第二名）</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 查询某玩家分数</span>
+</span></span><span style="display:flex;"><span>ZSCORE game:rank <span style="color:#f1fa8c">&#34;player_A&#34;</span>  <span style="color:#6272a4"># → &#34;100&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 查询分数在 100~200 之间的玩家</span>
+</span></span><span style="display:flex;"><span>ZRANGEBYSCORE game:rank <span style="color:#bd93f9">100</span> <span style="color:#bd93f9">200</span> WITHSCORES
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>为什么用 ZSet</strong>：</p>
+<ul>
+<li><code>ZINCRBY</code> 原子操作，并发安全</li>
+<li><code>ZREVRANGE</code> 取 Top N 是 O(logN + M)，M 是返回元素数</li>
+<li>自动按 score 排序，无需手动维护</li>
+</ul>
+<h5 id="2-延迟队列--定时任务">2. 延迟队列 / 定时任务
+</h5><p><strong>需求</strong>：订单 30 分钟未支付自动取消、定时发送消息等。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 添加任务，score 是执行时间戳（秒）</span>
+</span></span><span style="display:flex;"><span>ZADD delay:queue <span style="color:#bd93f9">1709308800</span> <span style="color:#f1fa8c">&#34;order:1001&#34;</span>  <span style="color:#6272a4"># 2024-03-01 12:00:00 执行</span>
+</span></span><span style="display:flex;"><span>ZADD delay:queue <span style="color:#bd93f9">1709310600</span> <span style="color:#f1fa8c">&#34;order:1002&#34;</span>  <span style="color:#6272a4"># 2024-03-01 12:30:00 执行</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 定时轮询（每秒执行一次）</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">current_time</span><span style="color:#ff79c6">=</span><span style="color:#ff79c6">$(</span>date +%s<span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 取出所有到期任务（score &lt;= 当前时间）</span>
+</span></span><span style="display:flex;"><span>ZRANGEBYSCORE delay:queue <span style="color:#bd93f9">0</span> <span style="color:#8be9fd;font-style:italic">$current_time</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 处理完后删除</span>
+</span></span><span style="display:flex;"><span>ZREM delay:queue <span style="color:#f1fa8c">&#34;order:1001&#34;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>进阶：原子取出并删除</strong>（避免重复消费）：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-lua" data-lang="lua"><span style="display:flex;"><span><span style="color:#6272a4">-- Lua 脚本保证原子性</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">local</span> tasks <span style="color:#ff79c6">=</span> redis.call(<span style="color:#f1fa8c">&#39;ZRANGEBYSCORE&#39;</span>, KEYS[<span style="color:#bd93f9">1</span>], <span style="color:#bd93f9">0</span>, ARGV[<span style="color:#bd93f9">1</span>], <span style="color:#f1fa8c">&#39;LIMIT&#39;</span>, <span style="color:#bd93f9">0</span>, <span style="color:#bd93f9">100</span>)
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> <span style="color:#ff79c6">#</span>tasks <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0</span> <span style="color:#ff79c6">then</span>
+</span></span><span style="display:flex;"><span>    redis.call(<span style="color:#f1fa8c">&#39;ZREM&#39;</span>, KEYS[<span style="color:#bd93f9">1</span>], unpack(tasks))
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">end</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">return</span> tasks
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>为什么用 ZSet</strong>：</p>
+<ul>
+<li>score 存时间戳，<code>ZRANGEBYSCORE</code> 天然支持范围查询</li>
+<li>有序存储，最早到期的任务在最前面</li>
+<li>比轮询数据库高效得多</li>
+</ul>
+<h5 id="3-滑动窗口限流">3. 滑动窗口限流
+</h5><p><strong>需求</strong>：限制用户 1 分钟内最多调用 API 100 次。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 每次请求时，用当前时间戳（毫秒）作为 score 和 member</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">current_ms</span><span style="color:#ff79c6">=</span><span style="color:#ff79c6">$(</span>date +%s%3N<span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">user_key</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;rate:limit:user1001&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 1. 记录本次请求</span>
+</span></span><span style="display:flex;"><span>ZADD <span style="color:#8be9fd;font-style:italic">$user_key</span> <span style="color:#8be9fd;font-style:italic">$current_ms</span> <span style="color:#8be9fd;font-style:italic">$current_ms</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 2. 删除 1 分钟前的记录</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">one_min_ago</span><span style="color:#ff79c6">=</span><span style="color:#ff79c6">$((</span>current_ms <span style="color:#ff79c6">-</span> <span style="color:#bd93f9">60000</span><span style="color:#ff79c6">))</span>
+</span></span><span style="display:flex;"><span>ZREMRANGEBYSCORE <span style="color:#8be9fd;font-style:italic">$user_key</span> <span style="color:#bd93f9">0</span> <span style="color:#8be9fd;font-style:italic">$one_min_ago</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 3. 统计窗口内请求数</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">count</span><span style="color:#ff79c6">=</span><span style="color:#ff79c6">$(</span>ZCARD <span style="color:#8be9fd;font-style:italic">$user_key</span><span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> <span style="color:#ff79c6">[</span> <span style="color:#8be9fd;font-style:italic">$count</span> -gt <span style="color:#bd93f9">100</span> <span style="color:#ff79c6">]</span>; <span style="color:#ff79c6">then</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">echo</span> <span style="color:#f1fa8c">&#34;请求过于频繁&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">else</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">echo</span> <span style="color:#f1fa8c">&#34;允许访问&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">fi</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 4. 设置过期时间（防止 key 永久存在）</span>
+</span></span><span style="display:flex;"><span>EXPIRE <span style="color:#8be9fd;font-style:italic">$user_key</span> <span style="color:#bd93f9">60</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>为什么用 ZSet</strong>：</p>
+<ul>
+<li>自动按时间排序，<code>ZREMRANGEBYSCORE</code> 清理过期数据 O(logN + M)</li>
+<li><code>ZCARD</code> 获取窗口内请求数 O(1)</li>
+<li>比固定窗口（计数器）更精确，不会出现临界点突刺问题</li>
+</ul>
+<h5 id="4-自动补全--前缀搜索">4. 自动补全 / 前缀搜索
+</h5><p><strong>需求</strong>：搜索框输入&quot;北京&quot;，自动提示&quot;北京大学&quot;、&ldquo;北京天安门&quot;等（按热度排序）。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 存储搜索词及其热度</span>
+</span></span><span style="display:flex;"><span>ZADD search:suggest <span style="color:#bd93f9">1000</span> <span style="color:#f1fa8c">&#34;北京大学&#34;</span>
+</span></span><span style="display:flex;"><span>ZADD search:suggest <span style="color:#bd93f9">800</span> <span style="color:#f1fa8c">&#34;北京天安门&#34;</span>
+</span></span><span style="display:flex;"><span>ZADD search:suggest <span style="color:#bd93f9">500</span> <span style="color:#f1fa8c">&#34;北京烤鸭&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 前缀匹配（需结合 ZRANGEBYLEX，这里简化为按热度取 Top 5）</span>
+</span></span><span style="display:flex;"><span>ZREVRANGE search:suggest <span style="color:#bd93f9">0</span> <span style="color:#bd93f9">4</span> WITHSCORES
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>实际生产中</strong>：通常结合 Trie 树或 Elasticsearch，ZSet 只负责热度排序。</p>
+<hr>
+<h3 id="速查对比表">速查对比表
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>类型</th>
+          <th>底层实现</th>
+          <th>有序</th>
+          <th>去重</th>
+          <th>一句话场景</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>String</td>
+          <td>SDS / int</td>
+          <td>—</td>
+          <td>—</td>
+          <td>缓存、计数器、分布式锁</td>
+      </tr>
+      <tr>
+          <td>List</td>
+          <td>quicklist</td>
+          <td>✅ 插入序</td>
+          <td>❌</td>
+          <td>消息队列、最新列表</td>
+      </tr>
+      <tr>
+          <td>Hash</td>
+          <td>ziplist / hashtable</td>
+          <td>❌</td>
+          <td>field 唯一</td>
+          <td>对象存储、购物车</td>
+      </tr>
+      <tr>
+          <td>Set</td>
+          <td>intset / hashtable</td>
+          <td>❌</td>
+          <td>✅</td>
+          <td>去重、社交关系、抽奖</td>
+      </tr>
+      <tr>
+          <td>ZSet</td>
+          <td>ziplist / skiplist+ht</td>
+          <td>✅ score 序</td>
+          <td>✅</td>
+          <td>排行榜、延迟队列</td>
+      </tr>
+  </tbody>
+</table></div>
+<hr>
+<h2 id="2-持久化rdb-vs-aof">2. 持久化：RDB vs AOF
+</h2><p>Redis 数据全在内存里，一旦进程挂了数据就没了。持久化就是把内存数据写到磁盘，重启后能恢复。</p>
+<h3 id="rdbredis-database-快照">RDB（Redis Database）— 快照
+</h3><p><strong>原理</strong>：在某个时间点，把内存中的全部数据生成一份<strong>二进制快照文件</strong>（<code>dump.rdb</code>）。</p>
+<p><strong>触发方式</strong>：</p>
+<ul>
+<li><strong>手动</strong>：<code>SAVE</code>（阻塞主线程，生产环境别用）/ <code>BGSAVE</code>（fork 子进程，推荐）</li>
+<li><strong>自动</strong>：配置 <code>save 900 1</code>（900 秒内至少 1 次写操作就触发 BGSAVE）</li>
+</ul>
+<p><strong>BGSAVE 执行流程</strong>：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>1. 主进程 fork() 出一个子进程
+</span></span><span style="display:flex;"><span>2. 子进程拥有父进程的内存页表副本（此时并不复制实际数据）
+</span></span><span style="display:flex;"><span>3. 子进程遍历内存，将数据序列化写入临时 RDB 文件
+</span></span><span style="display:flex;"><span>4. 写完后替换旧的 dump.rdb
+</span></span><span style="display:flex;"><span>5. 期间主进程继续处理请求，如果有写操作 → 触发 COW（Copy-On-Write）：
+</span></span><span style="display:flex;"><span>   操作系统只复制被修改的那个内存页，子进程仍然读到 fork 时刻的旧数据
+</span></span></code></pre></td></tr></table>
+</div>
+</div><blockquote>
+<p><strong>COW（写时复制）</strong> 是关键：fork 时不真正复制内存，只有主进程写数据时才按页复制，所以 fork 很快，内存开销也可控。</p>
+</blockquote>
+<p><strong>优点</strong>：文件紧凑、恢复速度快（直接加载二进制）、对主线程影响小
+<strong>缺点</strong>：两次快照之间的数据可能丢失（比如配置 5 分钟一次，最多丢 5 分钟数据）</p>
+<hr>
+<h3 id="aofappend-only-file-追加日志">AOF（Append Only File）— 追加日志
+</h3><p><strong>原理</strong>：把每一条<strong>写命令</strong>以文本形式追加到 <code>appendonly.aof</code> 文件末尾。恢复时重放所有命令。</p>
+<p><strong>写回策略</strong>（<code>appendfsync</code>）：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>策略</th>
+          <th>行为</th>
+          <th>数据安全</th>
+          <th>性能</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>always</code></td>
+          <td>每条命令都 fsync 到磁盘</td>
+          <td>最高，最多丢 1 条命令</td>
+          <td>最差</td>
+      </tr>
+      <tr>
+          <td><code>everysec</code>（默认）</td>
+          <td>每秒 fsync 一次</td>
+          <td>最多丢 1 秒数据</td>
+          <td>折中，<strong>推荐</strong></td>
+      </tr>
+      <tr>
+          <td><code>no</code></td>
+          <td>交给操作系统决定何时刷盘</td>
+          <td>可能丢较多数据</td>
+          <td>最好</td>
+      </tr>
+  </tbody>
+</table></div>
+<p><strong>AOF 重写（Rewrite）</strong>：</p>
+<p>AOF 文件会越来越大（比如同一个 key 被 SET 了 100 次，文件里就有 100 条命令）。重写机制解决这个问题：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>1. 主进程 fork() 子进程
+</span></span><span style="display:flex;"><span>2. 子进程根据当前内存数据，生成一份&#34;最小命令集&#34;的新 AOF 文件
+</span></span><span style="display:flex;"><span>   （100 次 SET 同一个 key → 只保留最后一条）
+</span></span><span style="display:flex;"><span>3. 重写期间主进程的新写命令同时写入：
+</span></span><span style="display:flex;"><span>   - 旧 AOF 文件（保证安全）
+</span></span><span style="display:flex;"><span>   - AOF 重写缓冲区
+</span></span><span style="display:flex;"><span>4. 子进程写完后，主进程把重写缓冲区的命令追加到新 AOF 文件
+</span></span><span style="display:flex;"><span>5. 用新文件替换旧文件
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>优点</strong>：数据安全性高（最多丢 1 秒）、文件可读（纯文本命令）
+<strong>缺点</strong>：文件比 RDB 大、恢复速度比 RDB 慢（要重放命令）</p>
+<hr>
+<h3 id="rdb-vs-aof-对比">RDB vs AOF 对比
+</h3><div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th></th>
+          <th>RDB</th>
+          <th>AOF</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>持久化内容</strong></td>
+          <td>某一时刻的全量数据快照（二进制）</td>
+          <td>所有写命令的追加日志（文本）</td>
+      </tr>
+      <tr>
+          <td><strong>数据安全</strong></td>
+          <td>可能丢两次快照之间的数据</td>
+          <td>最多丢 1 秒（everysec）</td>
+      </tr>
+      <tr>
+          <td><strong>文件大小</strong></td>
+          <td>小（二进制压缩）</td>
+          <td>大（即使重写后仍比 RDB 大）</td>
+      </tr>
+      <tr>
+          <td><strong>恢复速度</strong></td>
+          <td>快（直接加载）</td>
+          <td>慢（逐条重放命令）</td>
+      </tr>
+      <tr>
+          <td><strong>对性能影响</strong></td>
+          <td>fork 时有短暂开销</td>
+          <td>everysec 模式下几乎无感</td>
+      </tr>
+      <tr>
+          <td><strong>适用场景</strong></td>
+          <td>冷备份、灾难恢复、对丢数据容忍度高</td>
+          <td>对数据安全要求高的业务</td>
+      </tr>
+  </tbody>
+</table></div>
+<hr>
+<h3 id="混合持久化redis-40">混合持久化（Redis 4.0+）
+</h3><p><strong>问题</strong>：RDB 恢复快但可能丢数据，AOF 数据安全但恢复慢，能不能结合两者优点？</p>
+<p><strong>解决方案</strong>：混合持久化——在 AOF 重写时，把文件拆成两部分：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>┌─────────────────────────────────────────┐
+</span></span><span style="display:flex;"><span>│  RDB 格式的全量数据（二进制，紧凑）          │  ← fork 时刻的内存快照
+</span></span><span style="display:flex;"><span>├─────────────────────────────────────────┤
+</span></span><span style="display:flex;"><span>│  AOF 格式的增量命令（文本）                 │  ← 重写期间新产生的写命令
+</span></span><span style="display:flex;"><span>└─────────────────────────────────────────┘
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>开启方式</strong>：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># redis.conf 配置</span>
+</span></span><span style="display:flex;"><span>aof-use-rdb-preamble yes
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>工作流程</strong>（以 AOF 重写为例）：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>1. 主进程 fork() 子进程
+</span></span><span style="display:flex;"><span>2. 子进程把当前内存数据以 RDB 格式写入新 AOF 文件（快速、紧凑）
+</span></span><span style="display:flex;"><span>3. 重写期间，主进程的新写命令同时写入：
+</span></span><span style="display:flex;"><span>   - 旧 AOF 文件（保证不丢数据）
+</span></span><span style="display:flex;"><span>   - AOF 重写缓冲区
+</span></span><span style="display:flex;"><span>4. 子进程写完 RDB 部分后，主进程把重写缓冲区的增量命令以 AOF 格式追加到新文件末尾
+</span></span><span style="display:flex;"><span>5. 用新文件替换旧文件
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>恢复时的处理</strong>：</p>
+<p>Redis 启动时读取混合格式的 AOF 文件：</p>
+<ol>
+<li>先识别文件头是否为 RDB 格式（魔数 <code>REDIS</code>）</li>
+<li>如果是，先快速加载 RDB 部分（全量数据）</li>
+<li>再逐条重放后面的 AOF 命令（增量数据）</li>
+</ol>
+<p><strong>优势总结</strong>：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>维度</th>
+          <th>纯 RDB</th>
+          <th>纯 AOF</th>
+          <th>混合持久化</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>数据安全</td>
+          <td>❌ 可能丢几分钟</td>
+          <td>✅ 最多丢 1 秒</td>
+          <td>✅ 最多丢 1 秒</td>
+      </tr>
+      <tr>
+          <td>恢复速度</td>
+          <td>✅ 快</td>
+          <td>❌ 慢</td>
+          <td>✅ 快（RDB 部分）+ 增量重放</td>
+      </tr>
+      <tr>
+          <td>文件大小</td>
+          <td>✅ 小</td>
+          <td>❌ 大</td>
+          <td>✅ 比纯 AOF 小很多</td>
+      </tr>
+  </tbody>
+</table></div>
+<p><strong>一句话</strong>：混合持久化 = RDB 的快速恢复 + AOF 的数据安全，是生产环境的最佳实践。</p>
+<hr>
+<h3 id="实际生产建议">实际生产建议
+</h3><ol>
+<li><strong>开启混合持久化</strong>（Redis 4.0+）：</li>
+</ol>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>appendonly yes
+</span></span><span style="display:flex;"><span>aof-use-rdb-preamble yes
+</span></span><span style="display:flex;"><span>appendfsync everysec
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ol start="2">
+<li>
+<p><strong>恢复优先级</strong>：Redis 启动时，如果 AOF 文件存在就优先用 AOF 恢复（数据更完整），否则用 RDB。</p>
+</li>
+<li>
+<p><strong>定期备份 RDB</strong>：即使开了 AOF，也建议定期把 <code>dump.rdb</code> 备份到远程（如对象存储），作为灾难恢复的最后一道防线。</p>
+</li>
+</ol>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/redis/">Redis</a>
+        
+            <a href="/tags/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/">数据结构</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm808.github.io\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+    </body>
+</html>
