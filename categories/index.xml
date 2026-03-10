@@ -7,7 +7,17 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Fri, 06 Mar 2026 14:55:43 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Tue, 10 Mar 2026 19:12:01 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Go</title>
+        <link>https://skylm808.github.io/categories/go/</link>
+        <pubDate>Tue, 10 Mar 2026 19:12:01 +0800</pubDate>
+        
+        <guid>https://skylm808.github.io/categories/go/</guid>
+        <description>&lt;h2 id=&#34;go-语言&#34;&gt;Go 语言
+&lt;/h2&gt;&lt;p&gt;Go 语言的学习笔记、项目实践和技术分享。&lt;/p&gt;
+</description>
+        </item>
+        <item>
         <title>Mysql</title>
         <link>https://skylm808.github.io/categories/mysql/</link>
         <pubDate>Fri, 06 Mar 2026 14:55:43 +0800</pubDate>
@@ -22,16 +32,6 @@
         
         <guid>https://skylm808.github.io/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/</guid>
         <description></description>
-        </item>
-        <item>
-        <title>Go</title>
-        <link>https://skylm808.github.io/categories/go/</link>
-        <pubDate>Sat, 28 Feb 2026 22:14:06 +0800</pubDate>
-        
-        <guid>https://skylm808.github.io/categories/go/</guid>
-        <description>&lt;h2 id=&#34;go-语言&#34;&gt;Go 语言
-&lt;/h2&gt;&lt;p&gt;Go 语言的学习笔记、项目实践和技术分享。&lt;/p&gt;
-</description>
         </item>
         <item>
         <title>算法</title>
