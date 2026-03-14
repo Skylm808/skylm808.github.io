@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="SAML Auth Walkthrough 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。\n">
+<title>dubbo-go-pixiu添加Saml功能详解</title>
+
+<link rel='canonical' href='https://skylm808.github.io/p/dubbo-go-pixiu%E6%B7%BB%E5%8A%A0saml%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3/'>
+
+<link rel="stylesheet" href="/scss/style.min.96ba1c3608acf4f319504831a9a06a60c4c0f47ce65605b5ca2dab1981e36064.css"><meta property='og:title' content="dubbo-go-pixiu添加Saml功能详解">
+<meta property='og:description' content="SAML Auth Walkthrough 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。\n">
+<meta property='og:url' content='https://skylm808.github.io/p/dubbo-go-pixiu%E6%B7%BB%E5%8A%A0saml%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Go' /><meta property='article:tag' content='开源' /><meta property='article:published_time' content='2026-03-14T22:21:53&#43;08:00'/><meta property='article:modified_time' content='2026-03-14T22:21:53&#43;08:00'/>
+<meta name="twitter:title" content="dubbo-go-pixiu添加Saml功能详解">
+<meta name="twitter:description" content="SAML Auth Walkthrough 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页|home</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类&amp;标签|Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档 | Archives</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索 | Search</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友情链接 | Links</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#1-这次-issue-要解决什么">1. 这次 issue 要解决什么</a></li>
+    <li><a href="#2-这次改动落在哪些文件">2. 这次改动落在哪些文件</a></li>
+    <li><a href="#3-先从-pixiu-的插件接入流程看">3. 先从 Pixiu 的插件接入流程看</a>
+      <ol>
+        <li><a href="#plugin插件的登记入口">Plugin：插件的“登记入口”</a></li>
+        <li><a href="#kind过滤器在框架里的唯一名字">Kind：过滤器在框架里的唯一名字</a></li>
+        <li><a href="#init--registerhttpfilter把插件注册进全局表">init + RegisterHttpFilter：把插件注册进全局表</a></li>
+      </ol>
+    </li>
+    <li><a href="#4-config-做了什么">4. Config 做了什么</a>
+      <ol>
+        <li><a href="#41-定义配置项">4.1 定义配置项</a></li>
+        <li><a href="#42-validate把参数校验单独抽出来">4.2 Validate：把参数校验单独抽出来</a></li>
+        <li><a href="#43-deepcopy避免工厂配置和请求配置共用指针">4.3 DeepCopy：避免工厂配置和请求配置共用指针</a></li>
+      </ol>
+    </li>
+    <li><a href="#5-samlgo-是整个功能的核心">5. saml.go 是整个功能的核心</a>
+      <ol>
+        <li><a href="#51-createfilterfactory创建工厂">5.1 CreateFilterFactory：创建工厂</a></li>
+        <li><a href="#52-apply把静态配置变成可运行状态">5.2 Apply：把“静态配置”变成“可运行状态”</a>
+          <ol>
+            <li><a href="#第一步校验配置并补默认错误信息">第一步：校验配置并补默认错误信息</a></li>
+            <li><a href="#第二步解析-acs-url-和-metadata-url">第二步：解析 ACS URL 和 Metadata URL</a></li>
+            <li><a href="#第三步加载-sp-证书和私钥">第三步：加载 SP 证书和私钥</a></li>
+            <li><a href="#第四步加载-idp-metadata">第四步：加载 IdP metadata</a></li>
+            <li><a href="#第五步创建-crewjamsaml-middleware">第五步：创建 <code>crewjam/saml</code> middleware</a></li>
+          </ol>
+        </li>
+        <li><a href="#53-cookiesamesite为什么这里专门区分-http-和-https">5.3 CookieSameSite：为什么这里专门区分 HTTP 和 HTTPS</a></li>
+      </ol>
+    </li>
+    <li><a href="#6-每个请求进入后decode-是怎么跑的">6. 每个请求进入后，Decode 是怎么跑的</a>
+      <ol>
+        <li><a href="#61-metadata-请求">6.1 metadata 请求</a></li>
+        <li><a href="#62-acs-请求">6.2 ACS 请求</a></li>
+        <li><a href="#63-普通未受保护路径">6.3 普通未受保护路径</a></li>
+        <li><a href="#64-受保护路径">6.4 受保护路径</a>
+          <ol>
+            <li><a href="#情况-a没有-session">情况 A：没有 session</a></li>
+            <li><a href="#情况-bsession-读取失败但不是没有-session">情况 B：session 读取失败，但不是没有 session</a></li>
+            <li><a href="#情况-csession-正常">情况 C：session 正常</a></li>
+          </ol>
+        </li>
+      </ol>
+    </li>
+    <li><a href="#7-forwardattributes-为什么要先删-header">7. forwardAttributes 为什么要先删 header</a></li>
+    <li><a href="#8-这一版实现解决了哪些实际问题">8. 这一版实现解决了哪些实际问题</a></li>
+    <li><a href="#9-和项目里已有-jwt--mcp-能力的关系">9. 和项目里已有 JWT / MCP 能力的关系</a>
+      <ol>
+        <li><a href="#jwt">JWT</a></li>
+        <li><a href="#mcp-auth">MCP Auth</a></li>
+        <li><a href="#saml">SAML</a></li>
+      </ol>
+    </li>
+    <li><a href="#10-测试覆盖了哪些点">10. 测试覆盖了哪些点</a></li>
+    <li><a href="#11-如果你接下来要继续维护这块代码建议怎么读">11. 如果你接下来要继续维护这块代码，建议怎么读</a></li>
+    <li><a href="#12-一句话总结">12. 一句话总结</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/go/" >
+                Go
+            </a>
+        
+            <a href="/categories/%E5%BC%80%E6%BA%90/" >
+                开源
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/dubbo-go-pixiu%E6%B7%BB%E5%8A%A0saml%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3/">dubbo-go-pixiu添加Saml功能详解</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Mar 14, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 10 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="saml-auth-walkthrough">SAML Auth Walkthrough
+</h1><p>这份文档把 <code>apache/dubbo-go-pixiu</code> 的 <a class="link" href="https://github.com/apache/dubbo-go-pixiu/issues/888"  target="_blank" rel="noopener"
+    >issue #888</a> 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。</p>
+<p>如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。</p>
+<h2 id="1-这次-issue-要解决什么">1. 这次 issue 要解决什么
+</h2><p>issue #888 的核心目标，可以用一句话概括：</p>
+<blockquote>
+<p>给 Pixiu 网关增加一个新的 HTTP 认证过滤器，让它能够作为 SAML Service Provider (SP)，对接企业统一登录系统（IdP），把登录后的身份带到网关后面的服务。</p>
+</blockquote>
+<p>换成更通俗的话，就是：</p>
+<ul>
+<li>以前 Pixiu 已经有 JWT 认证、MCP 相关认证能力；</li>
+<li>这次新增的是 <code>SAML</code> 这条企业 SSO 路线；</li>
+<li>目标用户不是“手工拿 token 调 API”的场景，而是“浏览器访问企业系统，需要先跳转到统一登录页”的场景；</li>
+<li>典型对接对象就是 Entra ID、Okta、Keycloak 这一类企业身份系统。</li>
+</ul>
+<p>所以，这个 issue 不是简单重复 JWT，而是补齐 Pixiu 在“企业单点登录”方向上的能力。</p>
+<h2 id="2-这次改动落在哪些文件">2. 这次改动落在哪些文件
+</h2><p>本次 SAML 功能主要分布在下面这些文件里：</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>文件</th>
+          <th>作用</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>pkg/common/constant/key.go</code></td>
+          <td>定义过滤器名字常量 <code>dgp.filter.http.auth.saml</code></td>
+      </tr>
+      <tr>
+          <td><code>pkg/pluginregistry/registry.go</code></td>
+          <td>通过匿名导入注册 SAML 插件</td>
+      </tr>
+      <tr>
+          <td><code>pkg/filter/auth/saml/config.go</code></td>
+          <td>定义配置结构、参数校验、配置深拷贝</td>
+      </tr>
+      <tr>
+          <td><code>pkg/filter/auth/saml/saml.go</code></td>
+          <td>SAML 过滤器核心逻辑</td>
+      </tr>
+      <tr>
+          <td><code>pkg/filter/auth/saml/config_test.go</code></td>
+          <td>配置校验测试</td>
+      </tr>
+      <tr>
+          <td><code>pkg/filter/auth/saml/saml_test.go</code></td>
+          <td>运行流程、边界条件、安全细节测试</td>
+      </tr>
+      <tr>
+          <td><code>docs/user/filter/saml.md</code></td>
+          <td>面向使用者的配置说明</td>
+      </tr>
+  </tbody>
+</table></div>
+<p>如果你只想先抓主线，优先读这两个文件就够了：</p>
+<ol>
+<li><code>pkg/filter/auth/saml/config.go</code></li>
+<li><code>pkg/filter/auth/saml/saml.go</code></li>
+</ol>
+<h2 id="3-先从-pixiu-的插件接入流程看">3. 先从 Pixiu 的插件接入流程看
+</h2><p>SAML 功能虽然业务上看起来复杂，但接入 Pixiu 的方式其实很标准，和 JWT 过滤器是同一套框架。</p>
+<p>整体链路如下：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>flowchart TD
+</span></span><span style="display:flex;"><span>    A[&#34;YAML 里写 name: dgp.filter.http.auth.saml&#34;] --&gt; B[&#34;Pixiu 按 name 查找 Kind&#34;]
+</span></span><span style="display:flex;"><span>    B --&gt; C[&#34;pkg/pluginregistry/registry.go 匿名导入 saml 包&#34;]
+</span></span><span style="display:flex;"><span>    C --&gt; D[&#34;saml.init() 调用 RegisterHttpFilter(&amp;Plugin{})&#34;]
+</span></span><span style="display:flex;"><span>    D --&gt; E[&#34;框架根据 Plugin 创建 FilterFactory&#34;]
+</span></span><span style="display:flex;"><span>    E --&gt; F[&#34;框架把 YAML config 注入 Config() 返回的结构体&#34;]
+</span></span><span style="display:flex;"><span>    F --&gt; G[&#34;Apply() 做初始化：校验配置、加载证书、加载 IdP metadata、创建 middleware&#34;]
+</span></span><span style="display:flex;"><span>    G --&gt; H[&#34;每次请求进入时调用 PrepareFilterChain()&#34;]
+</span></span><span style="display:flex;"><span>    H --&gt; I[&#34;把 Filter 挂到当前请求的 decode filter chain&#34;]
+</span></span><span style="display:flex;"><span>    I --&gt; J[&#34;Decode() 按请求路径执行 metadata / acs / 鉴权逻辑&#34;]
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这里最容易理解错的一点是：<code>Plugin</code>、<code>FilterFactory</code>、<code>Filter</code> 不是一回事。</p>
+<h3 id="plugin插件的登记入口">Plugin：插件的“登记入口”
+</h3><p><code>pkg/filter/auth/saml/saml.go</code> 里有：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">type</span> Plugin <span style="color:#8be9fd;font-style:italic">struct</span>{}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>它是空结构体，不代表“没有作用”，而是说明：</p>
+<ul>
+<li>它本身不保存运行时数据；</li>
+<li>它只负责告诉 Pixiu：“这里有一个新的 HTTP filter，名字是这个，工厂由我来创建”；</li>
+<li>真正带配置、带状态的对象，是 <code>FilterFactory</code> 和 <code>Filter</code>。</li>
+</ul>
+<p>空结构体在 Go 里很常见，适合表示“只需要行为，不需要字段”的类型。JWT 过滤器也是类似思路。</p>
+<h3 id="kind过滤器在框架里的唯一名字">Kind：过滤器在框架里的唯一名字
+</h3><p>SAML 的 kind 定义在：</p>
+<ul>
+<li><code>pkg/common/constant/key.go</code></li>
+</ul>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>HTTPAuthSamlFilter = <span style="color:#f1fa8c">&#34;dgp.filter.http.auth.saml&#34;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这个字符串就是配置文件里 <code>name</code> 要写的内容。<code>dgp</code> 可以理解成 <code>dubbo-go-pixiu</code> 的缩写。</p>
+<h3 id="init--registerhttpfilter把插件注册进全局表">init + RegisterHttpFilter：把插件注册进全局表
+</h3><p>SAML 过滤器在 <code>init()</code> 里注册自己：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">init</span>() {
+</span></span><span style="display:flex;"><span>    filter.<span style="color:#50fa7b">RegisterHttpFilter</span>(<span style="color:#ff79c6">&amp;</span>Plugin{})
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>但 Go 的 <code>init()</code> 只有在包被导入后才会执行，所以还要在：</p>
+<ul>
+<li><code>pkg/pluginregistry/registry.go</code></li>
+</ul>
+<p>加这一行匿名导入：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>_ <span style="color:#f1fa8c">&#34;github.com/apache/dubbo-go-pixiu/pkg/filter/auth/saml&#34;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这样 Pixiu 启动时，SAML 插件就会自动注册到 HTTP filter registry 里。</p>
+<h2 id="4-config-做了什么">4. Config 做了什么
+</h2><p><code>pkg/filter/auth/saml/config.go</code> 主要做三件事。</p>
+<h3 id="41-定义配置项">4.1 定义配置项
+</h3><p>SAML 配置被拆成几类：</p>
+<ul>
+<li>SP 自己的信息
+<ul>
+<li><code>entity_id</code></li>
+<li><code>acs_url</code></li>
+<li><code>metadata_url</code></li>
+</ul>
+</li>
+<li>IdP 的信息
+<ul>
+<li><code>idp_metadata_url</code></li>
+<li><code>idp_metadata_file</code></li>
+</ul>
+</li>
+<li>证书和私钥
+<ul>
+<li><code>cert_file</code></li>
+<li><code>key_file</code></li>
+</ul>
+</li>
+<li>受保护路径
+<ul>
+<li><code>rules</code></li>
+</ul>
+</li>
+<li>属性转发
+<ul>
+<li><code>forward_attributes</code></li>
+</ul>
+</li>
+<li>开发环境兼容项
+<ul>
+<li><code>allow_idp_initiated</code></li>
+</ul>
+</li>
+</ul>
+<p>这套字段设计，正好对应了 SAML 的现实世界角色：</p>
+<ul>
+<li>Pixiu 作为 SP，要知道“我是谁、我接收响应的地址在哪、我公开 metadata 的地址在哪”；</li>
+<li>Pixiu 还要知道“对面的 IdP 是谁、它的登录入口和签名证书是什么”；</li>
+<li>最后再决定“哪些 URL 需要登录、登录后把哪些身份属性带给后端”。</li>
+</ul>
+<h3 id="42-validate把参数校验单独抽出来">4.2 Validate：把参数校验单独抽出来
+</h3><p><code>Validate()</code> 负责校验必填项，比如：</p>
+<ul>
+<li><code>entity_id</code> 不能为空</li>
+<li><code>acs_url</code> 不能为空</li>
+<li><code>metadata_url</code> 不能为空</li>
+<li><code>idp_metadata_url</code> 和 <code>idp_metadata_file</code> 至少给一个</li>
+<li><code>cert_file</code> / <code>key_file</code> 必须存在配置</li>
+</ul>
+<p>这样做的好处是：</p>
+<ul>
+<li><code>Apply()</code> 不会塞满一长串 <code>if ... return fmt.Errorf(...)</code></li>
+<li>规则集中，测试也更容易写</li>
+<li>和项目里其他 filter 的风格保持一致</li>
+</ul>
+<h3 id="43-deepcopy避免工厂配置和请求配置共用指针">4.3 DeepCopy：避免工厂配置和请求配置共用指针
+</h3><p><code>PrepareFilterChain()</code> 里不能直接把 <code>factory.cfg</code> 的指针传给每个请求使用，因为框架层的配置对象可能被复用或更新。</p>
+<p>所以这里专门实现了：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> (cfg <span style="color:#ff79c6">*</span>Config) <span style="color:#50fa7b">DeepCopy</span>() <span style="color:#ff79c6">*</span>Config
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>它会复制：</p>
+<ul>
+<li><code>Rules</code></li>
+<li><code>ForwardAttributes</code></li>
+</ul>
+<p>这样每次请求拿到的是独立配置副本，避免不同请求之间互相影响。这个点和 JWT 过滤器的做法是一致的。</p>
+<h2 id="5-samlgo-是整个功能的核心">5. saml.go 是整个功能的核心
+</h2><p>可以把 <code>pkg/filter/auth/saml/saml.go</code> 理解成三层：</p>
+<ol>
+<li>插件注册层</li>
+<li>初始化层</li>
+<li>请求处理层</li>
+</ol>
+<p>下面按执行顺序来看。</p>
+<h3 id="51-createfilterfactory创建工厂">5.1 CreateFilterFactory：创建工厂
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> (p <span style="color:#ff79c6">*</span>Plugin) <span style="color:#50fa7b">CreateFilterFactory</span>() (filter.HttpFilterFactory, <span style="color:#8be9fd">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">&amp;</span>FilterFactory{cfg: <span style="color:#ff79c6">&amp;</span>Config{}}, <span style="color:#ff79c6">nil</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这里的意思是：</p>
+<ul>
+<li>先创建一个工厂对象；</li>
+<li>把一个空的 <code>Config</code> 指针暴露给框架；</li>
+<li>等框架把 YAML 里的配置解析进去以后，再调用 <code>Apply()</code> 做真正初始化。</li>
+</ul>
+<p>所以 <code>Config()</code> + <code>Apply()</code> 是配套的：</p>
+<ul>
+<li><code>Config()</code>：告诉框架“配置填到这里”</li>
+<li><code>Apply()</code>：告诉工厂“配置已经填好了，你现在可以开始准备运行时依赖了”</li>
+</ul>
+<h3 id="52-apply把静态配置变成可运行状态">5.2 Apply：把“静态配置”变成“可运行状态”
+</h3><p><code>Apply()</code> 是整份实现里最关键的初始化步骤。它主要做了下面几件事。</p>
+<h4 id="第一步校验配置并补默认错误信息">第一步：校验配置并补默认错误信息
+</h4><ul>
+<li>调用 <code>cfg.Validate()</code></li>
+<li>如果 <code>err_msg</code> 没配，就给一个默认值 <code>SAML authentication failed</code></li>
+</ul>
+<h4 id="第二步解析-acs-url-和-metadata-url">第二步：解析 ACS URL 和 Metadata URL
+</h4><p>这里不仅做 <code>url.Parse</code>，还额外检查：</p>
+<ul>
+<li><code>acs_url</code> 必须是绝对地址</li>
+<li><code>metadata_url</code> 必须是绝对地址</li>
+<li>两者必须使用同一个 scheme 和 host</li>
+</ul>
+<p>这么做是合理的，因为：</p>
+<ul>
+<li><code>metadata_url</code> 表示 SP 对外公开的元数据地址</li>
+<li><code>acs_url</code> 表示 IdP 登录完成后要回调的地址</li>
+<li>它们本质上都属于同一个 SP，也就是同一个 Pixiu 实例</li>
+</ul>
+<p>如果这两个地址跑到了不同域名，配置就很可疑。</p>
+<h4 id="第三步加载-sp-证书和私钥">第三步：加载 SP 证书和私钥
+</h4><p>这里通过：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>tls.<span style="color:#50fa7b">LoadX509KeyPair</span>(<span style="color:#ff79c6">...</span>)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>加载 <code>cert_file</code> 和 <code>key_file</code>，然后再把证书解析成 <code>x509.Certificate</code>，并确认私钥是 RSA 私钥。</p>
+<p>这些材料的作用可以简单理解成：</p>
+<ul>
+<li><code>cert_file</code>：SP 的公开证书，对外放进 metadata 里给 IdP 看</li>
+<li><code>key_file</code>：SP 的私钥，只保存在 SP 自己这里</li>
+</ul>
+<p>在 SAML 场景里，SP 往往需要用这对证书/私钥参与签名、声明身份，以及在需要时处理加密相关动作。即使在最简单 demo 里，这对材料也是建立信任链的重要组成部分。</p>
+<h4 id="第四步加载-idp-metadata">第四步：加载 IdP metadata
+</h4><p>SAML 代码支持两种方式：</p>
+<ul>
+<li>从远程 URL 拉取：<code>idp_metadata_url</code></li>
+<li>从本地文件读取：<code>idp_metadata_file</code></li>
+</ul>
+<p><code>loadIDPMetadata()</code> 把这两种入口统一收口，最后都转换成 <code>*saml.EntityDescriptor</code>。</p>
+<p>IdP metadata 一般包含：</p>
+<ul>
+<li>IdP 的 entity ID</li>
+<li>单点登录地址（SSO endpoint）</li>
+<li>IdP 用来签名 SAML Response 的证书</li>
+</ul>
+<p>也就是说，Pixiu 想信任某个 IdP，先得知道它是谁、它从哪里发登录响应、它的签名该用什么证书验。</p>
+<h4 id="第五步创建-crewjamsaml-middleware">第五步：创建 <code>crewjam/saml</code> middleware
+</h4><p>真正的 SAML 协议处理，是交给：</p>
+<ul>
+<li><code>github.com/crewjam/saml</code></li>
+<li><code>github.com/crewjam/saml/samlsp</code></li>
+</ul>
+<p>来做的。</p>
+<p>Pixiu 这一层的职责不是“自己从零实现一套 SAML 协议栈”，而是：</p>
+<ul>
+<li>把 Pixiu 的 filter 生命周期和 <code>samlsp.Middleware</code> 接起来；</li>
+<li>把 Pixiu 配置翻译成 <code>samlsp.Options</code>；</li>
+<li>在 Pixiu 的请求链里决定何时进入 metadata、ACS、登录跳转、会话检查这些逻辑。</li>
+</ul>
+<p>这也是开源项目里很常见的做法：优先复用成熟协议库，而不是重复造轮子。</p>
+<h3 id="53-cookiesamesite为什么这里专门区分-http-和-https">5.3 CookieSameSite：为什么这里专门区分 HTTP 和 HTTPS
+</h3><p>这是这次实现里一个很关键、也很容易被忽略的点。</p>
+<p>SAML 的 SP-initiated 登录流程里，常常需要一个“请求跟踪 cookie”。流程大概是：</p>
+<ol>
+<li>用户先访问 Pixiu 的受保护地址</li>
+<li>Pixiu 把用户重定向到 IdP</li>
+<li>IdP 登录成功后，再跨站 <code>POST</code> 回 Pixiu 的 ACS</li>
+<li>Pixiu 依靠之前记录的请求信息，校验这次返回是否匹配</li>
+</ol>
+<p>问题在于：</p>
+<ul>
+<li>这个 ACS 回调是跨站请求；</li>
+<li>现代浏览器对跨站 cookie 很严格；</li>
+<li>如果想让 cookie 在跨站 <code>POST</code> 时仍然带回来，通常需要 <code>SameSite=None</code>，而 <code>SameSite=None</code> 又要求 <code>Secure</code>；</li>
+<li><code>Secure</code> 意味着必须跑在 HTTPS 上。</li>
+</ul>
+<p>所以当前实现里：</p>
+<ul>
+<li><code>https</code> 场景：<code>CookieSameSite = None</code></li>
+<li><code>http</code> 场景：<code>CookieSameSite = Default</code></li>
+</ul>
+<p>这就是为什么本实现还保留了 <code>allow_idp_initiated</code> 这个开关：本地纯 HTTP 调试时，浏览器可能不会带回请求跟踪 cookie，于是只能通过放宽 <code>InResponseTo</code> 校验来继续开发验证。</p>
+<p>换句话说：</p>
+<ul>
+<li>生产环境推荐：HTTPS + <code>allow_idp_initiated: false</code></li>
+<li>本地开发调试：HTTP 时可能需要 <code>allow_idp_initiated: true</code></li>
+</ul>
+<h2 id="6-每个请求进入后decode-是怎么跑的">6. 每个请求进入后，Decode 是怎么跑的
+</h2><p><code>Decode()</code> 是请求期的主入口。它按顺序处理 4 类情况。</p>
+<h3 id="61-metadata-请求">6.1 metadata 请求
+</h3><p>如果请求路径等于 <code>metadataPath</code>，就走：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#50fa7b">handleMetadata</span>()
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这里会把 SP metadata 生成 XML 返回给调用方。</p>
+<p>这个接口的主要用途不是给普通用户看的，而是给 IdP 管理员导入配置时使用的。企业管理员常常会把这个 metadata URL 配进 Entra ID、Okta、Keycloak 等系统里。</p>
+<h3 id="62-acs-请求">6.2 ACS 请求
+</h3><p>如果请求路径等于 <code>acsPath</code>，就走：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#50fa7b">handleACS</span>()
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这里直接把请求交给 <code>samlsp.Middleware</code>：</p>
+<ul>
+<li>解析 <code>SAMLResponse</code></li>
+<li>验证 assertion</li>
+<li>建立 session</li>
+<li>再跳回用户原来想访问的页面</li>
+</ul>
+<p>这里的设计重点是“Pixiu 负责接入点与请求链控制，SAML 协议细节交给成熟库处理”。</p>
+<h3 id="63-普通未受保护路径">6.3 普通未受保护路径
+</h3><p>如果当前请求路径没有匹配任何 <code>rules.match.prefix</code>，那就直接：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">return</span> filter.Continue
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>也就是说，SAML 过滤器不会无差别拦截整个网关，而是只保护你配置过的前缀路径。</p>
+<h3 id="64-受保护路径">6.4 受保护路径
+</h3><p>如果路径命中了规则，SAML 过滤器会尝试读取 session。</p>
+<p>这里的细节非常重要。</p>
+<h4 id="情况-a没有-session">情况 A：没有 session
+</h4><p>如果错误是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>errors.<span style="color:#50fa7b">Is</span>(err, samlsp.ErrNoSession)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>说明用户只是“还没登录”，这时正确动作是：</p>
+<ul>
+<li>启动登录流程</li>
+<li>跳转到 IdP</li>
+</ul>
+<h4 id="情况-bsession-读取失败但不是没有-session">情况 B：session 读取失败，但不是没有 session
+</h4><p>比如 cookie 解密失败、session 内容损坏，这种不应该继续跳登录。</p>
+<p>因为如果这里还继续重定向，可能会出现无限重定向：</p>
+<ol>
+<li>跳去 IdP</li>
+<li>登录成功回到 Pixiu</li>
+<li>Pixiu 还是读不出 cookie</li>
+<li>又跳去 IdP</li>
+<li>无限循环</li>
+</ol>
+<p>所以当前实现里，这种情况直接返回 <code>500</code>，同时打错误日志。这是比“所有 session 错误都重定向”更稳妥的实现。</p>
+<h4 id="情况-csession-正常">情况 C：session 正常
+</h4><p>那就说明用户已经登录成功了，此时：</p>
+<ul>
+<li>从 SAML assertion/session 中取出属性</li>
+<li>按配置映射到 HTTP header</li>
+<li>让请求继续往后端走</li>
+</ul>
+<h2 id="7-forwardattributes-为什么要先删-header">7. forwardAttributes 为什么要先删 header
+</h2><p><code>forwardAttributes()</code> 有一个非常重要的安全动作：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>ctx.Request.Header.<span style="color:#50fa7b">Del</span>(fa.Header)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>也就是先删除客户端原本自己带来的这些 header，再把真正来自 SAML assertion 的值写进去。</p>
+<p>为什么必须这样做？</p>
+<p>因为如果不删，攻击者就可以自己伪造：</p>
+<ul>
+<li><code>X-User-Email</code></li>
+<li><code>X-User-Name</code></li>
+</ul>
+<p>这类“看起来像登录后身份信息”的 header，骗后端系统误以为用户已经认证成功。</p>
+<p>所以这里的顺序必须是：</p>
+<ol>
+<li>清掉客户端自带的 SAML 控制 header</li>
+<li>只信任 session/assertion 里的属性</li>
+<li>把真实属性重新写回请求</li>
+</ol>
+<p>这就是这次实现里“防 header spoofing”的核心。</p>
+<h2 id="8-这一版实现解决了哪些实际问题">8. 这一版实现解决了哪些实际问题
+</h2><p>结合当前代码，可以把这次 SAML 功能的价值总结成 5 点：</p>
+<ol>
+<li>Pixiu 可以作为 SAML SP 暴露 metadata，方便 IdP 对接。</li>
+<li>Pixiu 可以拦截受保护路径，把未登录用户重定向到企业登录系统。</li>
+<li>Pixiu 可以在 ACS 端点接收并处理 SAML Response。</li>
+<li>Pixiu 可以把登录后的用户属性转成后端更容易消费的 HTTP header。</li>
+<li>Pixiu 可以在安全细节上避免明显坑点，比如 header 伪造、错误 session 无限重定向、HTTP/HTTPS cookie 差异。</li>
+</ol>
+<h2 id="9-和项目里已有-jwt--mcp-能力的关系">9. 和项目里已有 JWT / MCP 能力的关系
+</h2><p>如果你已经看过 <code>pkg/filter/auth/jwt/jwt.go</code> 或 <code>pkg/filter/auth/mcp/filter.go</code>，会发现三者在“插件接入方式”上很像：</p>
+<ul>
+<li>都有 <code>Kind</code></li>
+<li>都有 <code>Plugin</code></li>
+<li>都会注册到 filter registry</li>
+<li>都通过 <code>FilterFactory</code> 做初始化</li>
+<li>都在 <code>Decode()</code> 阶段决定请求是否继续</li>
+</ul>
+<p>但三者解决的问题并不一样：</p>
+<h3 id="jwt">JWT
+</h3><p>更像是：</p>
+<ul>
+<li>客户端已经带好 token</li>
+<li>网关负责校验 token 是否可信</li>
+</ul>
+<p>它偏 API 风格，适合服务调用、前后端分离接口、机器到机器访问。</p>
+<h3 id="mcp-auth">MCP Auth
+</h3><p>它主要服务于项目里的 MCP / OAuth 资源访问场景，关注的是 Bearer Token、issuer、resource metadata 这些能力。</p>
+<h3 id="saml">SAML
+</h3><p>它更像：</p>
+<ul>
+<li>浏览器用户先访问业务页面</li>
+<li>网关发现没登录</li>
+<li>把用户送去企业统一登录页</li>
+<li>登录完成后，网关拿到用户身份</li>
+</ul>
+<p>所以从业务定位看：</p>
+<ul>
+<li>JWT：更偏 token 鉴权</li>
+<li>SAML：更偏企业 SSO / 浏览器登录流</li>
+<li>MCP Auth：更偏 MCP/OAuth 资源保护</li>
+</ul>
+<p>这三者是互补关系，不是简单重复。</p>
+<h2 id="10-测试覆盖了哪些点">10. 测试覆盖了哪些点
+</h2><p>当前 SAML 测试主要在：</p>
+<ul>
+<li><code>pkg/filter/auth/saml/config_test.go</code></li>
+<li><code>pkg/filter/auth/saml/saml_test.go</code></li>
+</ul>
+<p>覆盖点包括：</p>
+<ul>
+<li>配置必填项校验</li>
+<li>证书加载失败</li>
+<li>metadata / acs 路径处理</li>
+<li>未登录用户跳转</li>
+<li>非 <code>ErrNoSession</code> 的 session 错误返回 500</li>
+<li>登录成功后属性转发</li>
+<li>header spoofing 清理</li>
+<li><code>PrepareFilterChain()</code> 的配置隔离</li>
+<li>HTTP / HTTPS 场景下 <code>CookieSameSite</code> 的不同分支</li>
+</ul>
+<p>这说明当前实现不只是“主流程能跑”，而是已经把一些容易出问题的边界也考虑进去了。</p>
+<h2 id="11-如果你接下来要继续维护这块代码建议怎么读">11. 如果你接下来要继续维护这块代码，建议怎么读
+</h2><p>推荐阅读顺序：</p>
+<ol>
+<li>先读 <code>docs/user/filter/saml.md</code>，知道使用者怎么配置</li>
+<li>再读 <code>pkg/filter/auth/saml/config.go</code>，理解配置模型</li>
+<li>再读 <code>pkg/filter/auth/saml/saml.go</code>，按 <code>Apply -&gt; PrepareFilterChain -&gt; Decode</code> 顺序看</li>
+<li>最后读 <code>pkg/filter/auth/saml/saml_test.go</code>，把测试当成行为说明书来看</li>
+</ol>
+<p>如果你是开源新手，这是一个很好的入门 issue，因为它同时覆盖了：</p>
+<ul>
+<li>Pixiu filter 插件机制</li>
+<li>配置设计</li>
+<li>第三方库集成</li>
+<li>安全边界处理</li>
+<li>单元测试编写</li>
+<li>文档补充</li>
+</ul>
+<h2 id="12-一句话总结">12. 一句话总结
+</h2><p>这次 issue #888 的本质，不是“往 Pixiu 里塞一个新协议名词”，而是：</p>
+<blockquote>
+<p>让 Pixiu 从“会校验 token 的网关”，进一步变成“能接企业统一登录系统的网关”。</p>
+</blockquote>
+<p>而从代码实现上看，这次新增的 SAML filter 也基本符合 Pixiu 现有 auth filter 的结构习惯：接入方式统一、生命周期清晰、测试覆盖完整、关键安全点有明确处理。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/go/">Go</a>
+        
+            <a href="/tags/%E5%BC%80%E6%BA%90/">开源</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/go-%E8%AF%AD%E8%A8%80%E4%B8%AD%E7%9A%84gmp%E8%B0%83%E5%BA%A6/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Go 语言中的GMP调度</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/go-%E5%B9%B6%E5%8F%91goroutinechannel-%E4%B8%8E-sync-%E9%94%81/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Go 并发：Goroutine、Channel 与 Sync 锁</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/go-%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D%E7%AD%96%E7%95%A5%E5%86%85%E5%AD%98%E9%80%83%E9%80%B8%E4%B8%8E-gc-%E6%9C%BA%E5%88%B6/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Go 内存分配策略、内存逃逸、与 GC 机制</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/golang-slice-%E4%B8%8E-map-%E5%BA%95%E5%B1%82%E8%AF%A6%E8%A7%A3/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Golang slice 与 map 底层详解</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm808.github.io\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+    </body>
+</html>

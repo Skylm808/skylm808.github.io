@@ -7,7 +7,558 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Tue, 10 Mar 2026 19:12:01 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Sat, 14 Mar 2026 22:21:53 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>dubbo-go-pixiu添加Saml功能详解</title>
+        <link>https://skylm808.github.io/p/dubbo-go-pixiu%E6%B7%BB%E5%8A%A0saml%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3/</link>
+        <pubDate>Sat, 14 Mar 2026 22:21:53 +0800</pubDate>
+        
+        <guid>https://skylm808.github.io/p/dubbo-go-pixiu%E6%B7%BB%E5%8A%A0saml%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3/</guid>
+        <description>&lt;h1 id=&#34;saml-auth-walkthrough&#34;&gt;SAML Auth Walkthrough
+&lt;/h1&gt;&lt;p&gt;这份文档把 &lt;code&gt;apache/dubbo-go-pixiu&lt;/code&gt; 的 &lt;a class=&#34;link&#34; href=&#34;https://github.com/apache/dubbo-go-pixiu/issues/888&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;issue #888&lt;/a&gt; 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。&lt;/p&gt;
+&lt;p&gt;如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。&lt;/p&gt;
+&lt;h2 id=&#34;1-这次-issue-要解决什么&#34;&gt;1. 这次 issue 要解决什么
+&lt;/h2&gt;&lt;p&gt;issue #888 的核心目标，可以用一句话概括：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;给 Pixiu 网关增加一个新的 HTTP 认证过滤器，让它能够作为 SAML Service Provider (SP)，对接企业统一登录系统（IdP），把登录后的身份带到网关后面的服务。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;换成更通俗的话，就是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;以前 Pixiu 已经有 JWT 认证、MCP 相关认证能力；&lt;/li&gt;
+&lt;li&gt;这次新增的是 &lt;code&gt;SAML&lt;/code&gt; 这条企业 SSO 路线；&lt;/li&gt;
+&lt;li&gt;目标用户不是“手工拿 token 调 API”的场景，而是“浏览器访问企业系统，需要先跳转到统一登录页”的场景；&lt;/li&gt;
+&lt;li&gt;典型对接对象就是 Entra ID、Okta、Keycloak 这一类企业身份系统。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以，这个 issue 不是简单重复 JWT，而是补齐 Pixiu 在“企业单点登录”方向上的能力。&lt;/p&gt;
+&lt;h2 id=&#34;2-这次改动落在哪些文件&#34;&gt;2. 这次改动落在哪些文件
+&lt;/h2&gt;&lt;p&gt;本次 SAML 功能主要分布在下面这些文件里：&lt;/p&gt;
+&lt;table&gt;
+  &lt;thead&gt;
+      &lt;tr&gt;
+          &lt;th&gt;文件&lt;/th&gt;
+          &lt;th&gt;作用&lt;/th&gt;
+      &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;pkg/common/constant/key.go&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;定义过滤器名字常量 &lt;code&gt;dgp.filter.http.auth.saml&lt;/code&gt;&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;pkg/pluginregistry/registry.go&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;通过匿名导入注册 SAML 插件&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;pkg/filter/auth/saml/config.go&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;定义配置结构、参数校验、配置深拷贝&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;pkg/filter/auth/saml/saml.go&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;SAML 过滤器核心逻辑&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;pkg/filter/auth/saml/config_test.go&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;配置校验测试&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;pkg/filter/auth/saml/saml_test.go&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;运行流程、边界条件、安全细节测试&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr&gt;
+          &lt;td&gt;&lt;code&gt;docs/user/filter/saml.md&lt;/code&gt;&lt;/td&gt;
+          &lt;td&gt;面向使用者的配置说明&lt;/td&gt;
+      &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;如果你只想先抓主线，优先读这两个文件就够了：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;pkg/filter/auth/saml/config.go&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;pkg/filter/auth/saml/saml.go&lt;/code&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;3-先从-pixiu-的插件接入流程看&#34;&gt;3. 先从 Pixiu 的插件接入流程看
+&lt;/h2&gt;&lt;p&gt;SAML 功能虽然业务上看起来复杂，但接入 Pixiu 的方式其实很标准，和 JWT 过滤器是同一套框架。&lt;/p&gt;
+&lt;p&gt;整体链路如下：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 8
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 9
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;10
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-fallback&#34; data-lang=&#34;fallback&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;flowchart TD
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    A[&amp;#34;YAML 里写 name: dgp.filter.http.auth.saml&amp;#34;] --&amp;gt; B[&amp;#34;Pixiu 按 name 查找 Kind&amp;#34;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    B --&amp;gt; C[&amp;#34;pkg/pluginregistry/registry.go 匿名导入 saml 包&amp;#34;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    C --&amp;gt; D[&amp;#34;saml.init() 调用 RegisterHttpFilter(&amp;amp;Plugin{})&amp;#34;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    D --&amp;gt; E[&amp;#34;框架根据 Plugin 创建 FilterFactory&amp;#34;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    E --&amp;gt; F[&amp;#34;框架把 YAML config 注入 Config() 返回的结构体&amp;#34;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    F --&amp;gt; G[&amp;#34;Apply() 做初始化：校验配置、加载证书、加载 IdP metadata、创建 middleware&amp;#34;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    G --&amp;gt; H[&amp;#34;每次请求进入时调用 PrepareFilterChain()&amp;#34;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    H --&amp;gt; I[&amp;#34;把 Filter 挂到当前请求的 decode filter chain&amp;#34;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    I --&amp;gt; J[&amp;#34;Decode() 按请求路径执行 metadata / acs / 鉴权逻辑&amp;#34;]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这里最容易理解错的一点是：&lt;code&gt;Plugin&lt;/code&gt;、&lt;code&gt;FilterFactory&lt;/code&gt;、&lt;code&gt;Filter&lt;/code&gt; 不是一回事。&lt;/p&gt;
+&lt;h3 id=&#34;plugin插件的登记入口&#34;&gt;Plugin：插件的“登记入口”
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;pkg/filter/auth/saml/saml.go&lt;/code&gt; 里有：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;type&lt;/span&gt; Plugin &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;struct&lt;/span&gt;{}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;它是空结构体，不代表“没有作用”，而是说明：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;它本身不保存运行时数据；&lt;/li&gt;
+&lt;li&gt;它只负责告诉 Pixiu：“这里有一个新的 HTTP filter，名字是这个，工厂由我来创建”；&lt;/li&gt;
+&lt;li&gt;真正带配置、带状态的对象，是 &lt;code&gt;FilterFactory&lt;/code&gt; 和 &lt;code&gt;Filter&lt;/code&gt;。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;空结构体在 Go 里很常见，适合表示“只需要行为，不需要字段”的类型。JWT 过滤器也是类似思路。&lt;/p&gt;
+&lt;h3 id=&#34;kind过滤器在框架里的唯一名字&#34;&gt;Kind：过滤器在框架里的唯一名字
+&lt;/h3&gt;&lt;p&gt;SAML 的 kind 定义在：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;pkg/common/constant/key.go&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;HTTPAuthSamlFilter = &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;dgp.filter.http.auth.saml&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这个字符串就是配置文件里 &lt;code&gt;name&lt;/code&gt; 要写的内容。&lt;code&gt;dgp&lt;/code&gt; 可以理解成 &lt;code&gt;dubbo-go-pixiu&lt;/code&gt; 的缩写。&lt;/p&gt;
+&lt;h3 id=&#34;init--registerhttpfilter把插件注册进全局表&#34;&gt;init + RegisterHttpFilter：把插件注册进全局表
+&lt;/h3&gt;&lt;p&gt;SAML 过滤器在 &lt;code&gt;init()&lt;/code&gt; 里注册自己：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;func&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;init&lt;/span&gt;() {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    filter.&lt;span style=&#34;color:#50fa7b&#34;&gt;RegisterHttpFilter&lt;/span&gt;(&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;amp;&lt;/span&gt;Plugin{})
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;但 Go 的 &lt;code&gt;init()&lt;/code&gt; 只有在包被导入后才会执行，所以还要在：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;pkg/pluginregistry/registry.go&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;加这一行匿名导入：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;_ &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;github.com/apache/dubbo-go-pixiu/pkg/filter/auth/saml&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这样 Pixiu 启动时，SAML 插件就会自动注册到 HTTP filter registry 里。&lt;/p&gt;
+&lt;h2 id=&#34;4-config-做了什么&#34;&gt;4. Config 做了什么
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;pkg/filter/auth/saml/config.go&lt;/code&gt; 主要做三件事。&lt;/p&gt;
+&lt;h3 id=&#34;41-定义配置项&#34;&gt;4.1 定义配置项
+&lt;/h3&gt;&lt;p&gt;SAML 配置被拆成几类：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;SP 自己的信息
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;entity_id&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;acs_url&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;metadata_url&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;IdP 的信息
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;idp_metadata_url&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;idp_metadata_file&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;证书和私钥
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;cert_file&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;key_file&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;受保护路径
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;rules&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;属性转发
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;forward_attributes&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;开发环境兼容项
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;allow_idp_initiated&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这套字段设计，正好对应了 SAML 的现实世界角色：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Pixiu 作为 SP，要知道“我是谁、我接收响应的地址在哪、我公开 metadata 的地址在哪”；&lt;/li&gt;
+&lt;li&gt;Pixiu 还要知道“对面的 IdP 是谁、它的登录入口和签名证书是什么”；&lt;/li&gt;
+&lt;li&gt;最后再决定“哪些 URL 需要登录、登录后把哪些身份属性带给后端”。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;42-validate把参数校验单独抽出来&#34;&gt;4.2 Validate：把参数校验单独抽出来
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;Validate()&lt;/code&gt; 负责校验必填项，比如：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;entity_id&lt;/code&gt; 不能为空&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;acs_url&lt;/code&gt; 不能为空&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;metadata_url&lt;/code&gt; 不能为空&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;idp_metadata_url&lt;/code&gt; 和 &lt;code&gt;idp_metadata_file&lt;/code&gt; 至少给一个&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;cert_file&lt;/code&gt; / &lt;code&gt;key_file&lt;/code&gt; 必须存在配置&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这样做的好处是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;Apply()&lt;/code&gt; 不会塞满一长串 &lt;code&gt;if ... return fmt.Errorf(...)&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;规则集中，测试也更容易写&lt;/li&gt;
+&lt;li&gt;和项目里其他 filter 的风格保持一致&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;43-deepcopy避免工厂配置和请求配置共用指针&#34;&gt;4.3 DeepCopy：避免工厂配置和请求配置共用指针
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;PrepareFilterChain()&lt;/code&gt; 里不能直接把 &lt;code&gt;factory.cfg&lt;/code&gt; 的指针传给每个请求使用，因为框架层的配置对象可能被复用或更新。&lt;/p&gt;
+&lt;p&gt;所以这里专门实现了：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;func&lt;/span&gt; (cfg &lt;span style=&#34;color:#ff79c6&#34;&gt;*&lt;/span&gt;Config) &lt;span style=&#34;color:#50fa7b&#34;&gt;DeepCopy&lt;/span&gt;() &lt;span style=&#34;color:#ff79c6&#34;&gt;*&lt;/span&gt;Config
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;它会复制：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;Rules&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;ForwardAttributes&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这样每次请求拿到的是独立配置副本，避免不同请求之间互相影响。这个点和 JWT 过滤器的做法是一致的。&lt;/p&gt;
+&lt;h2 id=&#34;5-samlgo-是整个功能的核心&#34;&gt;5. saml.go 是整个功能的核心
+&lt;/h2&gt;&lt;p&gt;可以把 &lt;code&gt;pkg/filter/auth/saml/saml.go&lt;/code&gt; 理解成三层：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;插件注册层&lt;/li&gt;
+&lt;li&gt;初始化层&lt;/li&gt;
+&lt;li&gt;请求处理层&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;下面按执行顺序来看。&lt;/p&gt;
+&lt;h3 id=&#34;51-createfilterfactory创建工厂&#34;&gt;5.1 CreateFilterFactory：创建工厂
+&lt;/h3&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;func&lt;/span&gt; (p &lt;span style=&#34;color:#ff79c6&#34;&gt;*&lt;/span&gt;Plugin) &lt;span style=&#34;color:#50fa7b&#34;&gt;CreateFilterFactory&lt;/span&gt;() (filter.HttpFilterFactory, &lt;span style=&#34;color:#8be9fd&#34;&gt;error&lt;/span&gt;) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;amp;&lt;/span&gt;FilterFactory{cfg: &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;amp;&lt;/span&gt;Config{}}, &lt;span style=&#34;color:#ff79c6&#34;&gt;nil&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这里的意思是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;先创建一个工厂对象；&lt;/li&gt;
+&lt;li&gt;把一个空的 &lt;code&gt;Config&lt;/code&gt; 指针暴露给框架；&lt;/li&gt;
+&lt;li&gt;等框架把 YAML 里的配置解析进去以后，再调用 &lt;code&gt;Apply()&lt;/code&gt; 做真正初始化。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以 &lt;code&gt;Config()&lt;/code&gt; + &lt;code&gt;Apply()&lt;/code&gt; 是配套的：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;Config()&lt;/code&gt;：告诉框架“配置填到这里”&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Apply()&lt;/code&gt;：告诉工厂“配置已经填好了，你现在可以开始准备运行时依赖了”&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;52-apply把静态配置变成可运行状态&#34;&gt;5.2 Apply：把“静态配置”变成“可运行状态”
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;Apply()&lt;/code&gt; 是整份实现里最关键的初始化步骤。它主要做了下面几件事。&lt;/p&gt;
+&lt;h4 id=&#34;第一步校验配置并补默认错误信息&#34;&gt;第一步：校验配置并补默认错误信息
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;调用 &lt;code&gt;cfg.Validate()&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;如果 &lt;code&gt;err_msg&lt;/code&gt; 没配，就给一个默认值 &lt;code&gt;SAML authentication failed&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;第二步解析-acs-url-和-metadata-url&#34;&gt;第二步：解析 ACS URL 和 Metadata URL
+&lt;/h4&gt;&lt;p&gt;这里不仅做 &lt;code&gt;url.Parse&lt;/code&gt;，还额外检查：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;acs_url&lt;/code&gt; 必须是绝对地址&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;metadata_url&lt;/code&gt; 必须是绝对地址&lt;/li&gt;
+&lt;li&gt;两者必须使用同一个 scheme 和 host&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这么做是合理的，因为：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;metadata_url&lt;/code&gt; 表示 SP 对外公开的元数据地址&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;acs_url&lt;/code&gt; 表示 IdP 登录完成后要回调的地址&lt;/li&gt;
+&lt;li&gt;它们本质上都属于同一个 SP，也就是同一个 Pixiu 实例&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;如果这两个地址跑到了不同域名，配置就很可疑。&lt;/p&gt;
+&lt;h4 id=&#34;第三步加载-sp-证书和私钥&#34;&gt;第三步：加载 SP 证书和私钥
+&lt;/h4&gt;&lt;p&gt;这里通过：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;tls.&lt;span style=&#34;color:#50fa7b&#34;&gt;LoadX509KeyPair&lt;/span&gt;(&lt;span style=&#34;color:#ff79c6&#34;&gt;...&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;加载 &lt;code&gt;cert_file&lt;/code&gt; 和 &lt;code&gt;key_file&lt;/code&gt;，然后再把证书解析成 &lt;code&gt;x509.Certificate&lt;/code&gt;，并确认私钥是 RSA 私钥。&lt;/p&gt;
+&lt;p&gt;这些材料的作用可以简单理解成：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;cert_file&lt;/code&gt;：SP 的公开证书，对外放进 metadata 里给 IdP 看&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;key_file&lt;/code&gt;：SP 的私钥，只保存在 SP 自己这里&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;在 SAML 场景里，SP 往往需要用这对证书/私钥参与签名、声明身份，以及在需要时处理加密相关动作。即使在最简单 demo 里，这对材料也是建立信任链的重要组成部分。&lt;/p&gt;
+&lt;h4 id=&#34;第四步加载-idp-metadata&#34;&gt;第四步：加载 IdP metadata
+&lt;/h4&gt;&lt;p&gt;SAML 代码支持两种方式：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;从远程 URL 拉取：&lt;code&gt;idp_metadata_url&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;从本地文件读取：&lt;code&gt;idp_metadata_file&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;code&gt;loadIDPMetadata()&lt;/code&gt; 把这两种入口统一收口，最后都转换成 &lt;code&gt;*saml.EntityDescriptor&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;IdP metadata 一般包含：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;IdP 的 entity ID&lt;/li&gt;
+&lt;li&gt;单点登录地址（SSO endpoint）&lt;/li&gt;
+&lt;li&gt;IdP 用来签名 SAML Response 的证书&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;也就是说，Pixiu 想信任某个 IdP，先得知道它是谁、它从哪里发登录响应、它的签名该用什么证书验。&lt;/p&gt;
+&lt;h4 id=&#34;第五步创建-crewjamsaml-middleware&#34;&gt;第五步：创建 &lt;code&gt;crewjam/saml&lt;/code&gt; middleware
+&lt;/h4&gt;&lt;p&gt;真正的 SAML 协议处理，是交给：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;github.com/crewjam/saml&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;github.com/crewjam/saml/samlsp&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;来做的。&lt;/p&gt;
+&lt;p&gt;Pixiu 这一层的职责不是“自己从零实现一套 SAML 协议栈”，而是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;把 Pixiu 的 filter 生命周期和 &lt;code&gt;samlsp.Middleware&lt;/code&gt; 接起来；&lt;/li&gt;
+&lt;li&gt;把 Pixiu 配置翻译成 &lt;code&gt;samlsp.Options&lt;/code&gt;；&lt;/li&gt;
+&lt;li&gt;在 Pixiu 的请求链里决定何时进入 metadata、ACS、登录跳转、会话检查这些逻辑。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这也是开源项目里很常见的做法：优先复用成熟协议库，而不是重复造轮子。&lt;/p&gt;
+&lt;h3 id=&#34;53-cookiesamesite为什么这里专门区分-http-和-https&#34;&gt;5.3 CookieSameSite：为什么这里专门区分 HTTP 和 HTTPS
+&lt;/h3&gt;&lt;p&gt;这是这次实现里一个很关键、也很容易被忽略的点。&lt;/p&gt;
+&lt;p&gt;SAML 的 SP-initiated 登录流程里，常常需要一个“请求跟踪 cookie”。流程大概是：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;用户先访问 Pixiu 的受保护地址&lt;/li&gt;
+&lt;li&gt;Pixiu 把用户重定向到 IdP&lt;/li&gt;
+&lt;li&gt;IdP 登录成功后，再跨站 &lt;code&gt;POST&lt;/code&gt; 回 Pixiu 的 ACS&lt;/li&gt;
+&lt;li&gt;Pixiu 依靠之前记录的请求信息，校验这次返回是否匹配&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;问题在于：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;这个 ACS 回调是跨站请求；&lt;/li&gt;
+&lt;li&gt;现代浏览器对跨站 cookie 很严格；&lt;/li&gt;
+&lt;li&gt;如果想让 cookie 在跨站 &lt;code&gt;POST&lt;/code&gt; 时仍然带回来，通常需要 &lt;code&gt;SameSite=None&lt;/code&gt;，而 &lt;code&gt;SameSite=None&lt;/code&gt; 又要求 &lt;code&gt;Secure&lt;/code&gt;；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Secure&lt;/code&gt; 意味着必须跑在 HTTPS 上。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以当前实现里：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;https&lt;/code&gt; 场景：&lt;code&gt;CookieSameSite = None&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;http&lt;/code&gt; 场景：&lt;code&gt;CookieSameSite = Default&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这就是为什么本实现还保留了 &lt;code&gt;allow_idp_initiated&lt;/code&gt; 这个开关：本地纯 HTTP 调试时，浏览器可能不会带回请求跟踪 cookie，于是只能通过放宽 &lt;code&gt;InResponseTo&lt;/code&gt; 校验来继续开发验证。&lt;/p&gt;
+&lt;p&gt;换句话说：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;生产环境推荐：HTTPS + &lt;code&gt;allow_idp_initiated: false&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;本地开发调试：HTTP 时可能需要 &lt;code&gt;allow_idp_initiated: true&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;6-每个请求进入后decode-是怎么跑的&#34;&gt;6. 每个请求进入后，Decode 是怎么跑的
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;Decode()&lt;/code&gt; 是请求期的主入口。它按顺序处理 4 类情况。&lt;/p&gt;
+&lt;h3 id=&#34;61-metadata-请求&#34;&gt;6.1 metadata 请求
+&lt;/h3&gt;&lt;p&gt;如果请求路径等于 &lt;code&gt;metadataPath&lt;/code&gt;，就走：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b&#34;&gt;handleMetadata&lt;/span&gt;()
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这里会把 SP metadata 生成 XML 返回给调用方。&lt;/p&gt;
+&lt;p&gt;这个接口的主要用途不是给普通用户看的，而是给 IdP 管理员导入配置时使用的。企业管理员常常会把这个 metadata URL 配进 Entra ID、Okta、Keycloak 等系统里。&lt;/p&gt;
+&lt;h3 id=&#34;62-acs-请求&#34;&gt;6.2 ACS 请求
+&lt;/h3&gt;&lt;p&gt;如果请求路径等于 &lt;code&gt;acsPath&lt;/code&gt;，就走：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b&#34;&gt;handleACS&lt;/span&gt;()
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这里直接把请求交给 &lt;code&gt;samlsp.Middleware&lt;/code&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;解析 &lt;code&gt;SAMLResponse&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;验证 assertion&lt;/li&gt;
+&lt;li&gt;建立 session&lt;/li&gt;
+&lt;li&gt;再跳回用户原来想访问的页面&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这里的设计重点是“Pixiu 负责接入点与请求链控制，SAML 协议细节交给成熟库处理”。&lt;/p&gt;
+&lt;h3 id=&#34;63-普通未受保护路径&#34;&gt;6.3 普通未受保护路径
+&lt;/h3&gt;&lt;p&gt;如果当前请求路径没有匹配任何 &lt;code&gt;rules.match.prefix&lt;/code&gt;，那就直接：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; filter.Continue
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;也就是说，SAML 过滤器不会无差别拦截整个网关，而是只保护你配置过的前缀路径。&lt;/p&gt;
+&lt;h3 id=&#34;64-受保护路径&#34;&gt;6.4 受保护路径
+&lt;/h3&gt;&lt;p&gt;如果路径命中了规则，SAML 过滤器会尝试读取 session。&lt;/p&gt;
+&lt;p&gt;这里的细节非常重要。&lt;/p&gt;
+&lt;h4 id=&#34;情况-a没有-session&#34;&gt;情况 A：没有 session
+&lt;/h4&gt;&lt;p&gt;如果错误是：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;errors.&lt;span style=&#34;color:#50fa7b&#34;&gt;Is&lt;/span&gt;(err, samlsp.ErrNoSession)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;说明用户只是“还没登录”，这时正确动作是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;启动登录流程&lt;/li&gt;
+&lt;li&gt;跳转到 IdP&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;情况-bsession-读取失败但不是没有-session&#34;&gt;情况 B：session 读取失败，但不是没有 session
+&lt;/h4&gt;&lt;p&gt;比如 cookie 解密失败、session 内容损坏，这种不应该继续跳登录。&lt;/p&gt;
+&lt;p&gt;因为如果这里还继续重定向，可能会出现无限重定向：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;跳去 IdP&lt;/li&gt;
+&lt;li&gt;登录成功回到 Pixiu&lt;/li&gt;
+&lt;li&gt;Pixiu 还是读不出 cookie&lt;/li&gt;
+&lt;li&gt;又跳去 IdP&lt;/li&gt;
+&lt;li&gt;无限循环&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;所以当前实现里，这种情况直接返回 &lt;code&gt;500&lt;/code&gt;，同时打错误日志。这是比“所有 session 错误都重定向”更稳妥的实现。&lt;/p&gt;
+&lt;h4 id=&#34;情况-csession-正常&#34;&gt;情况 C：session 正常
+&lt;/h4&gt;&lt;p&gt;那就说明用户已经登录成功了，此时：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;从 SAML assertion/session 中取出属性&lt;/li&gt;
+&lt;li&gt;按配置映射到 HTTP header&lt;/li&gt;
+&lt;li&gt;让请求继续往后端走&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;7-forwardattributes-为什么要先删-header&#34;&gt;7. forwardAttributes 为什么要先删 header
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;forwardAttributes()&lt;/code&gt; 有一个非常重要的安全动作：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;ctx.Request.Header.&lt;span style=&#34;color:#50fa7b&#34;&gt;Del&lt;/span&gt;(fa.Header)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;也就是先删除客户端原本自己带来的这些 header，再把真正来自 SAML assertion 的值写进去。&lt;/p&gt;
+&lt;p&gt;为什么必须这样做？&lt;/p&gt;
+&lt;p&gt;因为如果不删，攻击者就可以自己伪造：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;X-User-Email&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;X-User-Name&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这类“看起来像登录后身份信息”的 header，骗后端系统误以为用户已经认证成功。&lt;/p&gt;
+&lt;p&gt;所以这里的顺序必须是：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;清掉客户端自带的 SAML 控制 header&lt;/li&gt;
+&lt;li&gt;只信任 session/assertion 里的属性&lt;/li&gt;
+&lt;li&gt;把真实属性重新写回请求&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这就是这次实现里“防 header spoofing”的核心。&lt;/p&gt;
+&lt;h2 id=&#34;8-这一版实现解决了哪些实际问题&#34;&gt;8. 这一版实现解决了哪些实际问题
+&lt;/h2&gt;&lt;p&gt;结合当前代码，可以把这次 SAML 功能的价值总结成 5 点：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Pixiu 可以作为 SAML SP 暴露 metadata，方便 IdP 对接。&lt;/li&gt;
+&lt;li&gt;Pixiu 可以拦截受保护路径，把未登录用户重定向到企业登录系统。&lt;/li&gt;
+&lt;li&gt;Pixiu 可以在 ACS 端点接收并处理 SAML Response。&lt;/li&gt;
+&lt;li&gt;Pixiu 可以把登录后的用户属性转成后端更容易消费的 HTTP header。&lt;/li&gt;
+&lt;li&gt;Pixiu 可以在安全细节上避免明显坑点，比如 header 伪造、错误 session 无限重定向、HTTP/HTTPS cookie 差异。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h2 id=&#34;9-和项目里已有-jwt--mcp-能力的关系&#34;&gt;9. 和项目里已有 JWT / MCP 能力的关系
+&lt;/h2&gt;&lt;p&gt;如果你已经看过 &lt;code&gt;pkg/filter/auth/jwt/jwt.go&lt;/code&gt; 或 &lt;code&gt;pkg/filter/auth/mcp/filter.go&lt;/code&gt;，会发现三者在“插件接入方式”上很像：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;都有 &lt;code&gt;Kind&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;都有 &lt;code&gt;Plugin&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;都会注册到 filter registry&lt;/li&gt;
+&lt;li&gt;都通过 &lt;code&gt;FilterFactory&lt;/code&gt; 做初始化&lt;/li&gt;
+&lt;li&gt;都在 &lt;code&gt;Decode()&lt;/code&gt; 阶段决定请求是否继续&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;但三者解决的问题并不一样：&lt;/p&gt;
+&lt;h3 id=&#34;jwt&#34;&gt;JWT
+&lt;/h3&gt;&lt;p&gt;更像是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;客户端已经带好 token&lt;/li&gt;
+&lt;li&gt;网关负责校验 token 是否可信&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;它偏 API 风格，适合服务调用、前后端分离接口、机器到机器访问。&lt;/p&gt;
+&lt;h3 id=&#34;mcp-auth&#34;&gt;MCP Auth
+&lt;/h3&gt;&lt;p&gt;它主要服务于项目里的 MCP / OAuth 资源访问场景，关注的是 Bearer Token、issuer、resource metadata 这些能力。&lt;/p&gt;
+&lt;h3 id=&#34;saml&#34;&gt;SAML
+&lt;/h3&gt;&lt;p&gt;它更像：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;浏览器用户先访问业务页面&lt;/li&gt;
+&lt;li&gt;网关发现没登录&lt;/li&gt;
+&lt;li&gt;把用户送去企业统一登录页&lt;/li&gt;
+&lt;li&gt;登录完成后，网关拿到用户身份&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以从业务定位看：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;JWT：更偏 token 鉴权&lt;/li&gt;
+&lt;li&gt;SAML：更偏企业 SSO / 浏览器登录流&lt;/li&gt;
+&lt;li&gt;MCP Auth：更偏 MCP/OAuth 资源保护&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这三者是互补关系，不是简单重复。&lt;/p&gt;
+&lt;h2 id=&#34;10-测试覆盖了哪些点&#34;&gt;10. 测试覆盖了哪些点
+&lt;/h2&gt;&lt;p&gt;当前 SAML 测试主要在：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;pkg/filter/auth/saml/config_test.go&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;pkg/filter/auth/saml/saml_test.go&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;覆盖点包括：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;配置必填项校验&lt;/li&gt;
+&lt;li&gt;证书加载失败&lt;/li&gt;
+&lt;li&gt;metadata / acs 路径处理&lt;/li&gt;
+&lt;li&gt;未登录用户跳转&lt;/li&gt;
+&lt;li&gt;非 &lt;code&gt;ErrNoSession&lt;/code&gt; 的 session 错误返回 500&lt;/li&gt;
+&lt;li&gt;登录成功后属性转发&lt;/li&gt;
+&lt;li&gt;header spoofing 清理&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;PrepareFilterChain()&lt;/code&gt; 的配置隔离&lt;/li&gt;
+&lt;li&gt;HTTP / HTTPS 场景下 &lt;code&gt;CookieSameSite&lt;/code&gt; 的不同分支&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这说明当前实现不只是“主流程能跑”，而是已经把一些容易出问题的边界也考虑进去了。&lt;/p&gt;
+&lt;h2 id=&#34;11-如果你接下来要继续维护这块代码建议怎么读&#34;&gt;11. 如果你接下来要继续维护这块代码，建议怎么读
+&lt;/h2&gt;&lt;p&gt;推荐阅读顺序：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;先读 &lt;code&gt;docs/user/filter/saml.md&lt;/code&gt;，知道使用者怎么配置&lt;/li&gt;
+&lt;li&gt;再读 &lt;code&gt;pkg/filter/auth/saml/config.go&lt;/code&gt;，理解配置模型&lt;/li&gt;
+&lt;li&gt;再读 &lt;code&gt;pkg/filter/auth/saml/saml.go&lt;/code&gt;，按 &lt;code&gt;Apply -&amp;gt; PrepareFilterChain -&amp;gt; Decode&lt;/code&gt; 顺序看&lt;/li&gt;
+&lt;li&gt;最后读 &lt;code&gt;pkg/filter/auth/saml/saml_test.go&lt;/code&gt;，把测试当成行为说明书来看&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;如果你是开源新手，这是一个很好的入门 issue，因为它同时覆盖了：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Pixiu filter 插件机制&lt;/li&gt;
+&lt;li&gt;配置设计&lt;/li&gt;
+&lt;li&gt;第三方库集成&lt;/li&gt;
+&lt;li&gt;安全边界处理&lt;/li&gt;
+&lt;li&gt;单元测试编写&lt;/li&gt;
+&lt;li&gt;文档补充&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;12-一句话总结&#34;&gt;12. 一句话总结
+&lt;/h2&gt;&lt;p&gt;这次 issue #888 的本质，不是“往 Pixiu 里塞一个新协议名词”，而是：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;让 Pixiu 从“会校验 token 的网关”，进一步变成“能接企业统一登录系统的网关”。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;而从代码实现上看，这次新增的 SAML filter 也基本符合 Pixiu 现有 auth filter 的结构习惯：接入方式统一、生命周期清晰、测试覆盖完整、关键安全点有明确处理。&lt;/p&gt;
+</description>
+        </item>
+        <item>
         <title>Go 语言中的GMP调度</title>
         <link>https://skylm808.github.io/p/go-%E8%AF%AD%E8%A8%80%E4%B8%AD%E7%9A%84gmp%E8%B0%83%E5%BA%A6/</link>
         <pubDate>Tue, 10 Mar 2026 19:12:01 +0800</pubDate>
