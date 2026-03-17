@@ -1,0 +1,2028 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="开源社区参与的规范 Git 流程 这份文档以 GitHub 上最常见的 Fork + 分支 + Pull Request 工作流为主，适合你现在这种参与 Apache 项目、给官方仓库提 PR 的场景。\n文中会重点说明：\n每一步应该做什么 每个命令的作用是什么 什么时候要同步官方仓库 origin、upstream、fetch、rebase、PR 分别是什么意思 结合 dubbo-go-pixiu / dubbo-go-pixiu-samples / dubbo-website 这类实际场景，应该怎么操作 1. 先理解几个核心概念 在开始之前，先把几个最容易混淆的概念分清楚。\n">
+<title>开源社区参与的规范 Git 流程</title>
+
+<link rel='canonical' href='https://skylm808.github.io/p/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA%E5%8F%82%E4%B8%8E%E7%9A%84%E8%A7%84%E8%8C%83-git-%E6%B5%81%E7%A8%8B/'>
+
+<link rel="stylesheet" href="/scss/style.min.96ba1c3608acf4f319504831a9a06a60c4c0f47ce65605b5ca2dab1981e36064.css"><meta property='og:title' content="开源社区参与的规范 Git 流程">
+<meta property='og:description' content="开源社区参与的规范 Git 流程 这份文档以 GitHub 上最常见的 Fork + 分支 + Pull Request 工作流为主，适合你现在这种参与 Apache 项目、给官方仓库提 PR 的场景。\n文中会重点说明：\n每一步应该做什么 每个命令的作用是什么 什么时候要同步官方仓库 origin、upstream、fetch、rebase、PR 分别是什么意思 结合 dubbo-go-pixiu / dubbo-go-pixiu-samples / dubbo-website 这类实际场景，应该怎么操作 1. 先理解几个核心概念 在开始之前，先把几个最容易混淆的概念分清楚。\n">
+<meta property='og:url' content='https://skylm808.github.io/p/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA%E5%8F%82%E4%B8%8E%E7%9A%84%E8%A7%84%E8%8C%83-git-%E6%B5%81%E7%A8%8B/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Go' /><meta property='article:tag' content='开源' /><meta property='article:published_time' content='2026-03-17T23:09:18&#43;08:00'/><meta property='article:modified_time' content='2026-03-17T23:09:18&#43;08:00'/>
+<meta name="twitter:title" content="开源社区参与的规范 Git 流程">
+<meta name="twitter:description" content="开源社区参与的规范 Git 流程 这份文档以 GitHub 上最常见的 Fork + 分支 + Pull Request 工作流为主，适合你现在这种参与 Apache 项目、给官方仓库提 PR 的场景。\n文中会重点说明：\n每一步应该做什么 每个命令的作用是什么 什么时候要同步官方仓库 origin、upstream、fetch、rebase、PR 分别是什么意思 结合 dubbo-go-pixiu / dubbo-go-pixiu-samples / dubbo-website 这类实际场景，应该怎么操作 1. 先理解几个核心概念 在开始之前，先把几个最容易混淆的概念分清楚。\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页|home</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类&amp;标签|Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档 | Archives</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索 | Search</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友情链接 | Links</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#1-先理解几个核心概念">1. 先理解几个核心概念</a>
+      <ol>
+        <li><a href="#11-fork-是什么">1.1 Fork 是什么</a></li>
+        <li><a href="#12-origin-是什么">1.2 <code>origin</code> 是什么</a></li>
+        <li><a href="#13-upstream-是什么">1.3 <code>upstream</code> 是什么</a></li>
+        <li><a href="#14-main-和-master-是什么">1.4 <code>main</code> 和 <code>master</code> 是什么</a></li>
+        <li><a href="#15-git-fetch-是什么">1.5 <code>git fetch</code> 是什么</a></li>
+        <li><a href="#16-git-rebase-upstreammaster-是什么">1.6 <code>git rebase upstream/master</code> 是什么</a></li>
+        <li><a href="#17-git-branch-和-git-branch--a-的区别">1.7 <code>git branch</code> 和 <code>git branch -a</code> 的区别</a></li>
+      </ol>
+    </li>
+    <li><a href="#2-最规范最常见的开源提交流程">2. 最规范、最常见的开源提交流程</a></li>
+    <li><a href="#3-第一次参与某个仓库时的完整流程">3. 第一次参与某个仓库时的完整流程</a>
+      <ol>
+        <li><a href="#步骤-1先在-github-页面上-fork-官方仓库">步骤 1：先在 GitHub 页面上 Fork 官方仓库</a></li>
+        <li><a href="#步骤-2把你自己的-fork-clone-到本地">步骤 2：把你自己的 fork clone 到本地</a></li>
+        <li><a href="#步骤-3给本地仓库配置官方上游仓库-upstream">步骤 3：给本地仓库配置官方上游仓库 <code>upstream</code></a></li>
+        <li><a href="#步骤-4先同步一次官方最新代码">步骤 4：先同步一次官方最新代码</a></li>
+        <li><a href="#步骤-5可选把你-fork-上的主分支也同步成最新">步骤 5：可选，把你 fork 上的主分支也同步成最新</a></li>
+        <li><a href="#步骤-6从最新主分支切出你自己的功能分支">步骤 6：从最新主分支切出你自己的功能分支</a></li>
+        <li><a href="#步骤-7开始修改代码或文档">步骤 7：开始修改代码或文档</a></li>
+        <li><a href="#步骤-8先本地测试再提交">步骤 8：先本地测试，再提交</a></li>
+        <li><a href="#步骤-9把改动加入暂存区">步骤 9：把改动加入暂存区</a></li>
+        <li><a href="#步骤-10提交到本地-git-历史">步骤 10：提交到本地 Git 历史</a></li>
+        <li><a href="#步骤-11把功能分支推到你自己的-fork">步骤 11：把功能分支推到你自己的 fork</a></li>
+        <li><a href="#步骤-12去-github-页面发起-pull-request">步骤 12：去 GitHub 页面发起 Pull Request</a></li>
+      </ol>
+    </li>
+    <li><a href="#4-后续如果官方仓库更新了应该怎么同步">4. 后续如果官方仓库更新了，应该怎么同步</a>
+      <ol>
+        <li><a href="#场景-a你只是想更新本地-master">场景 A：你只是想更新本地 <code>master</code></a></li>
+        <li><a href="#场景-b你已经在功能分支开发了还想把官方最新代码同步进当前分支">场景 B：你已经在功能分支开发了，还想把官方最新代码同步进当前分支</a></li>
+      </ol>
+    </li>
+    <li><a href="#5-如果-rebase-过程中遇到冲突怎么办">5. 如果 rebase 过程中遇到冲突怎么办</a>
+      <ol>
+        <li><a href="#第一步看哪些文件冲突了">第一步：看哪些文件冲突了</a></li>
+        <li><a href="#第二步打开冲突文件手动处理">第二步：打开冲突文件，手动处理</a></li>
+        <li><a href="#第三步告诉-git-这个文件已解决">第三步：告诉 Git 这个文件已解决</a></li>
+        <li><a href="#第四步继续-rebase">第四步：继续 rebase</a></li>
+        <li><a href="#如果你不想继续了">如果你不想继续了</a></li>
+      </ol>
+    </li>
+    <li><a href="#6-git-fetch-upstream-为什么有时会下载很多东西">6. <code>git fetch upstream</code> 为什么有时会下载很多东西</a>
+      <ol>
+        <li><a href="#原因-1你第一次拉这个远程仓库的信息">原因 1：你第一次拉这个远程仓库的信息</a></li>
+        <li><a href="#原因-2你拉的是整个远程而不是单独一个分支">原因 2：你拉的是整个远程，而不是单独一个分支</a></li>
+      </ol>
+    </li>
+    <li><a href="#7-fork-完是不是就永远不用配-upstream">7. <code>fork</code> 完是不是就永远不用配 <code>upstream</code></a></li>
+    <li><a href="#8-git-rebase-upstreammaster-到底会改谁">8. <code>git rebase upstream/master</code> 到底会改谁</a></li>
+    <li><a href="#9-一次完整规范的日常工作流示例">9. 一次完整、规范的日常工作流示例</a>
+      <ol>
+        <li><a href="#91-拉最新主分支">9.1 拉最新主分支</a></li>
+        <li><a href="#92-从最新主分支切功能分支">9.2 从最新主分支切功能分支</a></li>
+        <li><a href="#93-开发测试检查改动">9.3 开发、测试、检查改动</a></li>
+        <li><a href="#94-提交">9.4 提交</a></li>
+        <li><a href="#95-推送分支">9.5 推送分支</a></li>
+        <li><a href="#96-在-github-上创建-pr">9.6 在 GitHub 上创建 PR</a></li>
+      </ol>
+    </li>
+    <li><a href="#10-pr-发出后你还要做什么">10. PR 发出后你还要做什么</a>
+      <ol>
+        <li><a href="#101-看-ci-是否通过">10.1 看 CI 是否通过</a></li>
+        <li><a href="#102-回复-reviewer">10.2 回复 reviewer</a></li>
+        <li><a href="#103-如果-reviewer-让你补-follow-up-pr">10.3 如果 reviewer 让你补 follow-up PR</a></li>
+      </ol>
+    </li>
+    <li><a href="#11-什么时候用-merge什么时候用-rebase">11. 什么时候用 <code>merge</code>，什么时候用 <code>rebase</code></a>
+      <ol>
+        <li><a href="#你可以这样简单理解">你可以这样简单理解</a></li>
+      </ol>
+    </li>
+    <li><a href="#12-最常用命令速查表">12. 最常用命令速查表</a>
+      <ol>
+        <li><a href="#仓库与远程">仓库与远程</a></li>
+        <li><a href="#分支">分支</a></li>
+        <li><a href="#同步">同步</a></li>
+        <li><a href="#查看改动">查看改动</a></li>
+        <li><a href="#提交">提交</a></li>
+        <li><a href="#推送">推送</a></li>
+        <li><a href="#处理-rebase">处理 rebase</a></li>
+      </ol>
+    </li>
+    <li><a href="#13-你这类开源参与里最推荐记住的操作原则">13. 你这类开源参与里最推荐记住的操作原则</a>
+      <ol>
+        <li><a href="#原则-1永远不要直接在主分支上开发">原则 1：永远不要直接在主分支上开发</a></li>
+        <li><a href="#原则-2先测试再提交再推送">原则 2：先测试，再提交，再推送</a></li>
+        <li><a href="#原则-3pr-的目标看-base-repository">原则 3：PR 的目标看 <code>base repository</code></a></li>
+        <li><a href="#原则-4同步官方更新时先-fetch再-rebase">原则 4：同步官方更新时，先 <code>fetch</code>，再 <code>rebase</code></a></li>
+        <li><a href="#原则-5第一次-push-新分支时用--u">原则 5：第一次 push 新分支时，用 <code>-u</code></a></li>
+      </ol>
+    </li>
+    <li><a href="#14-一句话总结">14. 一句话总结</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/go/" >
+                Go
+            </a>
+        
+            <a href="/categories/%E5%BC%80%E6%BA%90/" >
+                开源
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA%E5%8F%82%E4%B8%8E%E7%9A%84%E8%A7%84%E8%8C%83-git-%E6%B5%81%E7%A8%8B/">开源社区参与的规范 Git 流程</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Mar 17, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 11 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="开源社区参与的规范-git-流程">开源社区参与的规范 Git 流程
+</h1><p>这份文档以 GitHub 上最常见的 <strong>Fork + 分支 + Pull Request</strong> 工作流为主，适合你现在这种参与 Apache 项目、给官方仓库提 PR 的场景。</p>
+<p>文中会重点说明：</p>
+<ul>
+<li>每一步应该做什么</li>
+<li>每个命令的作用是什么</li>
+<li>什么时候要同步官方仓库</li>
+<li><code>origin</code>、<code>upstream</code>、<code>fetch</code>、<code>rebase</code>、<code>PR</code> 分别是什么意思</li>
+<li>结合 <code>dubbo-go-pixiu</code> / <code>dubbo-go-pixiu-samples</code> / <code>dubbo-website</code> 这类实际场景，应该怎么操作</li>
+</ul>
+<hr>
+<h2 id="1-先理解几个核心概念">1. 先理解几个核心概念
+</h2><p>在开始之前，先把几个最容易混淆的概念分清楚。</p>
+<h3 id="11-fork-是什么">1.1 Fork 是什么
+</h3><p>Fork 是 GitHub 上“把别人的仓库复制一份到你自己账号下”的动作。</p>
+<p>例如：</p>
+<ul>
+<li>官方仓库：<code>apache/dubbo-website</code></li>
+<li>你的 fork：<code>Skylm808/dubbo-website</code></li>
+</ul>
+<p>Fork 之后：</p>
+<ul>
+<li>你有了自己可写的仓库副本</li>
+<li>你可以在自己的仓库里自由建分支、提交、推送</li>
+<li>最后再从自己的 fork 向官方仓库发起 PR</li>
+</ul>
+<p>注意：</p>
+<ul>
+<li><strong>Fork 不是自动实时同步官方最新代码</strong></li>
+<li>你 fork 的那一刻通常是最新状态</li>
+<li>但后面官方仓库继续更新时，你自己的 fork 不会自动跟着变</li>
+</ul>
+<hr>
+<h3 id="12-origin-是什么">1.2 <code>origin</code> 是什么
+</h3><p><code>origin</code> 通常指向你本地 clone 下来的默认远程仓库。</p>
+<p>如果你是从自己的 fork clone 下来的：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git clone https://github.com/Skylm808/dubbo-website.git
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>那么本地默认的：</p>
+<ul>
+<li><code>origin</code> = <code>https://github.com/Skylm808/dubbo-website.git</code></li>
+</ul>
+<p>也就是：<strong>你自己的 fork</strong></p>
+<hr>
+<h3 id="13-upstream-是什么">1.3 <code>upstream</code> 是什么
+</h3><p><code>upstream</code> 一般是你手动加上的“官方源仓库”。</p>
+<p>例如：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git remote add upstream https://github.com/apache/dubbo-website.git
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这时：</p>
+<ul>
+<li><code>origin</code> = 你自己的 fork</li>
+<li><code>upstream</code> = 官方仓库</li>
+</ul>
+<p>这样做的意义是：</p>
+<ul>
+<li>你平时 <code>push</code> 到 <code>origin</code></li>
+<li>你平时从 <code>upstream</code> 获取官方最新代码</li>
+</ul>
+<hr>
+<h3 id="14-main-和-master-是什么">1.4 <code>main</code> 和 <code>master</code> 是什么
+</h3><p>这是仓库的主分支名。</p>
+<p>不同仓库不一样：</p>
+<ul>
+<li>有的仓库主分支叫 <code>main</code></li>
+<li>有的仓库主分支叫 <code>master</code></li>
+</ul>
+<p>你实际操作时，必须以该仓库真实分支名为准。</p>
+<p>例如你这次：</p>
+<ul>
+<li><code>dubbo-website</code> 用的是 <code>master</code></li>
+</ul>
+<p>所以命令里就应该写：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git rebase upstream/master
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>而不是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git rebase upstream/main
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h3 id="15-git-fetch-是什么">1.5 <code>git fetch</code> 是什么
+</h3><p><code>git fetch</code> 的作用是：</p>
+<ul>
+<li><strong>把远程仓库的最新提交信息下载到本地</strong></li>
+<li>但<strong>不会直接改动你当前分支的代码</strong></li>
+</ul>
+<p>例如：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git fetch upstream
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>它做的事情是：</p>
+<ul>
+<li>把官方仓库最新信息取回来</li>
+<li>更新本地的远程跟踪分支，例如 <code>upstream/master</code></li>
+<li>但不会自动把这些内容合并进你当前分支</li>
+</ul>
+<p>你可以把它理解成：</p>
+<ul>
+<li>“先把远程最新情况拿回来”</li>
+<li>“但先别动我现在正在写的代码”</li>
+</ul>
+<hr>
+<h3 id="16-git-rebase-upstreammaster-是什么">1.6 <code>git rebase upstream/master</code> 是什么
+</h3><p>这个命令的核心含义是：</p>
+<ul>
+<li><strong>把你当前所在的本地分支，变基到 <code>upstream/master</code> 最新代码之上</strong></li>
+</ul>
+<p>例如你当前在 <code>feature/pixiu-saml-docs</code> 分支上：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git rebase upstream/master
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>意思就是：</p>
+<ul>
+<li>先拿 <code>upstream/master</code> 作为新的起点</li>
+<li>再把你当前分支上的提交，重新“接”到这个新起点后面</li>
+</ul>
+<p>它是对“当前分支”生效的，不是对所有分支生效。</p>
+<p>所以要特别注意：</p>
+<ul>
+<li>你在哪个分支上执行</li>
+<li>它就会改哪个分支的提交历史</li>
+</ul>
+<hr>
+<h3 id="17-git-branch-和-git-branch--a-的区别">1.7 <code>git branch</code> 和 <code>git branch -a</code> 的区别
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git branch
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>只看 <strong>本地分支</strong>。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git branch -a
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>看 <strong>本地分支 + 远程跟踪分支</strong>。</p>
+<p>例如：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>* master
+</span></span><span style="display:flex;"><span>  remotes/origin/master
+</span></span><span style="display:flex;"><span>  remotes/upstream/master
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>含义分别是：</p>
+<ul>
+<li><code>* master</code>：你当前所在的本地分支是 <code>master</code></li>
+<li><code>remotes/origin/master</code>：你本地记录的“你自己 fork 上的 master”</li>
+<li><code>remotes/upstream/master</code>：你本地记录的“官方仓库上的 master”</li>
+</ul>
+<hr>
+<h2 id="2-最规范最常见的开源提交流程">2. 最规范、最常见的开源提交流程
+</h2><p>下面是最推荐的流程。</p>
+<p>适合场景：</p>
+<ul>
+<li>你要给官方仓库提 PR</li>
+<li>你没有官方仓库写权限</li>
+<li>你是通过 fork 参与开源</li>
+</ul>
+<hr>
+<h2 id="3-第一次参与某个仓库时的完整流程">3. 第一次参与某个仓库时的完整流程
+</h2><h3 id="步骤-1先在-github-页面上-fork-官方仓库">步骤 1：先在 GitHub 页面上 Fork 官方仓库
+</h3><p>例如把：</p>
+<ul>
+<li><code>apache/dubbo-website</code></li>
+</ul>
+<p>Fork 到你的账号下，得到：</p>
+<ul>
+<li><code>Skylm808/dubbo-website</code></li>
+</ul>
+<p>这个步骤是网页操作，不是命令行。</p>
+<p>作用：</p>
+<ul>
+<li>获得一个你自己能推送代码的仓库副本</li>
+</ul>
+<hr>
+<h3 id="步骤-2把你自己的-fork-clone-到本地">步骤 2：把你自己的 fork clone 到本地
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git clone https://github.com/Skylm808/dubbo-website.git
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">cd</span> dubbo-website
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>命令解释：</p>
+<ul>
+<li><code>git clone &lt;url&gt;</code>：把远程仓库完整下载到本地</li>
+<li><code>cd dubbo-website</code>：进入这个本地仓库目录</li>
+</ul>
+<p>此时本地默认远程仓库只有一个：</p>
+<ul>
+<li><code>origin</code></li>
+</ul>
+<p>它指向你的 fork。</p>
+<hr>
+<h3 id="步骤-3给本地仓库配置官方上游仓库-upstream">步骤 3：给本地仓库配置官方上游仓库 <code>upstream</code>
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git remote add upstream https://github.com/apache/dubbo-website.git
+</span></span><span style="display:flex;"><span>git remote -v
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>命令解释：</p>
+<ul>
+<li><code>git remote add upstream &lt;url&gt;</code>：新增一个叫 <code>upstream</code> 的远程仓库地址</li>
+<li><code>git remote -v</code>：查看当前所有远程仓库配置</li>
+</ul>
+<p>正常会看到类似：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>origin    https://github.com/Skylm808/dubbo-website.git <span style="color:#ff79c6">(</span>fetch<span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span>origin    https://github.com/Skylm808/dubbo-website.git <span style="color:#ff79c6">(</span>push<span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span>upstream  https://github.com/apache/dubbo-website.git <span style="color:#ff79c6">(</span>fetch<span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span>upstream  https://github.com/apache/dubbo-website.git <span style="color:#ff79c6">(</span>push<span style="color:#ff79c6">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>注意：</p>
+<ul>
+<li>这不代表你真能往 <code>upstream</code> push</li>
+<li>这里只是 Git 配置里记录了这个地址</li>
+<li>你有没有权限 push，要看 GitHub 权限</li>
+</ul>
+<hr>
+<h3 id="步骤-4先同步一次官方最新代码">步骤 4：先同步一次官方最新代码
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git fetch upstream master
+</span></span><span style="display:flex;"><span>git checkout master
+</span></span><span style="display:flex;"><span>git rebase upstream/master
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>命令解释：</p>
+<ul>
+<li>
+<p><code>git fetch upstream master</code></p>
+<ul>
+<li>只获取官方仓库的 <code>master</code> 分支信息</li>
+<li>比 <code>git fetch upstream</code> 更省一些</li>
+<li>尤其是大仓库时，能避免把很多无关分支一起拉下来</li>
+</ul>
+</li>
+<li>
+<p><code>git checkout master</code></p>
+<ul>
+<li>切换到本地 <code>master</code> 分支</li>
+<li>如果你已经在 <code>master</code>，它会提示你已经在这个分支</li>
+</ul>
+</li>
+<li>
+<p><code>git rebase upstream/master</code></p>
+<ul>
+<li>把你当前本地 <code>master</code> 分支，更新到官方 <code>master</code> 的最新提交之上</li>
+</ul>
+</li>
+</ul>
+<p>如果提示：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>Current branch master is up to date.
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>意思是：</p>
+<ul>
+<li>你的本地 <code>master</code> 已经和官方 <code>master</code> 一样新了</li>
+</ul>
+<hr>
+<h3 id="步骤-5可选把你-fork-上的主分支也同步成最新">步骤 5：可选，把你 fork 上的主分支也同步成最新
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git push origin master
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>命令解释：</p>
+<ul>
+<li>把你本地更新后的 <code>master</code> 推到你自己的 fork 上</li>
+</ul>
+<p>作用：</p>
+<ul>
+<li>让你 GitHub 上的 fork 也保持和官方主分支接近同步</li>
+</ul>
+<p>这一步不是强制，但推荐做。</p>
+<hr>
+<h3 id="步骤-6从最新主分支切出你自己的功能分支">步骤 6：从最新主分支切出你自己的功能分支
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git checkout -b feature/pixiu-saml-docs
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>命令解释：</p>
+<ul>
+<li><code>git checkout -b &lt;branch&gt;</code>
+<ul>
+<li>新建一个本地分支</li>
+<li>并立刻切换到这个新分支</li>
+</ul>
+</li>
+</ul>
+<p>为什么不要直接在 <code>master</code> 上开发：</p>
+<ul>
+<li><code>master</code> 应该尽量保持干净，方便同步官方更新</li>
+<li>你的实际改动应该放在独立 feature 分支里</li>
+<li>后续提 PR 也更清晰</li>
+</ul>
+<hr>
+<h3 id="步骤-7开始修改代码或文档">步骤 7：开始修改代码或文档
+</h3><p>开发过程中最常用的是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git status
+</span></span><span style="display:flex;"><span>git diff
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>命令解释：</p>
+<ul>
+<li>
+<p><code>git status</code></p>
+<ul>
+<li>查看当前工作区状态</li>
+<li>哪些文件改了</li>
+<li>哪些文件已暂存</li>
+<li>当前在哪个分支</li>
+</ul>
+</li>
+<li>
+<p><code>git diff</code></p>
+<ul>
+<li>查看还没 <code>git add</code> 的修改内容</li>
+</ul>
+</li>
+</ul>
+<p>如果你想看已经 <code>add</code> 但还没 commit 的内容，可以用：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git diff --cached
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h3 id="步骤-8先本地测试再提交">步骤 8：先本地测试，再提交
+</h3><p>这一步非常重要。</p>
+<p>在开源社区里，提交前最好先确认：</p>
+<ul>
+<li>功能能跑</li>
+<li>测试通过</li>
+<li>文档格式没问题</li>
+</ul>
+<p>例如 Go 项目里常见：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>go <span style="color:#8be9fd;font-style:italic">test</span> ./...
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>或者像你这次的 sample：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>go <span style="color:#8be9fd;font-style:italic">test</span> -v ./dubbogo/simple/saml/test
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>命令解释：</p>
+<ul>
+<li><code>go test ./...</code>：运行当前模块下所有 Go 测试</li>
+<li><code>go test -v &lt;path&gt;</code>：详细模式运行指定目录下的测试</li>
+</ul>
+<hr>
+<h3 id="步骤-9把改动加入暂存区">步骤 9：把改动加入暂存区
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git add content/en/overview/reference/pixiu/other/user/httpfilter/saml.md
+</span></span><span style="display:flex;"><span>git add content/zh-cn/overview/reference/pixiu/other/user/httpfilter/saml.md
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>或者：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git add .
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>命令解释：</p>
+<ul>
+<li><code>git add &lt;file&gt;</code>：把指定文件加入本次提交</li>
+<li><code>git add .</code>：把当前目录下所有改动都加进去</li>
+</ul>
+<p>规范建议：</p>
+<ul>
+<li><strong>优先使用精确的 <code>git add &lt;file&gt;</code></strong></li>
+<li>这样不容易把不该提交的文件一起带上去</li>
+</ul>
+<hr>
+<h3 id="步骤-10提交到本地-git-历史">步骤 10：提交到本地 Git 历史
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git commit -m <span style="color:#f1fa8c">&#34;docs(pixiu): add saml filter docs&#34;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>命令解释：</p>
+<ul>
+<li><code>git commit -m &quot;&lt;message&gt;&quot;</code>
+<ul>
+<li>生成一个本地提交</li>
+<li><code>-m</code> 后面是提交说明</li>
+</ul>
+</li>
+</ul>
+<p>好的提交信息应该：</p>
+<ul>
+<li>简洁</li>
+<li>准确</li>
+<li>一看就知道这次改了什么</li>
+</ul>
+<p>常见风格：</p>
+<ul>
+<li><code>feat(...)</code>: 新功能</li>
+<li><code>fix(...)</code>: 修 bug</li>
+<li><code>docs(...)</code>: 文档修改</li>
+<li><code>test(...)</code>: 测试修改</li>
+</ul>
+<hr>
+<h3 id="步骤-11把功能分支推到你自己的-fork">步骤 11：把功能分支推到你自己的 fork
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git push -u origin feature/pixiu-saml-docs
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>命令解释：</p>
+<ul>
+<li>
+<p><code>git push origin &lt;branch&gt;</code></p>
+<ul>
+<li>把本地分支推到远程 <code>origin</code></li>
+</ul>
+</li>
+<li>
+<p><code>-u</code></p>
+<ul>
+<li>给当前本地分支设置“上游跟踪关系”</li>
+<li>设置后，后面你通常只需要：</li>
+</ul>
+</li>
+</ul>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git push
+</span></span><span style="display:flex;"><span>git pull
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>为什么你有时直接 <code>git push</code> 会报错：</p>
+<ul>
+<li>因为这个新分支第一次推送时，还没有和远程分支建立跟踪关系</li>
+<li>所以第一次通常要用：</li>
+</ul>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git push -u origin &lt;branch&gt;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h3 id="步骤-12去-github-页面发起-pull-request">步骤 12：去 GitHub 页面发起 Pull Request
+</h3><p>通常你 push 成功后：</p>
+<ul>
+<li>你自己的 fork 页面会出现 <code>Compare &amp; pull request</code></li>
+<li>或者 <code>Open a pull request</code></li>
+</ul>
+<p>这时候你要检查 PR 页面顶部四个位置：</p>
+<ul>
+<li><code>base repository</code></li>
+<li><code>base branch</code></li>
+<li><code>head repository</code></li>
+<li><code>compare branch</code></li>
+</ul>
+<p>标准 fork 提 PR 应该像这样：</p>
+<ul>
+<li><code>base repository</code>: 官方仓库，例如 <code>apache/dubbo-website</code></li>
+<li><code>base</code>: 官方主分支，例如 <code>master</code></li>
+<li><code>head repository</code>: 你自己的 fork，例如 <code>Skylm808/dubbo-website</code></li>
+<li><code>compare</code>: 你的功能分支，例如 <code>feature/pixiu-saml-docs</code></li>
+</ul>
+<p>这表示：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Skylm808/dubbo-website:feature/pixiu-saml-docs
+</span></span><span style="display:flex;"><span>  -&gt;
+</span></span><span style="display:flex;"><span>apache/dubbo-website:master
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>也就是：</p>
+<ul>
+<li>改动来自你的 fork</li>
+<li>目标是官方仓库</li>
+</ul>
+<hr>
+<h2 id="4-后续如果官方仓库更新了应该怎么同步">4. 后续如果官方仓库更新了，应该怎么同步
+</h2><p>这是开源协作里非常常见的情况。</p>
+<p>例如：</p>
+<ul>
+<li>你已经 fork 了仓库</li>
+<li>也已经在本地写了一半</li>
+<li>但这期间官方仓库又有新提交</li>
+</ul>
+<p>这时就需要同步。</p>
+<hr>
+<h3 id="场景-a你只是想更新本地-master">场景 A：你只是想更新本地 <code>master</code>
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git fetch upstream master
+</span></span><span style="display:flex;"><span>git checkout master
+</span></span><span style="display:flex;"><span>git rebase upstream/master
+</span></span><span style="display:flex;"><span>git push origin master
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>作用：</p>
+<ul>
+<li>本地 <code>master</code> 跟上官方 <code>master</code></li>
+<li>你 fork 上的 <code>master</code> 也跟上最新</li>
+</ul>
+<p>这个流程适合：</p>
+<ul>
+<li>你准备从主分支重新开新功能分支</li>
+</ul>
+<hr>
+<h3 id="场景-b你已经在功能分支开发了还想把官方最新代码同步进当前分支">场景 B：你已经在功能分支开发了，还想把官方最新代码同步进当前分支
+</h3><p>先确认你当前就在功能分支，例如：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git checkout feature/pixiu-saml-docs
+</span></span><span style="display:flex;"><span>git fetch upstream master
+</span></span><span style="display:flex;"><span>git rebase upstream/master
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>命令解释：</p>
+<ul>
+<li>
+<p><code>git checkout feature/pixiu-saml-docs</code></p>
+<ul>
+<li>切到你自己的开发分支</li>
+</ul>
+</li>
+<li>
+<p><code>git fetch upstream master</code></p>
+<ul>
+<li>获取官方 <code>master</code> 最新内容</li>
+</ul>
+</li>
+<li>
+<p><code>git rebase upstream/master</code></p>
+<ul>
+<li>让你当前分支的提交，重新排到最新官方主分支之后</li>
+</ul>
+</li>
+</ul>
+<p>如果你这个分支之前已经 push 过到远程，rebase 之后通常还要：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git push --force-with-lease origin feature/pixiu-saml-docs
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>为什么需要这个命令：</p>
+<ul>
+<li><code>rebase</code> 会改写提交历史</li>
+<li>远程分支和你本地分支的提交哈希会变得不一致</li>
+<li>普通 <code>git push</code> 往往会被拒绝</li>
+</ul>
+<p>为什么推荐 <code>--force-with-lease</code>，而不是 <code>--force</code>：</p>
+<ul>
+<li><code>--force-with-lease</code> 更安全</li>
+<li>它会先检查远程分支是不是你预期的状态</li>
+<li>能减少误覆盖别人提交的风险</li>
+</ul>
+<hr>
+<h2 id="5-如果-rebase-过程中遇到冲突怎么办">5. 如果 rebase 过程中遇到冲突怎么办
+</h2><p>这也是常见情况，不用慌。</p>
+<p>当你执行：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git rebase upstream/master
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>如果 Git 提示冲突，大致流程是：</p>
+<h3 id="第一步看哪些文件冲突了">第一步：看哪些文件冲突了
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git status
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>你会看到哪些文件处于冲突状态。</p>
+<hr>
+<h3 id="第二步打开冲突文件手动处理">第二步：打开冲突文件，手动处理
+</h3><p>冲突文件里会出现类似标记：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+</span></span><span style="display:flex;"><span>你的内容
+</span></span><span style="display:flex;"><span>=======
+</span></span><span style="display:flex;"><span>对方内容
+</span></span><span style="display:flex;"><span>&gt;&gt;&gt;&gt;&gt;&gt;&gt; upstream/master
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>你需要：</p>
+<ul>
+<li>判断最终保留什么内容</li>
+<li>删除这些冲突标记</li>
+<li>保存文件</li>
+</ul>
+<hr>
+<h3 id="第三步告诉-git-这个文件已解决">第三步：告诉 Git 这个文件已解决
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git add &lt;冲突文件&gt;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h3 id="第四步继续-rebase">第四步：继续 rebase
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git rebase --continue
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>如果还有冲突，就重复上面的流程。</p>
+<hr>
+<h3 id="如果你不想继续了">如果你不想继续了
+</h3><p>可以放弃这次 rebase：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git rebase --abort
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>命令解释：</p>
+<ul>
+<li>回到 rebase 之前的状态</li>
+</ul>
+<hr>
+<h2 id="6-git-fetch-upstream-为什么有时会下载很多东西">6. <code>git fetch upstream</code> 为什么有时会下载很多东西
+</h2><p>这是你这次真实遇到过的问题。</p>
+<p>原因通常有两种：</p>
+<h3 id="原因-1你第一次拉这个远程仓库的信息">原因 1：你第一次拉这个远程仓库的信息
+</h3><p>第一次 <code>fetch</code> 时，本地还没有这些对象和引用，所以量会大。</p>
+<hr>
+<h3 id="原因-2你拉的是整个远程而不是单独一个分支">原因 2：你拉的是整个远程，而不是单独一个分支
+</h3><p>例如：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git fetch upstream
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>有时会把 upstream 上很多分支的引用都拉下来。</p>
+<p>对于很大的仓库，这可能比较重。</p>
+<p>更省一点的方式是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git fetch upstream master
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这样更聚焦，只拉 <code>master</code> 相关信息。</p>
+<hr>
+<h2 id="7-fork-完是不是就永远不用配-upstream">7. <code>fork</code> 完是不是就永远不用配 <code>upstream</code>
+</h2><p>不是。</p>
+<p>如果你只是想自己单机改着玩，可以不配。</p>
+<p>但如果你要长期参与开源项目，<strong>强烈建议配置 <code>upstream</code></strong>，因为：</p>
+<ul>
+<li>你需要知道官方最新代码</li>
+<li>你需要把自己的分支同步到官方最新基线</li>
+<li>你需要减少 PR 冲突</li>
+</ul>
+<p>所以规范流程里，<code>upstream</code> 基本是标准配置。</p>
+<hr>
+<h2 id="8-git-rebase-upstreammaster-到底会改谁">8. <code>git rebase upstream/master</code> 到底会改谁
+</h2><p>它只会改：</p>
+<ul>
+<li><strong>你当前所在的本地分支</strong></li>
+</ul>
+<p>例如你当前是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git branch
+</span></span><span style="display:flex;"><span>* feature/pixiu-saml-docs
+</span></span><span style="display:flex;"><span>  master
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这时执行：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git rebase upstream/master
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>被改写历史的是：</p>
+<ul>
+<li><code>feature/pixiu-saml-docs</code></li>
+</ul>
+<p>不是 <code>master</code></p>
+<p>所以执行前一定先看：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git branch
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>或者：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git status
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>确认自己现在到底在哪个分支。</p>
+<hr>
+<h2 id="9-一次完整规范的日常工作流示例">9. 一次完整、规范的日常工作流示例
+</h2><p>下面给一个最常用的模板。</p>
+<p>假设：</p>
+<ul>
+<li>官方仓库：<code>apache/dubbo-go-pixiu-samples</code></li>
+<li>你的 fork：<code>Skylm808/dubbo-go-pixiu-samples</code></li>
+<li>你要新增一个 SAML sample</li>
+</ul>
+<h3 id="91-拉最新主分支">9.1 拉最新主分支
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git fetch upstream main
+</span></span><span style="display:flex;"><span>git checkout main
+</span></span><span style="display:flex;"><span>git rebase upstream/main
+</span></span><span style="display:flex;"><span>git push origin main
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>如果这个仓库主分支不是 <code>main</code>，就换成真实名字。</p>
+<hr>
+<h3 id="92-从最新主分支切功能分支">9.2 从最新主分支切功能分支
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git checkout -b feature/saml-filter-sample
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h3 id="93-开发测试检查改动">9.3 开发、测试、检查改动
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git status
+</span></span><span style="display:flex;"><span>go <span style="color:#8be9fd;font-style:italic">test</span> -v ./dubbogo/simple/saml/test
+</span></span><span style="display:flex;"><span>git diff
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h3 id="94-提交">9.4 提交
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git add README.md
+</span></span><span style="display:flex;"><span>git add README_CN.md
+</span></span><span style="display:flex;"><span>git add dubbogo/simple/saml
+</span></span><span style="display:flex;"><span>git commit -m <span style="color:#f1fa8c">&#34;feat(samples): add SAML authentication sample&#34;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h3 id="95-推送分支">9.5 推送分支
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git push -u origin feature/saml-filter-sample
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h3 id="96-在-github-上创建-pr">9.6 在 GitHub 上创建 PR
+</h3><p>检查：</p>
+<ul>
+<li>base repository = 官方仓库</li>
+<li>base branch = 主分支</li>
+<li>head repository = 你的 fork</li>
+<li>compare branch = 你的功能分支</li>
+</ul>
+<hr>
+<h2 id="10-pr-发出后你还要做什么">10. PR 发出后你还要做什么
+</h2><p>PR 发出后，不是就结束了。</p>
+<p>你通常还需要：</p>
+<h3 id="101-看-ci-是否通过">10.1 看 CI 是否通过
+</h3><p>如果 PR 页面显示：</p>
+<ul>
+<li>checks pending：还在跑</li>
+<li>checks failed：有检查失败</li>
+<li>checks passed：检查通过</li>
+</ul>
+<p>如果失败，就点进去看日志。</p>
+<hr>
+<h3 id="102-回复-reviewer">10.2 回复 reviewer
+</h3><p>如果 reviewer 提了修改意见：</p>
+<ul>
+<li>先在本地改</li>
+<li>测试</li>
+<li><code>git add</code></li>
+<li><code>git commit</code></li>
+<li><code>git push</code></li>
+</ul>
+<p>同一个 PR 会自动更新，不需要重新开一个 PR。</p>
+<hr>
+<h3 id="103-如果-reviewer-让你补-follow-up-pr">10.3 如果 reviewer 让你补 follow-up PR
+</h3><p>这也是你这次实际碰到的情况。</p>
+<p>例如：</p>
+<ul>
+<li>原始 PR 在 <code>apache/dubbo-go-pixiu</code></li>
+<li>reviewer 要你补 sample</li>
+<li>还要补 website docs</li>
+</ul>
+<p>这时正确做法通常是：</p>
+<ul>
+<li>原始代码 PR 保持聚焦</li>
+<li>sample 单独提到 <code>dubbo-go-pixiu-samples</code></li>
+<li>文档单独提到 <code>dubbo-website</code></li>
+</ul>
+<p>最后再回到原始 PR 下面留言，附上 follow-up PR 链接。</p>
+<p>例如：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-md" data-lang="md"><span style="display:flex;"><span>Follow-up PRs for the SAML filter:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> samples: https://github.com/apache/dubbo-go-pixiu-samples/pull/125
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">-</span> website docs: https://github.com/apache/dubbo-website/pull/3199
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h2 id="11-什么时候用-merge什么时候用-rebase">11. 什么时候用 <code>merge</code>，什么时候用 <code>rebase</code>
+</h2><p>在给开源社区提 PR 时，通常更常见的是：</p>
+<ul>
+<li>同步官方最新代码时，优先使用 <code>rebase</code></li>
+</ul>
+<p>原因：</p>
+<ul>
+<li>提交历史更线性</li>
+<li>PR 更干净</li>
+<li>不容易出现一堆无意义 merge commit</li>
+</ul>
+<h3 id="你可以这样简单理解">你可以这样简单理解
+</h3><ul>
+<li><code>merge</code>：把两条历史“并起来”</li>
+<li><code>rebase</code>：把你的提交“挪到最新基线后面”</li>
+</ul>
+<p>对于个人 fork 开源协作场景，通常推荐：</p>
+<ul>
+<li>更新自己分支时用 <code>rebase</code></li>
+</ul>
+<hr>
+<h2 id="12-最常用命令速查表">12. 最常用命令速查表
+</h2><h3 id="仓库与远程">仓库与远程
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git clone &lt;url&gt;
+</span></span><span style="display:flex;"><span>git remote -v
+</span></span><span style="display:flex;"><span>git remote add upstream &lt;url&gt;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>git clone &lt;url&gt;</code>：克隆仓库到本地</li>
+<li><code>git remote -v</code>：查看远程仓库地址</li>
+<li><code>git remote add upstream &lt;url&gt;</code>：添加官方源仓库</li>
+</ul>
+<h3 id="分支">分支
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git branch
+</span></span><span style="display:flex;"><span>git branch -a
+</span></span><span style="display:flex;"><span>git checkout master
+</span></span><span style="display:flex;"><span>git checkout -b feature/xxx
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>git branch</code>：看本地分支</li>
+<li><code>git branch -a</code>：看本地分支和远程跟踪分支</li>
+<li><code>git checkout master</code>：切到本地主分支</li>
+<li><code>git checkout -b feature/xxx</code>：新建并切换到功能分支</li>
+</ul>
+<h3 id="同步">同步
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git fetch upstream master
+</span></span><span style="display:flex;"><span>git rebase upstream/master
+</span></span><span style="display:flex;"><span>git pull
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>git fetch upstream master</code>：获取官方主分支最新信息</li>
+<li><code>git rebase upstream/master</code>：把当前分支变基到官方主分支之上</li>
+<li><code>git pull</code>：拉取并合并当前跟踪远程分支的更新</li>
+</ul>
+<p>注意：</p>
+<ul>
+<li>在开源协作里，手动 <code>fetch + rebase</code> 往往比直接 <code>pull</code> 更清楚</li>
+</ul>
+<h3 id="查看改动">查看改动
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git status
+</span></span><span style="display:flex;"><span>git diff
+</span></span><span style="display:flex;"><span>git diff --cached
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>git status</code>：看当前状态</li>
+<li><code>git diff</code>：看未暂存改动</li>
+<li><code>git diff --cached</code>：看已暂存但未提交的改动</li>
+</ul>
+<h3 id="提交">提交
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git add &lt;file&gt;
+</span></span><span style="display:flex;"><span>git commit -m <span style="color:#f1fa8c">&#34;message&#34;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>git add &lt;file&gt;</code>：把文件加入暂存区</li>
+<li><code>git commit -m &quot;message&quot;</code>：生成一次本地提交</li>
+</ul>
+<h3 id="推送">推送
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git push -u origin feature/xxx
+</span></span><span style="display:flex;"><span>git push
+</span></span><span style="display:flex;"><span>git push --force-with-lease origin feature/xxx
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>git push -u origin feature/xxx</code>：首次推送并建立跟踪关系</li>
+<li><code>git push</code>：推送当前分支到默认跟踪远程</li>
+<li><code>git push --force-with-lease origin feature/xxx</code>：rebase 后安全强推</li>
+</ul>
+<h3 id="处理-rebase">处理 rebase
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git rebase --continue
+</span></span><span style="display:flex;"><span>git rebase --abort
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>git rebase --continue</code>：冲突解决后继续</li>
+<li><code>git rebase --abort</code>：放弃这次 rebase</li>
+</ul>
+<hr>
+<h2 id="13-你这类开源参与里最推荐记住的操作原则">13. 你这类开源参与里最推荐记住的操作原则
+</h2><h3 id="原则-1永远不要直接在主分支上开发">原则 1：永远不要直接在主分支上开发
+</h3><p>主分支只用于：</p>
+<ul>
+<li>同步官方最新代码</li>
+<li>作为新功能分支的起点</li>
+</ul>
+<hr>
+<h3 id="原则-2先测试再提交再推送">原则 2：先测试，再提交，再推送
+</h3><p>不要把“还没验证过”的东西直接 push 上去。</p>
+<hr>
+<h3 id="原则-3pr-的目标看-base-repository">原则 3：PR 的目标看 <code>base repository</code>
+</h3><p>这点特别重要。</p>
+<p>真正决定 PR 提到哪里的，是：</p>
+<ul>
+<li><code>base repository</code></li>
+</ul>
+<p>不是你从哪个页面点进去的。</p>
+<p>所以即使你是在自己 fork 页面看到 <code>Open a pull request</code>：</p>
+<ul>
+<li>只要最终 <code>base repository</code> 选的是官方仓库</li>
+<li>那这个 PR 就是提给官方仓库的</li>
+</ul>
+<hr>
+<h3 id="原则-4同步官方更新时先-fetch再-rebase">原则 4：同步官方更新时，先 <code>fetch</code>，再 <code>rebase</code>
+</h3><p>推荐顺序：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git fetch upstream master
+</span></span><span style="display:flex;"><span>git rebase upstream/master
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
+<h3 id="原则-5第一次-push-新分支时用--u">原则 5：第一次 push 新分支时，用 <code>-u</code>
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git push -u origin feature/xxx
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这样后面会省很多事。</p>
+<hr>
+<h2 id="14-一句话总结">14. 一句话总结
+</h2><p>对于你现在这种参与 Apache 项目的方式，最标准的流程就是：</p>
+<ol>
+<li>Fork 官方仓库到自己账号</li>
+<li>clone 自己的 fork 到本地</li>
+<li>配置 <code>upstream</code> 指向官方仓库</li>
+<li>先同步官方主分支最新代码</li>
+<li>从最新主分支切功能分支</li>
+<li>开发、测试、提交</li>
+<li>push 到自己的 fork</li>
+<li>从自己的 fork 分支向官方仓库主分支发起 PR</li>
+<li>根据 reviewer 意见继续修改并 push</li>
+<li>必要时补 sample PR、website PR 等 follow-up PR</li>
+</ol>
+<p>如果你把这一套流程熟了，以后参与大多数 GitHub 开源项目都够用了。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/go/">Go</a>
+        
+            <a href="/tags/%E5%BC%80%E6%BA%90/">开源</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/dubbo-go-pixiu%E6%B7%BB%E5%8A%A0saml%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">dubbo-go-pixiu添加Saml功能详解</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/go-%E8%AF%AD%E8%A8%80%E4%B8%AD%E7%9A%84gmp%E8%B0%83%E5%BA%A6/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Go 语言中的GMP调度</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/go-%E5%B9%B6%E5%8F%91goroutinechannel-%E4%B8%8E-sync-%E9%94%81/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Go 并发：Goroutine、Channel 与 Sync 锁</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/go-%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D%E7%AD%96%E7%95%A5%E5%86%85%E5%AD%98%E9%80%83%E9%80%B8%E4%B8%8E-gc-%E6%9C%BA%E5%88%B6/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Go 内存分配策略、内存逃逸、与 GC 机制</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/golang-slice-%E4%B8%8E-map-%E5%BA%95%E5%B1%82%E8%AF%A6%E8%A7%A3/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Golang slice 与 map 底层详解</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm808.github.io\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+    </body>
+</html>
