@@ -7,7 +7,747 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Tue, 24 Feb 2026 23:02:00 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/tags/%E7%AE%97%E6%B3%95/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Tue, 24 Mar 2026 22:09:27 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/tags/%E7%AE%97%E6%B3%95/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>贪心、动态规划、背包问题：一份讲清楚</title>
+        <link>https://skylm808.github.io/p/%E8%B4%AA%E5%BF%83%E5%8A%A8%E6%80%81%E8%A7%84%E5%88%92%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E4%B8%80%E4%BB%BD%E8%AE%B2%E6%B8%85%E6%A5%9A/</link>
+        <pubDate>Tue, 24 Mar 2026 22:09:27 +0800</pubDate>
+        
+        <guid>https://skylm808.github.io/p/%E8%B4%AA%E5%BF%83%E5%8A%A8%E6%80%81%E8%A7%84%E5%88%92%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E4%B8%80%E4%BB%BD%E8%AE%B2%E6%B8%85%E6%A5%9A/</guid>
+        <description>&lt;h1 id=&#34;贪心动态规划背包问题一份讲清楚&#34;&gt;贪心、动态规划、背包问题：一份讲清楚
+&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;这份笔记的目标不是堆题，而是把三件事讲明白：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;贪心&lt;/code&gt; 和 &lt;code&gt;动态规划&lt;/code&gt; 到底有什么区别&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;背包&lt;/code&gt; 为什么是题目模型，而不是一种算法&lt;/li&gt;
+&lt;li&gt;遇到题目时，怎么判断该往哪种思路上靠&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;目录结构&#34;&gt;目录结构
+&lt;/h2&gt;&lt;ol&gt;
+&lt;li&gt;先分清：贪心、动态规划、背包分别是什么&lt;/li&gt;
+&lt;li&gt;贪心思想&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;经典例题：LeetCode 121 买卖股票的最佳时机&lt;/li&gt;
+&lt;li&gt;进阶例题：LeetCode 45 跳跃游戏 II&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;3&#34;&gt;
+&lt;li&gt;动态规划思想&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;经典例题：LeetCode 70 爬楼梯&lt;/li&gt;
+&lt;li&gt;进阶例题：LeetCode 198 打家劫舍&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;4&#34;&gt;
+&lt;li&gt;背包问题&lt;/li&gt;
+&lt;/ol&gt;
+&lt;ul&gt;
+&lt;li&gt;01 背包和完全背包的本质区别&lt;/li&gt;
+&lt;li&gt;经典例题：LeetCode 416 分割等和子集&lt;/li&gt;
+&lt;li&gt;进阶例题：LeetCode 322 零钱兑换&lt;/li&gt;
+&lt;/ul&gt;
+&lt;ol start=&#34;5&#34;&gt;
+&lt;li&gt;最后总结：面试时怎么快速判断&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;1-先分清贪心动态规划背包分别是什么&#34;&gt;1. 先分清：贪心、动态规划、背包分别是什么
+&lt;/h2&gt;&lt;p&gt;这三个词经常一起出现，但它们不是一个层级。&lt;/p&gt;
+&lt;h3 id=&#34;11-贪心&#34;&gt;1.1 贪心
+&lt;/h3&gt;&lt;p&gt;贪心是一种&lt;strong&gt;解题思想&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;每一步都选当前看起来最优的方案&lt;/li&gt;
+&lt;li&gt;不回头修改之前的决定&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;它成立的前提是：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;局部最优可以推出全局最优&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;如果这个性质不成立，贪心就会错。&lt;/p&gt;
+&lt;h3 id=&#34;12-动态规划&#34;&gt;1.2 动态规划
+&lt;/h3&gt;&lt;p&gt;动态规划也是一种&lt;strong&gt;解题思想&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;把大问题拆成小问题&lt;/li&gt;
+&lt;li&gt;记录已经算过的状态&lt;/li&gt;
+&lt;li&gt;通过状态转移得到全局最优&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;它常见的两个判断条件是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;最优子结构&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;重叠子问题&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;13-背包&#34;&gt;1.3 背包
+&lt;/h3&gt;&lt;p&gt;背包不是算法，而是一种&lt;strong&gt;题目模型&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;有容量限制&lt;/li&gt;
+&lt;li&gt;有一批物品&lt;/li&gt;
+&lt;li&gt;每件物品有“代价”和“收益”或者“效果”&lt;/li&gt;
+&lt;li&gt;问最优值 / 是否可行 / 最少数量 / 方案数&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以关系是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;贪心&lt;/code&gt;、&lt;code&gt;动态规划&lt;/code&gt;：解题方法&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;背包&lt;/code&gt;：题目模型&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;面试里一句话总结：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;贪心和动态规划是解题思想，背包是题目模型。背包题大多数用动态规划来做，因为它通常不满足贪心选择性质。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;2-贪心思想&#34;&gt;2. 贪心思想
+&lt;/h2&gt;&lt;h2 id=&#34;21-贪心的本质&#34;&gt;2.1 贪心的本质
+&lt;/h2&gt;&lt;p&gt;贪心的核心就一句话：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;当前这一步怎么选最优，就直接这么选。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;它的优点是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;写法短&lt;/li&gt;
+&lt;li&gt;复杂度低&lt;/li&gt;
+&lt;li&gt;很适合线性扫描&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;它的难点也在这里：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;你必须能证明“局部最优 -&amp;gt; 全局最优”&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以贪心最难的不是写代码，而是&lt;strong&gt;证明为什么这样选不会错&lt;/strong&gt;。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;22-经典例题leetcode-121-买卖股票的最佳时机&#34;&gt;2.2 经典例题：LeetCode 121 买卖股票的最佳时机
+&lt;/h3&gt;&lt;h4 id=&#34;题目本质&#34;&gt;题目本质
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;只能买一次、卖一次&lt;/li&gt;
+&lt;li&gt;问最大利润&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;为什么能贪心&#34;&gt;为什么能贪心？
+&lt;/h4&gt;&lt;p&gt;因为遍历到第 &lt;code&gt;i&lt;/code&gt; 天时，你只关心两件事：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;之前出现过的最低价格&lt;/li&gt;
+&lt;li&gt;今天卖出能得到的最大利润&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;局部最优就是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;买入价越低越好&lt;/li&gt;
+&lt;li&gt;当前利润越大越好&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这个局部选择不会影响未来，所以贪心成立。&lt;/p&gt;
+&lt;h4 id=&#34;go-代码&#34;&gt;Go 代码
+&lt;/h4&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 8
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 9
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;10
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;11
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;12
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;13
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;14
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;15
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;16
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;package&lt;/span&gt; main
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;func&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;maxProfit&lt;/span&gt;(prices []&lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt;) &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    minPrice &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; prices[&lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    ans &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;; i &amp;lt; &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;len&lt;/span&gt;(prices); i&lt;span style=&#34;color:#ff79c6&#34;&gt;++&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; prices[i] &amp;lt; minPrice {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            minPrice = prices[i]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; prices[i]&lt;span style=&#34;color:#ff79c6&#34;&gt;-&lt;/span&gt;minPrice &amp;gt; ans {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            ans = prices[i] &lt;span style=&#34;color:#ff79c6&#34;&gt;-&lt;/span&gt; minPrice
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; ans
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id=&#34;面试怎么说&#34;&gt;面试怎么说
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;这题贪心的关键是维护历史最低价。遍历到今天时，只要看“今天卖出”相对历史最低价的利润即可，因为买入越低越优，这个局部选择和未来不冲突。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;23-进阶例题leetcode-45-跳跃游戏-ii&#34;&gt;2.3 进阶例题：LeetCode 45 跳跃游戏 II
+&lt;/h3&gt;&lt;h4 id=&#34;题目本质-1&#34;&gt;题目本质
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;数组 &lt;code&gt;nums[i]&lt;/code&gt; 表示从位置 &lt;code&gt;i&lt;/code&gt; 最多能跳多远&lt;/li&gt;
+&lt;li&gt;问从下标 0 跳到最后一个位置的最少跳跃次数&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;贪心思路&#34;&gt;贪心思路
+&lt;/h4&gt;&lt;p&gt;每走到一层区间时：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;统计这一层能扩展到的最远位置 &lt;code&gt;farthest&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;当遍历到当前层边界 &lt;code&gt;end&lt;/code&gt; 时，说明必须跳一步了&lt;/li&gt;
+&lt;li&gt;然后把下一层边界更新成 &lt;code&gt;farthest&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;本质上是“按层扩展”的贪心。&lt;/p&gt;
+&lt;h4 id=&#34;go-代码-1&#34;&gt;Go 代码
+&lt;/h4&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 8
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 9
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;10
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;11
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;12
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;13
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;14
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;15
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;16
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;17
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;18
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;19
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;package&lt;/span&gt; main
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;func&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;jump&lt;/span&gt;(nums []&lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt;) &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    steps &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    end &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    farthest &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;; i &amp;lt; &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;len&lt;/span&gt;(nums)&lt;span style=&#34;color:#ff79c6&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;; i&lt;span style=&#34;color:#ff79c6&#34;&gt;++&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; i&lt;span style=&#34;color:#ff79c6&#34;&gt;+&lt;/span&gt;nums[i] &amp;gt; farthest {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            farthest = i &lt;span style=&#34;color:#ff79c6&#34;&gt;+&lt;/span&gt; nums[i]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; i &lt;span style=&#34;color:#ff79c6&#34;&gt;==&lt;/span&gt; end {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            steps&lt;span style=&#34;color:#ff79c6&#34;&gt;++&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            end = farthest
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; steps
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id=&#34;面试怎么说-1&#34;&gt;面试怎么说
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;这题虽然看起来像搜索，但可以贪心。因为在当前这一跳能覆盖的区间里，我只需要关心下一步最远能到哪里；当走到当前区间边界时，再统一跳一步。这样可以保证跳数最少。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;3-动态规划思想&#34;&gt;3. 动态规划思想
+&lt;/h2&gt;&lt;h3 id=&#34;31-动态规划的本质&#34;&gt;3.1 动态规划的本质
+&lt;/h3&gt;&lt;p&gt;动态规划的核心不是“背公式”，而是三件事：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;状态是什么&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;状态怎么转移&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;初始化是什么&lt;/strong&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;很多题写成一句话就是：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;dp[i] / dp[j] / dp[i][j]&lt;/code&gt; 表示什么，然后当前答案由之前哪些状态转移而来。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;32-经典例题leetcode-70-爬楼梯&#34;&gt;3.2 经典例题：LeetCode 70 爬楼梯
+&lt;/h3&gt;&lt;h4 id=&#34;题目本质-2&#34;&gt;题目本质
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;每次可以爬 1 阶或 2 阶&lt;/li&gt;
+&lt;li&gt;问爬到第 &lt;code&gt;n&lt;/code&gt; 阶有多少种方法&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;dp-思路&#34;&gt;DP 思路
+&lt;/h4&gt;&lt;p&gt;设：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;dp[i]&lt;/code&gt;：爬到第 &lt;code&gt;i&lt;/code&gt; 阶的方法数&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;那么：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;最后一步如果从 &lt;code&gt;i-1&lt;/code&gt; 上来，有 &lt;code&gt;dp[i-1]&lt;/code&gt; 种&lt;/li&gt;
+&lt;li&gt;最后一步如果从 &lt;code&gt;i-2&lt;/code&gt; 上来，有 &lt;code&gt;dp[i-2]&lt;/code&gt; 种&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;dp[i] = dp[i-1] + dp[i-2]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id=&#34;go-代码-2&#34;&gt;Go 代码
+&lt;/h4&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 8
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 9
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;10
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;11
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;12
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;13
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;14
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;15
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;16
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;17
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;package&lt;/span&gt; main
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;func&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;climbStairs&lt;/span&gt;(n &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt;) &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; n &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;lt;=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;2&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; n
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    dp &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;make&lt;/span&gt;([]&lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt;, n&lt;span style=&#34;color:#ff79c6&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    dp[&lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;] = &lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    dp[&lt;span style=&#34;color:#bd93f9&#34;&gt;2&lt;/span&gt;] = &lt;span style=&#34;color:#bd93f9&#34;&gt;2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;3&lt;/span&gt;; i &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;lt;=&lt;/span&gt; n; i&lt;span style=&#34;color:#ff79c6&#34;&gt;++&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        dp[i] = dp[i&lt;span style=&#34;color:#ff79c6&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;] &lt;span style=&#34;color:#ff79c6&#34;&gt;+&lt;/span&gt; dp[i&lt;span style=&#34;color:#ff79c6&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#bd93f9&#34;&gt;2&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; dp[n]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id=&#34;面试怎么说-2&#34;&gt;面试怎么说
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;这题是最经典的一维 DP。定义 &lt;code&gt;dp[i]&lt;/code&gt; 表示到第 i 阶的方法数，转移来自前一步和前两步，所以 &lt;code&gt;dp[i] = dp[i-1] + dp[i-2]&lt;/code&gt;。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;33-进阶例题leetcode-198-打家劫舍&#34;&gt;3.3 进阶例题：LeetCode 198 打家劫舍
+&lt;/h3&gt;&lt;h4 id=&#34;题目本质-3&#34;&gt;题目本质
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;一排房子，每个房子有金额&lt;/li&gt;
+&lt;li&gt;不能偷相邻的两家&lt;/li&gt;
+&lt;li&gt;问最多能偷多少钱&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;dp-思路-1&#34;&gt;DP 思路
+&lt;/h4&gt;&lt;p&gt;设：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;dp[i]&lt;/code&gt;：考虑前 &lt;code&gt;i+1&lt;/code&gt; 个房子时，最多能偷到的钱&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;对第 &lt;code&gt;i&lt;/code&gt; 个房子，有两种选择：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;不偷它：&lt;code&gt;dp[i-1]&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;偷它：&lt;code&gt;dp[i-2] + nums[i]&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;dp[i] = max(dp[i-1], dp[i-2] + nums[i])
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id=&#34;go-代码-3&#34;&gt;Go 代码
+&lt;/h4&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 8
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 9
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;10
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;11
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;12
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;13
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;14
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;15
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;16
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;17
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;18
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;19
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;20
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;21
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;22
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;23
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;24
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;25
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;26
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;27
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;28
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;package&lt;/span&gt; main
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;func&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;rob&lt;/span&gt;(nums []&lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt;) &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    n &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;len&lt;/span&gt;(nums)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; n &lt;span style=&#34;color:#ff79c6&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; n &lt;span style=&#34;color:#ff79c6&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; nums[&lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    dp &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;make&lt;/span&gt;([]&lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt;, n)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    dp[&lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;] = nums[&lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    dp[&lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;] = &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;max&lt;/span&gt;(nums[&lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;], nums[&lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;])
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;2&lt;/span&gt;; i &amp;lt; n; i&lt;span style=&#34;color:#ff79c6&#34;&gt;++&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        dp[i] = &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;max&lt;/span&gt;(dp[i&lt;span style=&#34;color:#ff79c6&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;], dp[i&lt;span style=&#34;color:#ff79c6&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#bd93f9&#34;&gt;2&lt;/span&gt;]&lt;span style=&#34;color:#ff79c6&#34;&gt;+&lt;/span&gt;nums[i])
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; dp[n&lt;span style=&#34;color:#ff79c6&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;func&lt;/span&gt; &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;max&lt;/span&gt;(a, b &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt;) &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; a &amp;gt; b {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; a
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; b
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id=&#34;更简洁的状态压缩写法&#34;&gt;更简洁的状态压缩写法
+&lt;/h4&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 8
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 9
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;10
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;11
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;12
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;13
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;14
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;15
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;16
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;package&lt;/span&gt; main
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;func&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;rob&lt;/span&gt;(nums []&lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt;) &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    f0, f1 &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;, &lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;for&lt;/span&gt; _, num &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;range&lt;/span&gt; nums {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        f0, f1 = f1, &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;max&lt;/span&gt;(f0&lt;span style=&#34;color:#ff79c6&#34;&gt;+&lt;/span&gt;num, f1)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; f1
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;func&lt;/span&gt; &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;max&lt;/span&gt;(a, b &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt;) &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; a &amp;gt; b {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; a
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; b
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id=&#34;这个写法怎么理解&#34;&gt;这个写法怎么理解？
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;f0&lt;/code&gt; 表示“处理到上一间房子时，&lt;strong&gt;不偷上一间&lt;/strong&gt; 的最大收益”&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;f1&lt;/code&gt; 表示“处理到上一间房子时，&lt;strong&gt;考虑完上一间后的最大收益&lt;/strong&gt;”&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;更容易记的方式是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;新的 &lt;code&gt;f0&lt;/code&gt; = 旧的 &lt;code&gt;f1&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;新的 &lt;code&gt;f1&lt;/code&gt; = &lt;code&gt;max(旧的 f0 + num, 旧的 f1)&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;含义是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;如果偷当前这间，那上一间就不能偷，所以收益是 &lt;code&gt;旧的 f0 + num&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;如果不偷当前这间，那收益就是 &lt;code&gt;旧的 f1&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;因此每次循环都在做“偷当前”还是“不偷当前”的决策。&lt;/p&gt;
+&lt;p&gt;这里最关键的一点是：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;f0, f1 = f1, &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;max&lt;/span&gt;(f0&lt;span style=&#34;color:#ff79c6&#34;&gt;+&lt;/span&gt;num, f1)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;Go 的这一句是&lt;strong&gt;同时赋值&lt;/strong&gt;，右边会先用旧值算完，再一起赋给左边，所以不会出现“前面更新了 f0，后面算 f1 时把旧值冲掉”的问题。&lt;/p&gt;
+&lt;h4 id=&#34;面试怎么说-3&#34;&gt;面试怎么说
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;这题的关键是“选当前”还是“不选当前”。所以动态规划状态很好设计：&lt;code&gt;dp[i] = max(dp[i-1], dp[i-2] + nums[i])&lt;/code&gt;。本质上就是枚举当前决策，然后从更小状态转移。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;4-背包问题&#34;&gt;4. 背包问题
+&lt;/h2&gt;&lt;h3 id=&#34;41-什么是-01-背包&#34;&gt;4.1 什么是 01 背包？
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;每件物品最多选一次&lt;/li&gt;
+&lt;li&gt;要么选，要么不选&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;典型特征：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;“每个数只能用一次”&lt;/li&gt;
+&lt;li&gt;“每件物品只能选一次”&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;42-什么是完全背包&#34;&gt;4.2 什么是完全背包？
+&lt;/h3&gt;&lt;ul&gt;
+&lt;li&gt;每件物品可以选无限次&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;典型特征：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;“每个硬币可以重复使用”&lt;/li&gt;
+&lt;li&gt;“每种物品数量无限”&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;43-01-背包和完全背包的根本区别&#34;&gt;4.3 01 背包和完全背包的根本区别
+&lt;/h3&gt;&lt;p&gt;不是公式不同，而是：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;同一件物品能不能在同一轮被重复使用&lt;/strong&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;所以循环顺序是背包题最关键的标志：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;01 背包：容量倒序&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;完全背包：容量正序&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;44-为什么背包题通常不用贪心&#34;&gt;4.4 为什么背包题通常不用贪心？
+&lt;/h3&gt;&lt;p&gt;因为背包题，尤其是 01 背包，通常不满足贪心选择性质。&lt;/p&gt;
+&lt;p&gt;比如：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;容量 &lt;code&gt;50&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;物品：
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;w=10, v=60&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;w=20, v=100&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;w=30, v=120&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;如果按价值密度贪心：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;先选 10,60&lt;/li&gt;
+&lt;li&gt;再选 20,100&lt;/li&gt;
+&lt;li&gt;得到 160&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;但最优解其实是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;20,100 + 30,120&lt;/li&gt;
+&lt;li&gt;得到 220&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;01 背包一般不能贪心，通常要用 DP。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;45-经典例题leetcode-416-分割等和子集01-背包&#34;&gt;4.5 经典例题：LeetCode 416 分割等和子集（01 背包）
+&lt;/h3&gt;&lt;h4 id=&#34;题目本质-4&#34;&gt;题目本质
+&lt;/h4&gt;&lt;p&gt;数组能否分成两个和相等的子集？&lt;/p&gt;
+&lt;p&gt;设总和为 &lt;code&gt;sum&lt;/code&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;如果 &lt;code&gt;sum&lt;/code&gt; 是奇数，不可能&lt;/li&gt;
+&lt;li&gt;如果 &lt;code&gt;sum&lt;/code&gt; 是偶数，问题变成：&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;能不能从数组里选一些数，和恰好等于 &lt;code&gt;sum / 2&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这就是 01 背包。&lt;/p&gt;
+&lt;h4 id=&#34;dp-思路-2&#34;&gt;DP 思路
+&lt;/h4&gt;&lt;p&gt;设：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;dp[j]&lt;/code&gt;：是否能凑出和 &lt;code&gt;j&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;转移：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;dp[j] = dp[j] || dp[j-num]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;因为每个数只能选一次，所以：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;j&lt;/code&gt; 必须倒序&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;go-代码-4&#34;&gt;Go 代码
+&lt;/h4&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 8
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 9
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;10
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;11
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;12
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;13
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;14
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;15
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;16
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;17
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;18
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;19
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;20
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;21
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;22
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;23
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;24
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;25
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;26
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;27
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;package&lt;/span&gt; main
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;func&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;canPartition&lt;/span&gt;(nums []&lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt;) &lt;span style=&#34;color:#8be9fd&#34;&gt;bool&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    sum &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;for&lt;/span&gt; _, x &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;range&lt;/span&gt; nums {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        sum &lt;span style=&#34;color:#ff79c6&#34;&gt;+=&lt;/span&gt; x
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; sum&lt;span style=&#34;color:#ff79c6&#34;&gt;%&lt;/span&gt;&lt;span style=&#34;color:#bd93f9&#34;&gt;2&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;==&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;false&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    target &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; sum &lt;span style=&#34;color:#ff79c6&#34;&gt;/&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;2&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    dp &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;make&lt;/span&gt;([]&lt;span style=&#34;color:#8be9fd&#34;&gt;bool&lt;/span&gt;, target&lt;span style=&#34;color:#ff79c6&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    dp[&lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;] = &lt;span style=&#34;color:#ff79c6&#34;&gt;true&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;for&lt;/span&gt; _, num &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;range&lt;/span&gt; nums {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;for&lt;/span&gt; j &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; target; j &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;gt;=&lt;/span&gt; num; j&lt;span style=&#34;color:#ff79c6&#34;&gt;--&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            dp[j] = dp[j] &lt;span style=&#34;color:#ff79c6&#34;&gt;||&lt;/span&gt; dp[j&lt;span style=&#34;color:#ff79c6&#34;&gt;-&lt;/span&gt;num]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#6272a4&#34;&gt;// if dp[j-num] {&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                  dp[j]=&lt;span style=&#34;color:#ff79c6&#34;&gt;true&lt;/span&gt;  
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#6272a4&#34;&gt;//
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#6272a4&#34;&gt;        }&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; dp[target]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id=&#34;面试怎么说-4&#34;&gt;面试怎么说
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;这题本质是 01 背包。每个数只能选一次，目标是看能不能凑出 &lt;code&gt;sum/2&lt;/code&gt;。状态是 &lt;code&gt;dp[j]&lt;/code&gt; 表示是否能凑出和 &lt;code&gt;j&lt;/code&gt;，转移是 &lt;code&gt;dp[j] = dp[j] || dp[j-num]&lt;/code&gt;，因为每个数只能用一次，所以容量必须倒序遍历。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h3 id=&#34;46-进阶例题leetcode-322-零钱兑换完全背包&#34;&gt;4.6 进阶例题：LeetCode 322 零钱兑换（完全背包）
+&lt;/h3&gt;&lt;h4 id=&#34;题目本质-5&#34;&gt;题目本质
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;给你若干硬币&lt;/li&gt;
+&lt;li&gt;每种硬币能无限使用&lt;/li&gt;
+&lt;li&gt;问凑出 &lt;code&gt;amount&lt;/code&gt; 的最少硬币数&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这就是完全背包。&lt;/p&gt;
+&lt;h4 id=&#34;dp-思路-3&#34;&gt;DP 思路
+&lt;/h4&gt;&lt;p&gt;设：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;dp[j]&lt;/code&gt;：凑出金额 &lt;code&gt;j&lt;/code&gt; 的最少硬币数&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;转移：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;dp[j] = min(dp[j], dp[j-coin] + 1)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;因为硬币可以重复使用，所以：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;j&lt;/code&gt; 必须正序&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;go-代码-5&#34;&gt;Go 代码
+&lt;/h4&gt;&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 8
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 9
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;10
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;11
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;12
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;13
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;14
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;15
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;16
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;17
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;18
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;19
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;20
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;21
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;22
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;package&lt;/span&gt; main
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;func&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;coinChange&lt;/span&gt;(coins []&lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt;, amount &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt;) &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    inf &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; amount &lt;span style=&#34;color:#ff79c6&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    dp &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;make&lt;/span&gt;([]&lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt;, amount&lt;span style=&#34;color:#ff79c6&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;for&lt;/span&gt; i &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;; i &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;lt;=&lt;/span&gt; amount; i&lt;span style=&#34;color:#ff79c6&#34;&gt;++&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        dp[i] = inf
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;for&lt;/span&gt; _, coin &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;range&lt;/span&gt; coins {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;for&lt;/span&gt; j &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; coin; j &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;lt;=&lt;/span&gt; amount; j&lt;span style=&#34;color:#ff79c6&#34;&gt;++&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; dp[j&lt;span style=&#34;color:#ff79c6&#34;&gt;-&lt;/span&gt;coin]&lt;span style=&#34;color:#ff79c6&#34;&gt;+&lt;/span&gt;&lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt; &amp;lt; dp[j] {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                dp[j] = dp[j&lt;span style=&#34;color:#ff79c6&#34;&gt;-&lt;/span&gt;coin] &lt;span style=&#34;color:#ff79c6&#34;&gt;+&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; dp[amount] &lt;span style=&#34;color:#ff79c6&#34;&gt;==&lt;/span&gt; inf {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;-&lt;/span&gt;&lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; dp[amount]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h4 id=&#34;面试怎么说-5&#34;&gt;面试怎么说
+&lt;/h4&gt;&lt;blockquote&gt;
+&lt;p&gt;这题是完全背包，因为每种硬币可以重复用。状态是 &lt;code&gt;dp[j]&lt;/code&gt; 表示凑出金额 &lt;code&gt;j&lt;/code&gt; 的最少硬币数，转移是 &lt;code&gt;dp[j] = min(dp[j], dp[j-coin] + 1)&lt;/code&gt;。因为硬币能重复使用，所以容量必须正序遍历。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;5-最后总结面试时怎么快速判断&#34;&gt;5. 最后总结：面试时怎么快速判断
+&lt;/h2&gt;&lt;h3 id=&#34;51-如果你觉得能一步一步直接选最优&#34;&gt;5.1 如果你觉得能一步一步直接选最优
+&lt;/h3&gt;&lt;p&gt;先想贪心，但要问自己：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;我能证明局部最优一定推出全局最优吗？&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;如果证明不了，就别硬贪。&lt;/p&gt;
+&lt;h3 id=&#34;52-如果你发现当前答案依赖前面的状态&#34;&gt;5.2 如果你发现当前答案依赖前面的状态
+&lt;/h3&gt;&lt;p&gt;优先往动态规划上想：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;状态是什么&lt;/li&gt;
+&lt;li&gt;转移是什么&lt;/li&gt;
+&lt;li&gt;初始化是什么&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;53-如果题目里出现容量--选择--使用次数&#34;&gt;5.3 如果题目里出现“容量 / 选择 / 使用次数”
+&lt;/h3&gt;&lt;p&gt;优先往背包模型上靠：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;每个物品只能一次 -&amp;gt; 01 背包&lt;/li&gt;
+&lt;li&gt;每个物品无限次 -&amp;gt; 完全背包&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;54-最后一句口诀&#34;&gt;5.4 最后一句口诀
+&lt;/h3&gt;&lt;blockquote&gt;
+&lt;p&gt;贪心看“局部最优能不能推出全局最优”；&lt;br&gt;
+动态规划看“状态怎么定义、怎么转移”；&lt;br&gt;
+背包先看“物品能不能重复选”，再决定容量正序还是倒序。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;hr&gt;
+</description>
+        </item>
+        <item>
         <title>买卖股票的最佳时机：从贪心到状态机</title>
         <link>https://skylm808.github.io/p/%E4%B9%B0%E5%8D%96%E8%82%A1%E7%A5%A8%E7%9A%84%E6%9C%80%E4%BD%B3%E6%97%B6%E6%9C%BA%E4%BB%8E%E8%B4%AA%E5%BF%83%E5%88%B0%E7%8A%B6%E6%80%81%E6%9C%BA/</link>
         <pubDate>Tue, 24 Feb 2026 23:02:00 +0800</pubDate>

@@ -7,7 +7,17 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Tue, 17 Mar 2026 23:09:18 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Tue, 24 Mar 2026 22:09:27 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>算法</title>
+        <link>https://skylm808.github.io/categories/%E7%AE%97%E6%B3%95/</link>
+        <pubDate>Tue, 24 Mar 2026 22:09:27 +0800</pubDate>
+        
+        <guid>https://skylm808.github.io/categories/%E7%AE%97%E6%B3%95/</guid>
+        <description>&lt;h2 id=&#34;算法与数据结构&#34;&gt;算法与数据结构
+&lt;/h2&gt;&lt;p&gt;算法题解、数据结构分析、算法思路总结等内容。&lt;/p&gt;
+</description>
+        </item>
+        <item>
         <title>Go</title>
         <link>https://skylm808.github.io/categories/go/</link>
         <pubDate>Tue, 17 Mar 2026 23:09:18 +0800</pubDate>
@@ -40,16 +50,6 @@
         
         <guid>https://skylm808.github.io/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/</guid>
         <description></description>
-        </item>
-        <item>
-        <title>算法</title>
-        <link>https://skylm808.github.io/categories/%E7%AE%97%E6%B3%95/</link>
-        <pubDate>Tue, 24 Feb 2026 23:02:00 +0800</pubDate>
-        
-        <guid>https://skylm808.github.io/categories/%E7%AE%97%E6%B3%95/</guid>
-        <description>&lt;h2 id=&#34;算法与数据结构&#34;&gt;算法与数据结构
-&lt;/h2&gt;&lt;p&gt;算法题解、数据结构分析、算法思路总结等内容。&lt;/p&gt;
-</description>
         </item>
         <item>
         <title>学习笔记</title>

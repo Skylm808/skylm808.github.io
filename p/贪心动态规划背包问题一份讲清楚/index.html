@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="贪心、动态规划、背包问题：一份讲清楚 这份笔记的目标不是堆题，而是把三件事讲明白：\n贪心 和 动态规划 到底有什么区别 背包 为什么是题目模型，而不是一种算法 遇到题目时，怎么判断该往哪种思路上靠 目录结构 先分清：贪心、动态规划、背包分别是什么 贪心思想 经典例题：LeetCode 121 买卖股票的最佳时机 进阶例题：LeetCode 45 跳跃游戏 II 动态规划思想 经典例题：LeetCode 70 爬楼梯 进阶例题：LeetCode 198 打家劫舍 背包问题 01 背包和完全背包的本质区别 经典例题：LeetCode 416 分割等和子集 进阶例题：LeetCode 322 零钱兑换 最后总结：面试时怎么快速判断 1. 先分清：贪心、动态规划、背包分别是什么 这三个词经常一起出现，但它们不是一个层级。\n">
+<title>贪心、动态规划、背包问题：一份讲清楚</title>
+
+<link rel='canonical' href='https://skylm808.github.io/p/%E8%B4%AA%E5%BF%83%E5%8A%A8%E6%80%81%E8%A7%84%E5%88%92%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E4%B8%80%E4%BB%BD%E8%AE%B2%E6%B8%85%E6%A5%9A/'>
+
+<link rel="stylesheet" href="/scss/style.min.96ba1c3608acf4f319504831a9a06a60c4c0f47ce65605b5ca2dab1981e36064.css"><meta property='og:title' content="贪心、动态规划、背包问题：一份讲清楚">
+<meta property='og:description' content="贪心、动态规划、背包问题：一份讲清楚 这份笔记的目标不是堆题，而是把三件事讲明白：\n贪心 和 动态规划 到底有什么区别 背包 为什么是题目模型，而不是一种算法 遇到题目时，怎么判断该往哪种思路上靠 目录结构 先分清：贪心、动态规划、背包分别是什么 贪心思想 经典例题：LeetCode 121 买卖股票的最佳时机 进阶例题：LeetCode 45 跳跃游戏 II 动态规划思想 经典例题：LeetCode 70 爬楼梯 进阶例题：LeetCode 198 打家劫舍 背包问题 01 背包和完全背包的本质区别 经典例题：LeetCode 416 分割等和子集 进阶例题：LeetCode 322 零钱兑换 最后总结：面试时怎么快速判断 1. 先分清：贪心、动态规划、背包分别是什么 这三个词经常一起出现，但它们不是一个层级。\n">
+<meta property='og:url' content='https://skylm808.github.io/p/%E8%B4%AA%E5%BF%83%E5%8A%A8%E6%80%81%E8%A7%84%E5%88%92%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E4%B8%80%E4%BB%BD%E8%AE%B2%E6%B8%85%E6%A5%9A/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='算法' /><meta property='article:published_time' content='2026-03-24T22:09:27&#43;08:00'/><meta property='article:modified_time' content='2026-03-24T22:09:27&#43;08:00'/>
+<meta name="twitter:title" content="贪心、动态规划、背包问题：一份讲清楚">
+<meta name="twitter:description" content="贪心、动态规划、背包问题：一份讲清楚 这份笔记的目标不是堆题，而是把三件事讲明白：\n贪心 和 动态规划 到底有什么区别 背包 为什么是题目模型，而不是一种算法 遇到题目时，怎么判断该往哪种思路上靠 目录结构 先分清：贪心、动态规划、背包分别是什么 贪心思想 经典例题：LeetCode 121 买卖股票的最佳时机 进阶例题：LeetCode 45 跳跃游戏 II 动态规划思想 经典例题：LeetCode 70 爬楼梯 进阶例题：LeetCode 198 打家劫舍 背包问题 01 背包和完全背包的本质区别 经典例题：LeetCode 416 分割等和子集 进阶例题：LeetCode 322 零钱兑换 最后总结：面试时怎么快速判断 1. 先分清：贪心、动态规划、背包分别是什么 这三个词经常一起出现，但它们不是一个层级。\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页|home</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类&amp;标签|Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档 | Archives</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索 | Search</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友情链接 | Links</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#目录结构">目录结构</a></li>
+    <li><a href="#1-先分清贪心动态规划背包分别是什么">1. 先分清：贪心、动态规划、背包分别是什么</a>
+      <ol>
+        <li><a href="#11-贪心">1.1 贪心</a></li>
+        <li><a href="#12-动态规划">1.2 动态规划</a></li>
+        <li><a href="#13-背包">1.3 背包</a></li>
+      </ol>
+    </li>
+    <li><a href="#2-贪心思想">2. 贪心思想</a></li>
+    <li><a href="#21-贪心的本质">2.1 贪心的本质</a>
+      <ol>
+        <li><a href="#22-经典例题leetcode-121-买卖股票的最佳时机">2.2 经典例题：LeetCode 121 买卖股票的最佳时机</a>
+          <ol>
+            <li><a href="#题目本质">题目本质</a></li>
+            <li><a href="#为什么能贪心">为什么能贪心？</a></li>
+            <li><a href="#go-代码">Go 代码</a></li>
+            <li><a href="#面试怎么说">面试怎么说</a></li>
+          </ol>
+        </li>
+        <li><a href="#23-进阶例题leetcode-45-跳跃游戏-ii">2.3 进阶例题：LeetCode 45 跳跃游戏 II</a>
+          <ol>
+            <li><a href="#题目本质-1">题目本质</a></li>
+            <li><a href="#贪心思路">贪心思路</a></li>
+            <li><a href="#go-代码-1">Go 代码</a></li>
+            <li><a href="#面试怎么说-1">面试怎么说</a></li>
+          </ol>
+        </li>
+      </ol>
+    </li>
+    <li><a href="#3-动态规划思想">3. 动态规划思想</a>
+      <ol>
+        <li><a href="#31-动态规划的本质">3.1 动态规划的本质</a></li>
+        <li><a href="#32-经典例题leetcode-70-爬楼梯">3.2 经典例题：LeetCode 70 爬楼梯</a>
+          <ol>
+            <li><a href="#题目本质-2">题目本质</a></li>
+            <li><a href="#dp-思路">DP 思路</a></li>
+            <li><a href="#go-代码-2">Go 代码</a></li>
+            <li><a href="#面试怎么说-2">面试怎么说</a></li>
+          </ol>
+        </li>
+        <li><a href="#33-进阶例题leetcode-198-打家劫舍">3.3 进阶例题：LeetCode 198 打家劫舍</a>
+          <ol>
+            <li><a href="#题目本质-3">题目本质</a></li>
+            <li><a href="#dp-思路-1">DP 思路</a></li>
+            <li><a href="#go-代码-3">Go 代码</a></li>
+            <li><a href="#更简洁的状态压缩写法">更简洁的状态压缩写法</a></li>
+            <li><a href="#这个写法怎么理解">这个写法怎么理解？</a></li>
+            <li><a href="#面试怎么说-3">面试怎么说</a></li>
+          </ol>
+        </li>
+      </ol>
+    </li>
+    <li><a href="#4-背包问题">4. 背包问题</a>
+      <ol>
+        <li><a href="#41-什么是-01-背包">4.1 什么是 01 背包？</a></li>
+        <li><a href="#42-什么是完全背包">4.2 什么是完全背包？</a></li>
+        <li><a href="#43-01-背包和完全背包的根本区别">4.3 01 背包和完全背包的根本区别</a></li>
+        <li><a href="#44-为什么背包题通常不用贪心">4.4 为什么背包题通常不用贪心？</a></li>
+        <li><a href="#45-经典例题leetcode-416-分割等和子集01-背包">4.5 经典例题：LeetCode 416 分割等和子集（01 背包）</a>
+          <ol>
+            <li><a href="#题目本质-4">题目本质</a></li>
+            <li><a href="#dp-思路-2">DP 思路</a></li>
+            <li><a href="#go-代码-4">Go 代码</a></li>
+            <li><a href="#面试怎么说-4">面试怎么说</a></li>
+          </ol>
+        </li>
+        <li><a href="#46-进阶例题leetcode-322-零钱兑换完全背包">4.6 进阶例题：LeetCode 322 零钱兑换（完全背包）</a>
+          <ol>
+            <li><a href="#题目本质-5">题目本质</a></li>
+            <li><a href="#dp-思路-3">DP 思路</a></li>
+            <li><a href="#go-代码-5">Go 代码</a></li>
+            <li><a href="#面试怎么说-5">面试怎么说</a></li>
+          </ol>
+        </li>
+      </ol>
+    </li>
+    <li><a href="#5-最后总结面试时怎么快速判断">5. 最后总结：面试时怎么快速判断</a>
+      <ol>
+        <li><a href="#51-如果你觉得能一步一步直接选最优">5.1 如果你觉得能一步一步直接选最优</a></li>
+        <li><a href="#52-如果你发现当前答案依赖前面的状态">5.2 如果你发现当前答案依赖前面的状态</a></li>
+        <li><a href="#53-如果题目里出现容量--选择--使用次数">5.3 如果题目里出现“容量 / 选择 / 使用次数”</a></li>
+        <li><a href="#54-最后一句口诀">5.4 最后一句口诀</a></li>
+      </ol>
+    </li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/%E7%AE%97%E6%B3%95/" >
+                算法
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/%E8%B4%AA%E5%BF%83%E5%8A%A8%E6%80%81%E8%A7%84%E5%88%92%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E4%B8%80%E4%BB%BD%E8%AE%B2%E6%B8%85%E6%A5%9A/">贪心、动态规划、背包问题：一份讲清楚</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Mar 24, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 7 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="贪心动态规划背包问题一份讲清楚">贪心、动态规划、背包问题：一份讲清楚
+</h1><blockquote>
+<p>这份笔记的目标不是堆题，而是把三件事讲明白：</p>
+<ol>
+<li><code>贪心</code> 和 <code>动态规划</code> 到底有什么区别</li>
+<li><code>背包</code> 为什么是题目模型，而不是一种算法</li>
+<li>遇到题目时，怎么判断该往哪种思路上靠</li>
+</ol>
+</blockquote>
+<hr>
+<h2 id="目录结构">目录结构
+</h2><ol>
+<li>先分清：贪心、动态规划、背包分别是什么</li>
+<li>贪心思想</li>
+</ol>
+<ul>
+<li>经典例题：LeetCode 121 买卖股票的最佳时机</li>
+<li>进阶例题：LeetCode 45 跳跃游戏 II</li>
+</ul>
+<ol start="3">
+<li>动态规划思想</li>
+</ol>
+<ul>
+<li>经典例题：LeetCode 70 爬楼梯</li>
+<li>进阶例题：LeetCode 198 打家劫舍</li>
+</ul>
+<ol start="4">
+<li>背包问题</li>
+</ol>
+<ul>
+<li>01 背包和完全背包的本质区别</li>
+<li>经典例题：LeetCode 416 分割等和子集</li>
+<li>进阶例题：LeetCode 322 零钱兑换</li>
+</ul>
+<ol start="5">
+<li>最后总结：面试时怎么快速判断</li>
+</ol>
+<hr>
+<h2 id="1-先分清贪心动态规划背包分别是什么">1. 先分清：贪心、动态规划、背包分别是什么
+</h2><p>这三个词经常一起出现，但它们不是一个层级。</p>
+<h3 id="11-贪心">1.1 贪心
+</h3><p>贪心是一种<strong>解题思想</strong>：</p>
+<ul>
+<li>每一步都选当前看起来最优的方案</li>
+<li>不回头修改之前的决定</li>
+</ul>
+<p>它成立的前提是：</p>
+<blockquote>
+<p>局部最优可以推出全局最优</p>
+</blockquote>
+<p>如果这个性质不成立，贪心就会错。</p>
+<h3 id="12-动态规划">1.2 动态规划
+</h3><p>动态规划也是一种<strong>解题思想</strong>：</p>
+<ul>
+<li>把大问题拆成小问题</li>
+<li>记录已经算过的状态</li>
+<li>通过状态转移得到全局最优</li>
+</ul>
+<p>它常见的两个判断条件是：</p>
+<ul>
+<li><strong>最优子结构</strong></li>
+<li><strong>重叠子问题</strong></li>
+</ul>
+<h3 id="13-背包">1.3 背包
+</h3><p>背包不是算法，而是一种<strong>题目模型</strong>：</p>
+<ul>
+<li>有容量限制</li>
+<li>有一批物品</li>
+<li>每件物品有“代价”和“收益”或者“效果”</li>
+<li>问最优值 / 是否可行 / 最少数量 / 方案数</li>
+</ul>
+<p>所以关系是：</p>
+<ul>
+<li><code>贪心</code>、<code>动态规划</code>：解题方法</li>
+<li><code>背包</code>：题目模型</li>
+</ul>
+<p>面试里一句话总结：</p>
+<blockquote>
+<p>贪心和动态规划是解题思想，背包是题目模型。背包题大多数用动态规划来做，因为它通常不满足贪心选择性质。</p>
+</blockquote>
+<hr>
+<h2 id="2-贪心思想">2. 贪心思想
+</h2><h2 id="21-贪心的本质">2.1 贪心的本质
+</h2><p>贪心的核心就一句话：</p>
+<blockquote>
+<p>当前这一步怎么选最优，就直接这么选。</p>
+</blockquote>
+<p>它的优点是：</p>
+<ul>
+<li>写法短</li>
+<li>复杂度低</li>
+<li>很适合线性扫描</li>
+</ul>
+<p>它的难点也在这里：</p>
+<ul>
+<li>你必须能证明“局部最优 -&gt; 全局最优”</li>
+</ul>
+<p>所以贪心最难的不是写代码，而是<strong>证明为什么这样选不会错</strong>。</p>
+<hr>
+<h3 id="22-经典例题leetcode-121-买卖股票的最佳时机">2.2 经典例题：LeetCode 121 买卖股票的最佳时机
+</h3><h4 id="题目本质">题目本质
+</h4><ul>
+<li>只能买一次、卖一次</li>
+<li>问最大利润</li>
+</ul>
+<h4 id="为什么能贪心">为什么能贪心？
+</h4><p>因为遍历到第 <code>i</code> 天时，你只关心两件事：</p>
+<ul>
+<li>之前出现过的最低价格</li>
+<li>今天卖出能得到的最大利润</li>
+</ul>
+<p>局部最优就是：</p>
+<ul>
+<li>买入价越低越好</li>
+<li>当前利润越大越好</li>
+</ul>
+<p>这个局部选择不会影响未来，所以贪心成立。</p>
+<h4 id="go-代码">Go 代码
+</h4><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">package</span> main
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">maxProfit</span>(prices []<span style="color:#8be9fd">int</span>) <span style="color:#8be9fd">int</span> {
+</span></span><span style="display:flex;"><span>    minPrice <span style="color:#ff79c6">:=</span> prices[<span style="color:#bd93f9">0</span>]
+</span></span><span style="display:flex;"><span>    ans <span style="color:#ff79c6">:=</span> <span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> i <span style="color:#ff79c6">:=</span> <span style="color:#bd93f9">1</span>; i &lt; <span style="color:#8be9fd;font-style:italic">len</span>(prices); i<span style="color:#ff79c6">++</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> prices[i] &lt; minPrice {
+</span></span><span style="display:flex;"><span>            minPrice = prices[i]
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> prices[i]<span style="color:#ff79c6">-</span>minPrice &gt; ans {
+</span></span><span style="display:flex;"><span>            ans = prices[i] <span style="color:#ff79c6">-</span> minPrice
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> ans
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="面试怎么说">面试怎么说
+</h4><blockquote>
+<p>这题贪心的关键是维护历史最低价。遍历到今天时，只要看“今天卖出”相对历史最低价的利润即可，因为买入越低越优，这个局部选择和未来不冲突。</p>
+</blockquote>
+<hr>
+<h3 id="23-进阶例题leetcode-45-跳跃游戏-ii">2.3 进阶例题：LeetCode 45 跳跃游戏 II
+</h3><h4 id="题目本质-1">题目本质
+</h4><ul>
+<li>数组 <code>nums[i]</code> 表示从位置 <code>i</code> 最多能跳多远</li>
+<li>问从下标 0 跳到最后一个位置的最少跳跃次数</li>
+</ul>
+<h4 id="贪心思路">贪心思路
+</h4><p>每走到一层区间时：</p>
+<ul>
+<li>统计这一层能扩展到的最远位置 <code>farthest</code></li>
+<li>当遍历到当前层边界 <code>end</code> 时，说明必须跳一步了</li>
+<li>然后把下一层边界更新成 <code>farthest</code></li>
+</ul>
+<p>本质上是“按层扩展”的贪心。</p>
+<h4 id="go-代码-1">Go 代码
+</h4><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">package</span> main
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">jump</span>(nums []<span style="color:#8be9fd">int</span>) <span style="color:#8be9fd">int</span> {
+</span></span><span style="display:flex;"><span>    steps <span style="color:#ff79c6">:=</span> <span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span>    end <span style="color:#ff79c6">:=</span> <span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span>    farthest <span style="color:#ff79c6">:=</span> <span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> i <span style="color:#ff79c6">:=</span> <span style="color:#bd93f9">0</span>; i &lt; <span style="color:#8be9fd;font-style:italic">len</span>(nums)<span style="color:#ff79c6">-</span><span style="color:#bd93f9">1</span>; i<span style="color:#ff79c6">++</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> i<span style="color:#ff79c6">+</span>nums[i] &gt; farthest {
+</span></span><span style="display:flex;"><span>            farthest = i <span style="color:#ff79c6">+</span> nums[i]
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">if</span> i <span style="color:#ff79c6">==</span> end {
+</span></span><span style="display:flex;"><span>            steps<span style="color:#ff79c6">++</span>
+</span></span><span style="display:flex;"><span>            end = farthest
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> steps
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="面试怎么说-1">面试怎么说
+</h4><blockquote>
+<p>这题虽然看起来像搜索，但可以贪心。因为在当前这一跳能覆盖的区间里，我只需要关心下一步最远能到哪里；当走到当前区间边界时，再统一跳一步。这样可以保证跳数最少。</p>
+</blockquote>
+<hr>
+<h2 id="3-动态规划思想">3. 动态规划思想
+</h2><h3 id="31-动态规划的本质">3.1 动态规划的本质
+</h3><p>动态规划的核心不是“背公式”，而是三件事：</p>
+<ol>
+<li><strong>状态是什么</strong></li>
+<li><strong>状态怎么转移</strong></li>
+<li><strong>初始化是什么</strong></li>
+</ol>
+<p>很多题写成一句话就是：</p>
+<blockquote>
+<p><code>dp[i] / dp[j] / dp[i][j]</code> 表示什么，然后当前答案由之前哪些状态转移而来。</p>
+</blockquote>
+<hr>
+<h3 id="32-经典例题leetcode-70-爬楼梯">3.2 经典例题：LeetCode 70 爬楼梯
+</h3><h4 id="题目本质-2">题目本质
+</h4><ul>
+<li>每次可以爬 1 阶或 2 阶</li>
+<li>问爬到第 <code>n</code> 阶有多少种方法</li>
+</ul>
+<h4 id="dp-思路">DP 思路
+</h4><p>设：</p>
+<ul>
+<li><code>dp[i]</code>：爬到第 <code>i</code> 阶的方法数</li>
+</ul>
+<p>那么：</p>
+<ul>
+<li>最后一步如果从 <code>i-1</code> 上来，有 <code>dp[i-1]</code> 种</li>
+<li>最后一步如果从 <code>i-2</code> 上来，有 <code>dp[i-2]</code> 种</li>
+</ul>
+<p>所以：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>dp[i] = dp[i-1] + dp[i-2]
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="go-代码-2">Go 代码
+</h4><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">package</span> main
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">climbStairs</span>(n <span style="color:#8be9fd">int</span>) <span style="color:#8be9fd">int</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> n <span style="color:#ff79c6">&lt;=</span> <span style="color:#bd93f9">2</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> n
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    dp <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">make</span>([]<span style="color:#8be9fd">int</span>, n<span style="color:#ff79c6">+</span><span style="color:#bd93f9">1</span>)
+</span></span><span style="display:flex;"><span>    dp[<span style="color:#bd93f9">1</span>] = <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>    dp[<span style="color:#bd93f9">2</span>] = <span style="color:#bd93f9">2</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> i <span style="color:#ff79c6">:=</span> <span style="color:#bd93f9">3</span>; i <span style="color:#ff79c6">&lt;=</span> n; i<span style="color:#ff79c6">++</span> {
+</span></span><span style="display:flex;"><span>        dp[i] = dp[i<span style="color:#ff79c6">-</span><span style="color:#bd93f9">1</span>] <span style="color:#ff79c6">+</span> dp[i<span style="color:#ff79c6">-</span><span style="color:#bd93f9">2</span>]
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> dp[n]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="面试怎么说-2">面试怎么说
+</h4><blockquote>
+<p>这题是最经典的一维 DP。定义 <code>dp[i]</code> 表示到第 i 阶的方法数，转移来自前一步和前两步，所以 <code>dp[i] = dp[i-1] + dp[i-2]</code>。</p>
+</blockquote>
+<hr>
+<h3 id="33-进阶例题leetcode-198-打家劫舍">3.3 进阶例题：LeetCode 198 打家劫舍
+</h3><h4 id="题目本质-3">题目本质
+</h4><ul>
+<li>一排房子，每个房子有金额</li>
+<li>不能偷相邻的两家</li>
+<li>问最多能偷多少钱</li>
+</ul>
+<h4 id="dp-思路-1">DP 思路
+</h4><p>设：</p>
+<ul>
+<li><code>dp[i]</code>：考虑前 <code>i+1</code> 个房子时，最多能偷到的钱</li>
+</ul>
+<p>对第 <code>i</code> 个房子，有两种选择：</p>
+<ul>
+<li>不偷它：<code>dp[i-1]</code></li>
+<li>偷它：<code>dp[i-2] + nums[i]</code></li>
+</ul>
+<p>所以：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>dp[i] = max(dp[i-1], dp[i-2] + nums[i])
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="go-代码-3">Go 代码
+</h4><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">package</span> main
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">rob</span>(nums []<span style="color:#8be9fd">int</span>) <span style="color:#8be9fd">int</span> {
+</span></span><span style="display:flex;"><span>    n <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">len</span>(nums)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> n <span style="color:#ff79c6">==</span> <span style="color:#bd93f9">0</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> n <span style="color:#ff79c6">==</span> <span style="color:#bd93f9">1</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> nums[<span style="color:#bd93f9">0</span>]
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    dp <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">make</span>([]<span style="color:#8be9fd">int</span>, n)
+</span></span><span style="display:flex;"><span>    dp[<span style="color:#bd93f9">0</span>] = nums[<span style="color:#bd93f9">0</span>]
+</span></span><span style="display:flex;"><span>    dp[<span style="color:#bd93f9">1</span>] = <span style="color:#8be9fd;font-style:italic">max</span>(nums[<span style="color:#bd93f9">0</span>], nums[<span style="color:#bd93f9">1</span>])
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> i <span style="color:#ff79c6">:=</span> <span style="color:#bd93f9">2</span>; i &lt; n; i<span style="color:#ff79c6">++</span> {
+</span></span><span style="display:flex;"><span>        dp[i] = <span style="color:#8be9fd;font-style:italic">max</span>(dp[i<span style="color:#ff79c6">-</span><span style="color:#bd93f9">1</span>], dp[i<span style="color:#ff79c6">-</span><span style="color:#bd93f9">2</span>]<span style="color:#ff79c6">+</span>nums[i])
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> dp[n<span style="color:#ff79c6">-</span><span style="color:#bd93f9">1</span>]
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#8be9fd;font-style:italic">max</span>(a, b <span style="color:#8be9fd">int</span>) <span style="color:#8be9fd">int</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> a &gt; b {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> a
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> b
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="更简洁的状态压缩写法">更简洁的状态压缩写法
+</h4><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">package</span> main
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">rob</span>(nums []<span style="color:#8be9fd">int</span>) <span style="color:#8be9fd">int</span> {
+</span></span><span style="display:flex;"><span>    f0, f1 <span style="color:#ff79c6">:=</span> <span style="color:#bd93f9">0</span>, <span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> _, num <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> nums {
+</span></span><span style="display:flex;"><span>        f0, f1 = f1, <span style="color:#8be9fd;font-style:italic">max</span>(f0<span style="color:#ff79c6">+</span>num, f1)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> f1
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#8be9fd;font-style:italic">max</span>(a, b <span style="color:#8be9fd">int</span>) <span style="color:#8be9fd">int</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> a &gt; b {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> a
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> b
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="这个写法怎么理解">这个写法怎么理解？
+</h4><ul>
+<li><code>f0</code> 表示“处理到上一间房子时，<strong>不偷上一间</strong> 的最大收益”</li>
+<li><code>f1</code> 表示“处理到上一间房子时，<strong>考虑完上一间后的最大收益</strong>”</li>
+</ul>
+<p>更容易记的方式是：</p>
+<ul>
+<li>新的 <code>f0</code> = 旧的 <code>f1</code></li>
+<li>新的 <code>f1</code> = <code>max(旧的 f0 + num, 旧的 f1)</code></li>
+</ul>
+<p>含义是：</p>
+<ul>
+<li>如果偷当前这间，那上一间就不能偷，所以收益是 <code>旧的 f0 + num</code></li>
+<li>如果不偷当前这间，那收益就是 <code>旧的 f1</code></li>
+</ul>
+<p>因此每次循环都在做“偷当前”还是“不偷当前”的决策。</p>
+<p>这里最关键的一点是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>f0, f1 = f1, <span style="color:#8be9fd;font-style:italic">max</span>(f0<span style="color:#ff79c6">+</span>num, f1)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Go 的这一句是<strong>同时赋值</strong>，右边会先用旧值算完，再一起赋给左边，所以不会出现“前面更新了 f0，后面算 f1 时把旧值冲掉”的问题。</p>
+<h4 id="面试怎么说-3">面试怎么说
+</h4><blockquote>
+<p>这题的关键是“选当前”还是“不选当前”。所以动态规划状态很好设计：<code>dp[i] = max(dp[i-1], dp[i-2] + nums[i])</code>。本质上就是枚举当前决策，然后从更小状态转移。</p>
+</blockquote>
+<hr>
+<h2 id="4-背包问题">4. 背包问题
+</h2><h3 id="41-什么是-01-背包">4.1 什么是 01 背包？
+</h3><ul>
+<li>每件物品最多选一次</li>
+<li>要么选，要么不选</li>
+</ul>
+<p>典型特征：</p>
+<ul>
+<li>“每个数只能用一次”</li>
+<li>“每件物品只能选一次”</li>
+</ul>
+<h3 id="42-什么是完全背包">4.2 什么是完全背包？
+</h3><ul>
+<li>每件物品可以选无限次</li>
+</ul>
+<p>典型特征：</p>
+<ul>
+<li>“每个硬币可以重复使用”</li>
+<li>“每种物品数量无限”</li>
+</ul>
+<h3 id="43-01-背包和完全背包的根本区别">4.3 01 背包和完全背包的根本区别
+</h3><p>不是公式不同，而是：</p>
+<blockquote>
+<p><strong>同一件物品能不能在同一轮被重复使用</strong></p>
+</blockquote>
+<p>所以循环顺序是背包题最关键的标志：</p>
+<ul>
+<li><strong>01 背包：容量倒序</strong></li>
+<li><strong>完全背包：容量正序</strong></li>
+</ul>
+<h3 id="44-为什么背包题通常不用贪心">4.4 为什么背包题通常不用贪心？
+</h3><p>因为背包题，尤其是 01 背包，通常不满足贪心选择性质。</p>
+<p>比如：</p>
+<ul>
+<li>容量 <code>50</code></li>
+<li>物品：
+<ul>
+<li><code>w=10, v=60</code></li>
+<li><code>w=20, v=100</code></li>
+<li><code>w=30, v=120</code></li>
+</ul>
+</li>
+</ul>
+<p>如果按价值密度贪心：</p>
+<ul>
+<li>先选 10,60</li>
+<li>再选 20,100</li>
+<li>得到 160</li>
+</ul>
+<p>但最优解其实是：</p>
+<ul>
+<li>20,100 + 30,120</li>
+<li>得到 220</li>
+</ul>
+<p>所以：</p>
+<blockquote>
+<p>01 背包一般不能贪心，通常要用 DP。</p>
+</blockquote>
+<hr>
+<h3 id="45-经典例题leetcode-416-分割等和子集01-背包">4.5 经典例题：LeetCode 416 分割等和子集（01 背包）
+</h3><h4 id="题目本质-4">题目本质
+</h4><p>数组能否分成两个和相等的子集？</p>
+<p>设总和为 <code>sum</code>：</p>
+<ul>
+<li>如果 <code>sum</code> 是奇数，不可能</li>
+<li>如果 <code>sum</code> 是偶数，问题变成：</li>
+</ul>
+<blockquote>
+<p>能不能从数组里选一些数，和恰好等于 <code>sum / 2</code></p>
+</blockquote>
+<p>这就是 01 背包。</p>
+<h4 id="dp-思路-2">DP 思路
+</h4><p>设：</p>
+<ul>
+<li><code>dp[j]</code>：是否能凑出和 <code>j</code></li>
+</ul>
+<p>转移：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>dp[j] = dp[j] || dp[j-num]
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>因为每个数只能选一次，所以：</p>
+<ul>
+<li><code>j</code> 必须倒序</li>
+</ul>
+<h4 id="go-代码-4">Go 代码
+</h4><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">package</span> main
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">canPartition</span>(nums []<span style="color:#8be9fd">int</span>) <span style="color:#8be9fd">bool</span> {
+</span></span><span style="display:flex;"><span>    sum <span style="color:#ff79c6">:=</span> <span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> _, x <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> nums {
+</span></span><span style="display:flex;"><span>        sum <span style="color:#ff79c6">+=</span> x
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> sum<span style="color:#ff79c6">%</span><span style="color:#bd93f9">2</span> <span style="color:#ff79c6">==</span> <span style="color:#bd93f9">1</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">false</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    target <span style="color:#ff79c6">:=</span> sum <span style="color:#ff79c6">/</span> <span style="color:#bd93f9">2</span>
+</span></span><span style="display:flex;"><span>    dp <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">make</span>([]<span style="color:#8be9fd">bool</span>, target<span style="color:#ff79c6">+</span><span style="color:#bd93f9">1</span>)
+</span></span><span style="display:flex;"><span>    dp[<span style="color:#bd93f9">0</span>] = <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> _, num <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> nums {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">for</span> j <span style="color:#ff79c6">:=</span> target; j <span style="color:#ff79c6">&gt;=</span> num; j<span style="color:#ff79c6">--</span> {
+</span></span><span style="display:flex;"><span>            dp[j] = dp[j] <span style="color:#ff79c6">||</span> dp[j<span style="color:#ff79c6">-</span>num]
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4">// if dp[j-num] {</span>
+</span></span><span style="display:flex;"><span>                  dp[j]=<span style="color:#ff79c6">true</span>  
+</span></span><span style="display:flex;"><span>                }
+</span></span><span style="display:flex;"><span>            <span style="color:#6272a4">//
+</span></span></span><span style="display:flex;"><span><span style="color:#6272a4">        }</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> dp[target]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="面试怎么说-4">面试怎么说
+</h4><blockquote>
+<p>这题本质是 01 背包。每个数只能选一次，目标是看能不能凑出 <code>sum/2</code>。状态是 <code>dp[j]</code> 表示是否能凑出和 <code>j</code>，转移是 <code>dp[j] = dp[j] || dp[j-num]</code>，因为每个数只能用一次，所以容量必须倒序遍历。</p>
+</blockquote>
+<hr>
+<h3 id="46-进阶例题leetcode-322-零钱兑换完全背包">4.6 进阶例题：LeetCode 322 零钱兑换（完全背包）
+</h3><h4 id="题目本质-5">题目本质
+</h4><ul>
+<li>给你若干硬币</li>
+<li>每种硬币能无限使用</li>
+<li>问凑出 <code>amount</code> 的最少硬币数</li>
+</ul>
+<p>这就是完全背包。</p>
+<h4 id="dp-思路-3">DP 思路
+</h4><p>设：</p>
+<ul>
+<li><code>dp[j]</code>：凑出金额 <code>j</code> 的最少硬币数</li>
+</ul>
+<p>转移：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>dp[j] = min(dp[j], dp[j-coin] + 1)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>因为硬币可以重复使用，所以：</p>
+<ul>
+<li><code>j</code> 必须正序</li>
+</ul>
+<h4 id="go-代码-5">Go 代码
+</h4><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">package</span> main
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">coinChange</span>(coins []<span style="color:#8be9fd">int</span>, amount <span style="color:#8be9fd">int</span>) <span style="color:#8be9fd">int</span> {
+</span></span><span style="display:flex;"><span>    inf <span style="color:#ff79c6">:=</span> amount <span style="color:#ff79c6">+</span> <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>    dp <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">make</span>([]<span style="color:#8be9fd">int</span>, amount<span style="color:#ff79c6">+</span><span style="color:#bd93f9">1</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> i <span style="color:#ff79c6">:=</span> <span style="color:#bd93f9">1</span>; i <span style="color:#ff79c6">&lt;=</span> amount; i<span style="color:#ff79c6">++</span> {
+</span></span><span style="display:flex;"><span>        dp[i] = inf
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> _, coin <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> coins {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">for</span> j <span style="color:#ff79c6">:=</span> coin; j <span style="color:#ff79c6">&lt;=</span> amount; j<span style="color:#ff79c6">++</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">if</span> dp[j<span style="color:#ff79c6">-</span>coin]<span style="color:#ff79c6">+</span><span style="color:#bd93f9">1</span> &lt; dp[j] {
+</span></span><span style="display:flex;"><span>                dp[j] = dp[j<span style="color:#ff79c6">-</span>coin] <span style="color:#ff79c6">+</span> <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> dp[amount] <span style="color:#ff79c6">==</span> inf {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">-</span><span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> dp[amount]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="面试怎么说-5">面试怎么说
+</h4><blockquote>
+<p>这题是完全背包，因为每种硬币可以重复用。状态是 <code>dp[j]</code> 表示凑出金额 <code>j</code> 的最少硬币数，转移是 <code>dp[j] = min(dp[j], dp[j-coin] + 1)</code>。因为硬币能重复使用，所以容量必须正序遍历。</p>
+</blockquote>
+<hr>
+<h2 id="5-最后总结面试时怎么快速判断">5. 最后总结：面试时怎么快速判断
+</h2><h3 id="51-如果你觉得能一步一步直接选最优">5.1 如果你觉得能一步一步直接选最优
+</h3><p>先想贪心，但要问自己：</p>
+<blockquote>
+<p>我能证明局部最优一定推出全局最优吗？</p>
+</blockquote>
+<p>如果证明不了，就别硬贪。</p>
+<h3 id="52-如果你发现当前答案依赖前面的状态">5.2 如果你发现当前答案依赖前面的状态
+</h3><p>优先往动态规划上想：</p>
+<ul>
+<li>状态是什么</li>
+<li>转移是什么</li>
+<li>初始化是什么</li>
+</ul>
+<h3 id="53-如果题目里出现容量--选择--使用次数">5.3 如果题目里出现“容量 / 选择 / 使用次数”
+</h3><p>优先往背包模型上靠：</p>
+<ul>
+<li>每个物品只能一次 -&gt; 01 背包</li>
+<li>每个物品无限次 -&gt; 完全背包</li>
+</ul>
+<h3 id="54-最后一句口诀">5.4 最后一句口诀
+</h3><blockquote>
+<p>贪心看“局部最优能不能推出全局最优”；<br>
+动态规划看“状态怎么定义、怎么转移”；<br>
+背包先看“物品能不能重复选”，再决定容量正序还是倒序。</p>
+</blockquote>
+<hr>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/%E7%AE%97%E6%B3%95/">算法</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/%E4%B9%B0%E5%8D%96%E8%82%A1%E7%A5%A8%E7%9A%84%E6%9C%80%E4%BD%B3%E6%97%B6%E6%9C%BA%E4%BB%8E%E8%B4%AA%E5%BF%83%E5%88%B0%E7%8A%B6%E6%80%81%E6%9C%BA/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">买卖股票的最佳时机：从贪心到状态机</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E9%93%BE%E8%A1%A8%E5%8F%8D%E8%BD%AC%E5%A4%B4%E6%8F%92%E6%B3%95%E4%B8%8E%E5%8F%8C%E6%8C%87%E9%92%88%E8%BF%AD%E4%BB%A3%E6%B3%95%E7%9A%84%E5%8C%BA%E5%88%AB/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">链表反转：头插法与双指针迭代法的区别</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm808.github.io\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+    </body>
+</html>
