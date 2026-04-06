@@ -7,7 +7,437 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Tue, 24 Mar 2026 22:09:27 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 06 Apr 2026 22:55:45 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Harness</title>
+        <link>https://skylm808.github.io/p/harness/</link>
+        <pubDate>Mon, 06 Apr 2026 22:55:45 +0800</pubDate>
+        
+        <guid>https://skylm808.github.io/p/harness/</guid>
+        <description>&lt;p&gt;一、这篇文章到底在讲什么&lt;/p&gt;
+&lt;p&gt;OpenAI 在 2026 年 2 月 11 日发布了一篇文章：&lt;a class=&#34;link&#34; href=&#34;https://openai.com/zh-Hans-CN/index/harness-engineering/&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;《Harness engineering: leveraging Codex in an agent-first world》&lt;/a&gt;。&lt;/p&gt;
+&lt;p&gt;文章的核心不是“AI 会写代码”这么简单，而是在讨论一个更本质的问题：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;当工程团队的主要工作，不再是手写代码，而是&lt;strong&gt;设计环境、定义约束、提供上下文、构建反馈回路&lt;/strong&gt;时，软件工程会变成什么样？&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;OpenAI 在文中给出的答案可以浓缩成一句话：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;人类负责掌舵，Agent 负责执行；工程效率的关键，不再只是代码能力，而是 harness 能力。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这里的 &lt;code&gt;harness&lt;/code&gt;，可以理解成一整套“让 Agent 稳定产出结果的工程支架系统”。&lt;/p&gt;
+&lt;p&gt;这篇文章里提到，他们用一个很小的工程团队，驱动 Codex 在一个全新仓库里持续开发，形成了大约百万行代码、上千个 PR，而且强调：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;不是为了刷产出；&lt;/li&gt;
+&lt;li&gt;产品真的被内部用户和外部测试者使用；&lt;/li&gt;
+&lt;li&gt;人类几乎不直接写代码；&lt;/li&gt;
+&lt;li&gt;真正重要的是如何让 Agent 持续、稳定、可控地工作。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以，这篇文章的本质，是在提出一种新的工程范式：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;从 code-first software engineering，转向 agent-first software engineering。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;二什么是-harness-engineering&#34;&gt;二、什么是 Harness Engineering
+&lt;/h2&gt;&lt;p&gt;严格说，OpenAI 在原文里并没有给出一个像教科书那样的标准定义。下面这个定义是我基于原文总结出来的工程化表述：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Harness Engineering&lt;/strong&gt;：为了让 AI Agent 能够在真实软件项目中稳定完成设计、编码、测试、验证、修复、评审、合并等工作，而专门构建的一套环境、规则、工具、知识库和反馈回路体系。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;它不是单一工具，也不是单一 prompt，而是一套系统工程。&lt;/p&gt;
+&lt;p&gt;你可以把它理解成：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;Agent 能力 = 模型能力 × 工程环境质量
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;如果模型很强，但工程环境很差，Agent 依然会失控、误解、漂移、产出不稳定。&lt;/p&gt;
+&lt;p&gt;所以 Harness Engineering 的目标，不是“让 AI 更聪明”，而是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;让 Agent &lt;strong&gt;看得见&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;让 Agent &lt;strong&gt;走得对&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;让 Agent &lt;strong&gt;错了能被发现&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;让 Agent &lt;strong&gt;修得回来&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;让 Agent &lt;strong&gt;长期不烂&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这就是文章的主线。&lt;/p&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;三这篇文章最核心的-8-个观点&#34;&gt;三、这篇文章最核心的 8 个观点
+&lt;/h2&gt;&lt;h3 id=&#34;31-工程师的角色变了&#34;&gt;3.1 工程师的角色变了
+&lt;/h3&gt;&lt;p&gt;过去工程师主要自己写代码。&lt;/p&gt;
+&lt;p&gt;在 agent-first 世界里，工程师的核心工作逐渐变成：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;定义任务目标；&lt;/li&gt;
+&lt;li&gt;拆分任务；&lt;/li&gt;
+&lt;li&gt;设计仓库结构；&lt;/li&gt;
+&lt;li&gt;提供足够上下文；&lt;/li&gt;
+&lt;li&gt;编码约束和规范；&lt;/li&gt;
+&lt;li&gt;设计验证链路；&lt;/li&gt;
+&lt;li&gt;处理需要人类判断的少数高价值决策。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以工程师的价值并没有下降，而是从“直接产出代码”转向“设计一个能稳定产出代码的系统”。&lt;/p&gt;
+&lt;p&gt;一句适合面试的总结：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;未来高级工程师的核心竞争力，不只是写代码快，而是能不能把团队经验、架构规则和质量标准沉淀成可执行系统。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;32-问题失败时不是让-agent再试一次而是补能力&#34;&gt;3.2 问题失败时，不是让 Agent“再试一次”，而是补能力
+&lt;/h3&gt;&lt;p&gt;文中一个很关键的思想是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;当 Agent 失败时，正确的修复方式通常不是 “try harder”；&lt;/li&gt;
+&lt;li&gt;而是反问：&lt;strong&gt;到底缺了什么能力、上下文、工具或约束？&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这是一种非常工程化的思路。&lt;/p&gt;
+&lt;p&gt;也就是说，Agent 失败的根因常常不是“模型笨”，而是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;仓库知识不足；&lt;/li&gt;
+&lt;li&gt;规则不可见；&lt;/li&gt;
+&lt;li&gt;依赖边界不明确；&lt;/li&gt;
+&lt;li&gt;测试不充分；&lt;/li&gt;
+&lt;li&gt;工具链没接通；&lt;/li&gt;
+&lt;li&gt;反馈信号不够直接。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;33-仓库不只是代码仓库而是知识系统&#34;&gt;3.3 仓库不只是代码仓库，而是知识系统
+&lt;/h3&gt;&lt;p&gt;OpenAI 明确反对把所有规则都堆进一个超长的 &lt;code&gt;AGENTS.md&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;原因很现实：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;上下文窗口是稀缺资源；&lt;/li&gt;
+&lt;li&gt;大而全的说明书会稀释重点；&lt;/li&gt;
+&lt;li&gt;文档容易腐化；&lt;/li&gt;
+&lt;li&gt;难以校验其新鲜度和正确性。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以他们的做法是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;AGENTS.md&lt;/code&gt; 只做目录和导航；&lt;/li&gt;
+&lt;li&gt;真正的知识系统放在仓库里的 &lt;code&gt;docs/&lt;/code&gt;；&lt;/li&gt;
+&lt;li&gt;设计文档、执行计划、产品规格、质量评分、可靠性规范、安全规范都版本化。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这背后的思想是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Repository is the system of record.&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;也就是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;对 Agent 来说，仓库才是事实来源；&lt;/li&gt;
+&lt;li&gt;不在仓库里的知识，等价于不存在。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;34-agent-legibility-比-human-elegance-更重要&#34;&gt;3.4 Agent Legibility 比 Human Elegance 更重要
+&lt;/h3&gt;&lt;p&gt;原文有一句非常重要的意思：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;对一个完全由 Agent 生成和维护的代码库来说，首要目标是让 Agent 能读懂，而不是先追求人类审美上的“优雅”。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这里的 &lt;code&gt;legibility&lt;/code&gt; 可以翻译成：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;可读性；&lt;/li&gt;
+&lt;li&gt;可理解性；&lt;/li&gt;
+&lt;li&gt;可导航性；&lt;/li&gt;
+&lt;li&gt;可推理性。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;换句话说，代码和文档不是写给“抽象的人类工程师”看的，而是首先写给“未来还会继续操作这个仓库的 Agent”看的。&lt;/p&gt;
+&lt;p&gt;所以他们偏向：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;稳定的结构；&lt;/li&gt;
+&lt;li&gt;明确的边界；&lt;/li&gt;
+&lt;li&gt;可推理的依赖关系；&lt;/li&gt;
+&lt;li&gt;可验证的规则；&lt;/li&gt;
+&lt;li&gt;尽量少黑盒。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这也是为什么文章里提到：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;有时候宁可自己实现一小段受控功能；&lt;/li&gt;
+&lt;li&gt;也不愿意引入一个对 Agent 来说过于黑盒、行为不透明的外部库。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;35-让应用本身也对-agent-可读&#34;&gt;3.5 让应用本身也对 Agent 可读
+&lt;/h3&gt;&lt;p&gt;这点特别重要，很多人会忽略。&lt;/p&gt;
+&lt;p&gt;OpenAI 不是只让 Agent 读代码，而是让 Agent 能直接观察：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;UI；&lt;/li&gt;
+&lt;li&gt;DOM；&lt;/li&gt;
+&lt;li&gt;截图；&lt;/li&gt;
+&lt;li&gt;页面导航；&lt;/li&gt;
+&lt;li&gt;日志；&lt;/li&gt;
+&lt;li&gt;指标；&lt;/li&gt;
+&lt;li&gt;Trace。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;也就是说，他们把“应用运行时世界”暴露给 Agent。&lt;/p&gt;
+&lt;p&gt;这样 Agent 就不只是会改代码，而是能：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;自己复现 bug；&lt;/li&gt;
+&lt;li&gt;自己验证修复；&lt;/li&gt;
+&lt;li&gt;自己检查性能指标；&lt;/li&gt;
+&lt;li&gt;自己完成回归验证。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这是从“代码生成器”走向“工程执行体”的关键一步。&lt;/p&gt;
+&lt;h3 id=&#34;36-架构约束越早编码agent-速度越快&#34;&gt;3.6 架构约束越早编码，Agent 速度越快
+&lt;/h3&gt;&lt;p&gt;传统团队常常会觉得：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;早期先快写，后面再治理架构。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;但文章给出的经验恰好相反：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;对 Agent 来说，&lt;strong&gt;强约束不是减速器，而是加速器。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;因为 Agent 最怕的是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;边界模糊；&lt;/li&gt;
+&lt;li&gt;依赖随意；&lt;/li&gt;
+&lt;li&gt;模式不统一；&lt;/li&gt;
+&lt;li&gt;文件风格漂移；&lt;/li&gt;
+&lt;li&gt;质量标准口头化。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以 OpenAI 选择：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;固定分层；&lt;/li&gt;
+&lt;li&gt;固定依赖方向；&lt;/li&gt;
+&lt;li&gt;用自定义 lint 和结构测试强制执行；&lt;/li&gt;
+&lt;li&gt;把错误信息本身写成“带修复指导的反馈”。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这其实已经不是传统意义上的代码规范，而是在做“Agent 编程环境设计”。&lt;/p&gt;
+&lt;h3 id=&#34;37-高吞吐下合并哲学也要变&#34;&gt;3.7 高吞吐下，合并哲学也要变
+&lt;/h3&gt;&lt;p&gt;文章里有一个很反直觉但很现实的观点：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;当 Agent 的产出速度远远快于人类注意力时，很多传统的重型阻塞式流程反而会拖累整体效率。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;比如：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;PR 尽量短命；&lt;/li&gt;
+&lt;li&gt;Merge gate 尽量少阻塞；&lt;/li&gt;
+&lt;li&gt;flaky test 不一定要无限期卡住主流程；&lt;/li&gt;
+&lt;li&gt;便宜的错误更适合快速修复，而不是长时间等待。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这并不是说“质量不重要”，而是说：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;在高吞吐系统里，&lt;strong&gt;等待本身就是成本&lt;/strong&gt;；&lt;/li&gt;
+&lt;li&gt;如果纠错成本很低，快速前进可能比过度阻塞更优。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;但这有前提：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;自动验证链路要足够强；&lt;/li&gt;
+&lt;li&gt;回滚和修复能力要足够快；&lt;/li&gt;
+&lt;li&gt;系统可观察性要足够好。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;38-自治越高越需要持续垃圾回收&#34;&gt;3.8 自治越高，越需要持续垃圾回收
+&lt;/h3&gt;&lt;p&gt;文章最后提到一个很接地气的问题：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Agent 会复制已有模式；&lt;/li&gt;
+&lt;li&gt;一旦仓库里出现坏模式，它会被持续放大。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这就是所谓的代码熵增。&lt;/p&gt;
+&lt;p&gt;OpenAI 的处理方式是：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;定义 golden principles；&lt;/li&gt;
+&lt;li&gt;持续后台扫描偏差；&lt;/li&gt;
+&lt;li&gt;自动更新质量评分；&lt;/li&gt;
+&lt;li&gt;自动发起小型重构 PR；&lt;/li&gt;
+&lt;li&gt;把技术债当成“高利贷”，持续小步偿还。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这特别像垃圾回收：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;不是等系统烂到无法维护再集中治理；&lt;/li&gt;
+&lt;li&gt;而是持续、小步、机械化清理。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;四文章里的关键术语面试必须讲清楚&#34;&gt;四、文章里的关键术语，面试必须讲清楚
+&lt;/h2&gt;&lt;h3 id=&#34;41-agent-first-engineering&#34;&gt;4.1 Agent-First Engineering
+&lt;/h3&gt;&lt;h4 id=&#34;含义&#34;&gt;含义
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;把 AI Agent 当成软件交付主力之一来设计工程流程，而不是把它当成一个临时辅助工具。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;核心变化&#34;&gt;核心变化
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;不是“我写代码，AI 帮我补全”；&lt;/li&gt;
+&lt;li&gt;而是“我定义目标和约束，Agent 负责执行和迭代”。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;面试怎么说&#34;&gt;面试怎么说
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Agent-first engineering 的核心，不是用了 AI，而是工程流程从面向人类执行优化，转向面向人类决策 + Agent 执行优化。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;42-harness&#34;&gt;4.2 Harness
+&lt;/h3&gt;&lt;h4 id=&#34;含义-1&#34;&gt;含义
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;原意像“马具、控制装置、束具”。&lt;/li&gt;
+&lt;li&gt;在工程语境里，可以理解成“把能力约束并导向正确输出的一套支架系统”。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;在本文中的具体指代&#34;&gt;在本文中的具体指代
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;仓库结构；&lt;/li&gt;
+&lt;li&gt;知识文档；&lt;/li&gt;
+&lt;li&gt;工具链；&lt;/li&gt;
+&lt;li&gt;lint；&lt;/li&gt;
+&lt;li&gt;CI；&lt;/li&gt;
+&lt;li&gt;测试；&lt;/li&gt;
+&lt;li&gt;评审流；&lt;/li&gt;
+&lt;li&gt;可观察性；&lt;/li&gt;
+&lt;li&gt;运行时验证能力。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;面试怎么说-1&#34;&gt;面试怎么说
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Harness 不是一个 prompt，而是让 Agent 在真实项目里可控工作的整体工程基础设施。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;43-agent-legibility&#34;&gt;4.3 Agent Legibility
+&lt;/h3&gt;&lt;h4 id=&#34;含义-2&#34;&gt;含义
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;让 Agent 易于理解系统、定位信息、推理边界、做出正确修改。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;它关注什么&#34;&gt;它关注什么
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;文档是否在仓库内；&lt;/li&gt;
+&lt;li&gt;信息是否结构化；&lt;/li&gt;
+&lt;li&gt;依赖关系是否清晰；&lt;/li&gt;
+&lt;li&gt;规则是否可执行；&lt;/li&gt;
+&lt;li&gt;运行反馈是否可观测。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;为什么重要&#34;&gt;为什么重要
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;Agent 不是靠“感觉”工作，它依赖上下文和可见信号。&lt;/li&gt;
+&lt;li&gt;看不见的信息，对 Agent 来说就等价于不存在。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;面试怎么说-2&#34;&gt;面试怎么说
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;人类面对不清晰系统时还能靠经验兜底，但 Agent 更依赖可见、结构化、可验证的信息，因此 legibility 是 agent-first 时代的核心工程指标。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;44-system-of-record&#34;&gt;4.4 System of Record
+&lt;/h3&gt;&lt;h4 id=&#34;含义-3&#34;&gt;含义
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;某类信息的权威事实来源。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;在这篇文章里&#34;&gt;在这篇文章里
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;仓库就是 system of record；&lt;/li&gt;
+&lt;li&gt;文档、计划、规则、质量状态必须回到仓库并版本化。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;面试怎么说-3&#34;&gt;面试怎么说
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;如果知识只存在于会议、聊天、脑子里，那对 Agent 来说不可用；只有进入仓库并版本化，才能真正参与自动化执行。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;45-progressive-disclosure&#34;&gt;4.5 Progressive Disclosure
+&lt;/h3&gt;&lt;h4 id=&#34;含义-4&#34;&gt;含义
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;渐进式暴露信息。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;具体做法&#34;&gt;具体做法
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;先给 Agent 一个短入口；&lt;/li&gt;
+&lt;li&gt;再通过目录、索引、链接引导它逐层深入；&lt;/li&gt;
+&lt;li&gt;而不是一开始塞一个几千行总说明书。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;好处&#34;&gt;好处
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;节省上下文；&lt;/li&gt;
+&lt;li&gt;降低噪声；&lt;/li&gt;
+&lt;li&gt;提高查找精度；&lt;/li&gt;
+&lt;li&gt;减少过度提示造成的误导。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;46-structural-invariants&#34;&gt;4.6 Structural Invariants
+&lt;/h3&gt;&lt;h4 id=&#34;含义-5&#34;&gt;含义
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;结构性不变量，也就是无论谁改代码都必须满足的底层规则。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;例子&#34;&gt;例子
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;分层方向不能反；&lt;/li&gt;
+&lt;li&gt;数据校验必须发生在边界；&lt;/li&gt;
+&lt;li&gt;日志必须结构化；&lt;/li&gt;
+&lt;li&gt;文件不能无限膨胀；&lt;/li&gt;
+&lt;li&gt;某些类型命名必须统一。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;面试怎么说-4&#34;&gt;面试怎么说
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;高级工程治理的核心，不是反复口头提醒，而是把关键不变量编码成 lint、测试和 CI，让系统自动拒绝错误形态。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;47-taste-invariants&#34;&gt;4.7 Taste Invariants
+&lt;/h3&gt;&lt;h4 id=&#34;含义-6&#34;&gt;含义
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;团队长期形成的风格偏好和可维护性偏好，被进一步抽象成可以自动执行的规则。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;它和普通-code-style-的区别&#34;&gt;它和普通 code style 的区别
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;普通 code style 更偏格式；&lt;/li&gt;
+&lt;li&gt;taste invariants 更偏长期维护哲学。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;例子-1&#34;&gt;例子
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;偏向共享工具而不是随手造 helper；&lt;/li&gt;
+&lt;li&gt;偏向显式 schema 校验，而不是 YOLO 式猜数据结构；&lt;/li&gt;
+&lt;li&gt;偏向稳定、透明、可推理的依赖。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;48-entropy--garbage-collection&#34;&gt;4.8 Entropy / Garbage Collection
+&lt;/h3&gt;&lt;h4 id=&#34;含义-7&#34;&gt;含义
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;Entropy&lt;/code&gt; 指系统会自然走向混乱和漂移；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Garbage collection&lt;/code&gt; 在文中是一个类比，指持续清理 Agent 产生的坏模式和技术债。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;为什么会发生&#34;&gt;为什么会发生
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;Agent 会模仿仓库里已存在的模式；&lt;/li&gt;
+&lt;li&gt;一旦旧模式不好，它会被高频复制。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;面试怎么说-5&#34;&gt;面试怎么说
+&lt;/h4&gt;&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;AI 时代的技术债传播速度比人工时代更快，所以治理必须从阶段性大扫除，变成持续性自动回收。&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;五openai-这套方法论落到工程里到底长什么样&#34;&gt;五、OpenAI 这套方法论，落到工程里到底长什么样
+&lt;/h2&gt;&lt;p&gt;如果把文章里的做法抽象成一条工程流水线，大概是这样：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 8
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 9
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;10
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;需求/问题
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-&amp;gt; 人类把目标写成 prompt 或验收标准
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-&amp;gt; Agent 读取仓库内文档、架构图、计划、规则
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-&amp;gt; Agent 修改代码/测试/CI/文档
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-&amp;gt; Agent 启动应用并驱动 UI
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-&amp;gt; Agent 查询日志/指标/Trace
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-&amp;gt; Agent 验证结果是否达标
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-&amp;gt; Agent 发 PR 并响应反馈
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-&amp;gt; 系统通过 lint/CI/结构测试拦截错误
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-&amp;gt; 后台清理任务持续修复坏模式和技术债
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这个流程说明：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Agent 并不是在“盲写代码”；&lt;/li&gt;
+&lt;li&gt;它是在一个高度工程化的闭环里工作。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以真正的门槛并不只是模型 API 接入，而是你是否有能力把下面这些东西系统化：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;需求表达；&lt;/li&gt;
+&lt;li&gt;文档沉淀；&lt;/li&gt;
+&lt;li&gt;规则编码；&lt;/li&gt;
+&lt;li&gt;自动验证；&lt;/li&gt;
+&lt;li&gt;反馈回路；&lt;/li&gt;
+&lt;li&gt;漂移治理。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;六为什么这篇文章对面试很重要&#34;&gt;六、为什么这篇文章对面试很重要
+&lt;/h2&gt;&lt;p&gt;因为它回答了一个现在越来越常见的问题：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;AI 会不会取代工程师？&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;更成熟的回答不是情绪化地说“不会”，而是说：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;AI 会重塑工程师的工作重心；&lt;/li&gt;
+&lt;li&gt;低水平重复编码的价值会下降；&lt;/li&gt;
+&lt;li&gt;高水平的系统设计、规则抽象、质量治理、反馈闭环设计会更重要。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;如果你能讲出下面这层意思，面试官通常会觉得你不是在追热点，而是真的理解了工程演进：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;**在 agent-first 时代，工程能力从“实现某个功能”上移到“构建一个可持续产出正确功能的系统”。&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        <item>
         <title>贪心、动态规划、背包问题：一份讲清楚</title>
         <link>https://skylm808.github.io/p/%E8%B4%AA%E5%BF%83%E5%8A%A8%E6%80%81%E8%A7%84%E5%88%92%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E4%B8%80%E4%BB%BD%E8%AE%B2%E6%B8%85%E6%A5%9A/</link>
         <pubDate>Tue, 24 Mar 2026 22:09:27 +0800</pubDate>

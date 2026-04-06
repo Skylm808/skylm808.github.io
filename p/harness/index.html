@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="一、这篇文章到底在讲什么\nOpenAI 在 2026 年 2 月 11 日发布了一篇文章：《Harness engineering: leveraging Codex in an agent-first world》。\n文章的核心不是“AI 会写代码”这么简单，而是在讨论一个更本质的问题：\n">
+<title>Harness</title>
+
+<link rel='canonical' href='https://skylm808.github.io/p/harness/'>
+
+<link rel="stylesheet" href="/scss/style.min.96ba1c3608acf4f319504831a9a06a60c4c0f47ce65605b5ca2dab1981e36064.css"><meta property='og:title' content="Harness">
+<meta property='og:description' content="一、这篇文章到底在讲什么\nOpenAI 在 2026 年 2 月 11 日发布了一篇文章：《Harness engineering: leveraging Codex in an agent-first world》。\n文章的核心不是“AI 会写代码”这么简单，而是在讨论一个更本质的问题：\n">
+<meta property='og:url' content='https://skylm808.github.io/p/harness/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Harness' /><meta property='article:published_time' content='2026-04-06T22:55:45&#43;08:00'/><meta property='article:modified_time' content='2026-04-06T22:55:45&#43;08:00'/>
+<meta name="twitter:title" content="Harness">
+<meta name="twitter:description" content="一、这篇文章到底在讲什么\nOpenAI 在 2026 年 2 月 11 日发布了一篇文章：《Harness engineering: leveraging Codex in an agent-first world》。\n文章的核心不是“AI 会写代码”这么简单，而是在讨论一个更本质的问题：\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页|home</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类&amp;标签|Cats&amp;Tags</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档 | Archives</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索 | Search</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友情链接 | Links</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#二什么是-harness-engineering">二、什么是 Harness Engineering</a></li>
+    <li><a href="#三这篇文章最核心的-8-个观点">三、这篇文章最核心的 8 个观点</a>
+      <ol>
+        <li><a href="#31-工程师的角色变了">3.1 工程师的角色变了</a></li>
+        <li><a href="#32-问题失败时不是让-agent再试一次而是补能力">3.2 问题失败时，不是让 Agent“再试一次”，而是补能力</a></li>
+        <li><a href="#33-仓库不只是代码仓库而是知识系统">3.3 仓库不只是代码仓库，而是知识系统</a></li>
+        <li><a href="#34-agent-legibility-比-human-elegance-更重要">3.4 Agent Legibility 比 Human Elegance 更重要</a></li>
+        <li><a href="#35-让应用本身也对-agent-可读">3.5 让应用本身也对 Agent 可读</a></li>
+        <li><a href="#36-架构约束越早编码agent-速度越快">3.6 架构约束越早编码，Agent 速度越快</a></li>
+        <li><a href="#37-高吞吐下合并哲学也要变">3.7 高吞吐下，合并哲学也要变</a></li>
+        <li><a href="#38-自治越高越需要持续垃圾回收">3.8 自治越高，越需要持续垃圾回收</a></li>
+      </ol>
+    </li>
+    <li><a href="#四文章里的关键术语面试必须讲清楚">四、文章里的关键术语，面试必须讲清楚</a>
+      <ol>
+        <li><a href="#41-agent-first-engineering">4.1 Agent-First Engineering</a>
+          <ol>
+            <li><a href="#含义">含义</a></li>
+            <li><a href="#核心变化">核心变化</a></li>
+            <li><a href="#面试怎么说">面试怎么说</a></li>
+          </ol>
+        </li>
+        <li><a href="#42-harness">4.2 Harness</a>
+          <ol>
+            <li><a href="#含义-1">含义</a></li>
+            <li><a href="#在本文中的具体指代">在本文中的具体指代</a></li>
+            <li><a href="#面试怎么说-1">面试怎么说</a></li>
+          </ol>
+        </li>
+        <li><a href="#43-agent-legibility">4.3 Agent Legibility</a>
+          <ol>
+            <li><a href="#含义-2">含义</a></li>
+            <li><a href="#它关注什么">它关注什么</a></li>
+            <li><a href="#为什么重要">为什么重要</a></li>
+            <li><a href="#面试怎么说-2">面试怎么说</a></li>
+          </ol>
+        </li>
+        <li><a href="#44-system-of-record">4.4 System of Record</a>
+          <ol>
+            <li><a href="#含义-3">含义</a></li>
+            <li><a href="#在这篇文章里">在这篇文章里</a></li>
+            <li><a href="#面试怎么说-3">面试怎么说</a></li>
+          </ol>
+        </li>
+        <li><a href="#45-progressive-disclosure">4.5 Progressive Disclosure</a>
+          <ol>
+            <li><a href="#含义-4">含义</a></li>
+            <li><a href="#具体做法">具体做法</a></li>
+            <li><a href="#好处">好处</a></li>
+          </ol>
+        </li>
+        <li><a href="#46-structural-invariants">4.6 Structural Invariants</a>
+          <ol>
+            <li><a href="#含义-5">含义</a></li>
+            <li><a href="#例子">例子</a></li>
+            <li><a href="#面试怎么说-4">面试怎么说</a></li>
+          </ol>
+        </li>
+        <li><a href="#47-taste-invariants">4.7 Taste Invariants</a>
+          <ol>
+            <li><a href="#含义-6">含义</a></li>
+            <li><a href="#它和普通-code-style-的区别">它和普通 code style 的区别</a></li>
+            <li><a href="#例子-1">例子</a></li>
+          </ol>
+        </li>
+        <li><a href="#48-entropy--garbage-collection">4.8 Entropy / Garbage Collection</a>
+          <ol>
+            <li><a href="#含义-7">含义</a></li>
+            <li><a href="#为什么会发生">为什么会发生</a></li>
+            <li><a href="#面试怎么说-5">面试怎么说</a></li>
+          </ol>
+        </li>
+      </ol>
+    </li>
+    <li><a href="#五openai-这套方法论落到工程里到底长什么样">五、OpenAI 这套方法论，落到工程里到底长什么样</a></li>
+    <li><a href="#六为什么这篇文章对面试很重要">六、为什么这篇文章对面试很重要</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/harness/" >
+                Harness
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/harness/">Harness</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Apr 06, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 8 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <p>一、这篇文章到底在讲什么</p>
+<p>OpenAI 在 2026 年 2 月 11 日发布了一篇文章：<a class="link" href="https://openai.com/zh-Hans-CN/index/harness-engineering/"  target="_blank" rel="noopener"
+    >《Harness engineering: leveraging Codex in an agent-first world》</a>。</p>
+<p>文章的核心不是“AI 会写代码”这么简单，而是在讨论一个更本质的问题：</p>
+<ul>
+<li>当工程团队的主要工作，不再是手写代码，而是<strong>设计环境、定义约束、提供上下文、构建反馈回路</strong>时，软件工程会变成什么样？</li>
+</ul>
+<p>OpenAI 在文中给出的答案可以浓缩成一句话：</p>
+<ul>
+<li><strong>人类负责掌舵，Agent 负责执行；工程效率的关键，不再只是代码能力，而是 harness 能力。</strong></li>
+</ul>
+<p>这里的 <code>harness</code>，可以理解成一整套“让 Agent 稳定产出结果的工程支架系统”。</p>
+<p>这篇文章里提到，他们用一个很小的工程团队，驱动 Codex 在一个全新仓库里持续开发，形成了大约百万行代码、上千个 PR，而且强调：</p>
+<ul>
+<li>不是为了刷产出；</li>
+<li>产品真的被内部用户和外部测试者使用；</li>
+<li>人类几乎不直接写代码；</li>
+<li>真正重要的是如何让 Agent 持续、稳定、可控地工作。</li>
+</ul>
+<p>所以，这篇文章的本质，是在提出一种新的工程范式：</p>
+<ul>
+<li><strong>从 code-first software engineering，转向 agent-first software engineering。</strong></li>
+</ul>
+<hr>
+<h2 id="二什么是-harness-engineering">二、什么是 Harness Engineering
+</h2><p>严格说，OpenAI 在原文里并没有给出一个像教科书那样的标准定义。下面这个定义是我基于原文总结出来的工程化表述：</p>
+<ul>
+<li><strong>Harness Engineering</strong>：为了让 AI Agent 能够在真实软件项目中稳定完成设计、编码、测试、验证、修复、评审、合并等工作，而专门构建的一套环境、规则、工具、知识库和反馈回路体系。</li>
+</ul>
+<p>它不是单一工具，也不是单一 prompt，而是一套系统工程。</p>
+<p>你可以把它理解成：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Agent 能力 = 模型能力 × 工程环境质量
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>如果模型很强，但工程环境很差，Agent 依然会失控、误解、漂移、产出不稳定。</p>
+<p>所以 Harness Engineering 的目标，不是“让 AI 更聪明”，而是：</p>
+<ul>
+<li>让 Agent <strong>看得见</strong></li>
+<li>让 Agent <strong>走得对</strong></li>
+<li>让 Agent <strong>错了能被发现</strong></li>
+<li>让 Agent <strong>修得回来</strong></li>
+<li>让 Agent <strong>长期不烂</strong></li>
+</ul>
+<p>这就是文章的主线。</p>
+<hr>
+<h2 id="三这篇文章最核心的-8-个观点">三、这篇文章最核心的 8 个观点
+</h2><h3 id="31-工程师的角色变了">3.1 工程师的角色变了
+</h3><p>过去工程师主要自己写代码。</p>
+<p>在 agent-first 世界里，工程师的核心工作逐渐变成：</p>
+<ul>
+<li>定义任务目标；</li>
+<li>拆分任务；</li>
+<li>设计仓库结构；</li>
+<li>提供足够上下文；</li>
+<li>编码约束和规范；</li>
+<li>设计验证链路；</li>
+<li>处理需要人类判断的少数高价值决策。</li>
+</ul>
+<p>所以工程师的价值并没有下降，而是从“直接产出代码”转向“设计一个能稳定产出代码的系统”。</p>
+<p>一句适合面试的总结：</p>
+<ul>
+<li><strong>未来高级工程师的核心竞争力，不只是写代码快，而是能不能把团队经验、架构规则和质量标准沉淀成可执行系统。</strong></li>
+</ul>
+<h3 id="32-问题失败时不是让-agent再试一次而是补能力">3.2 问题失败时，不是让 Agent“再试一次”，而是补能力
+</h3><p>文中一个很关键的思想是：</p>
+<ul>
+<li>当 Agent 失败时，正确的修复方式通常不是 “try harder”；</li>
+<li>而是反问：<strong>到底缺了什么能力、上下文、工具或约束？</strong></li>
+</ul>
+<p>这是一种非常工程化的思路。</p>
+<p>也就是说，Agent 失败的根因常常不是“模型笨”，而是：</p>
+<ul>
+<li>仓库知识不足；</li>
+<li>规则不可见；</li>
+<li>依赖边界不明确；</li>
+<li>测试不充分；</li>
+<li>工具链没接通；</li>
+<li>反馈信号不够直接。</li>
+</ul>
+<h3 id="33-仓库不只是代码仓库而是知识系统">3.3 仓库不只是代码仓库，而是知识系统
+</h3><p>OpenAI 明确反对把所有规则都堆进一个超长的 <code>AGENTS.md</code>。</p>
+<p>原因很现实：</p>
+<ul>
+<li>上下文窗口是稀缺资源；</li>
+<li>大而全的说明书会稀释重点；</li>
+<li>文档容易腐化；</li>
+<li>难以校验其新鲜度和正确性。</li>
+</ul>
+<p>所以他们的做法是：</p>
+<ul>
+<li><code>AGENTS.md</code> 只做目录和导航；</li>
+<li>真正的知识系统放在仓库里的 <code>docs/</code>；</li>
+<li>设计文档、执行计划、产品规格、质量评分、可靠性规范、安全规范都版本化。</li>
+</ul>
+<p>这背后的思想是：</p>
+<ul>
+<li><strong>Repository is the system of record.</strong></li>
+</ul>
+<p>也就是：</p>
+<ul>
+<li>对 Agent 来说，仓库才是事实来源；</li>
+<li>不在仓库里的知识，等价于不存在。</li>
+</ul>
+<h3 id="34-agent-legibility-比-human-elegance-更重要">3.4 Agent Legibility 比 Human Elegance 更重要
+</h3><p>原文有一句非常重要的意思：</p>
+<ul>
+<li>对一个完全由 Agent 生成和维护的代码库来说，首要目标是让 Agent 能读懂，而不是先追求人类审美上的“优雅”。</li>
+</ul>
+<p>这里的 <code>legibility</code> 可以翻译成：</p>
+<ul>
+<li>可读性；</li>
+<li>可理解性；</li>
+<li>可导航性；</li>
+<li>可推理性。</li>
+</ul>
+<p>换句话说，代码和文档不是写给“抽象的人类工程师”看的，而是首先写给“未来还会继续操作这个仓库的 Agent”看的。</p>
+<p>所以他们偏向：</p>
+<ul>
+<li>稳定的结构；</li>
+<li>明确的边界；</li>
+<li>可推理的依赖关系；</li>
+<li>可验证的规则；</li>
+<li>尽量少黑盒。</li>
+</ul>
+<p>这也是为什么文章里提到：</p>
+<ul>
+<li>有时候宁可自己实现一小段受控功能；</li>
+<li>也不愿意引入一个对 Agent 来说过于黑盒、行为不透明的外部库。</li>
+</ul>
+<h3 id="35-让应用本身也对-agent-可读">3.5 让应用本身也对 Agent 可读
+</h3><p>这点特别重要，很多人会忽略。</p>
+<p>OpenAI 不是只让 Agent 读代码，而是让 Agent 能直接观察：</p>
+<ul>
+<li>UI；</li>
+<li>DOM；</li>
+<li>截图；</li>
+<li>页面导航；</li>
+<li>日志；</li>
+<li>指标；</li>
+<li>Trace。</li>
+</ul>
+<p>也就是说，他们把“应用运行时世界”暴露给 Agent。</p>
+<p>这样 Agent 就不只是会改代码，而是能：</p>
+<ul>
+<li>自己复现 bug；</li>
+<li>自己验证修复；</li>
+<li>自己检查性能指标；</li>
+<li>自己完成回归验证。</li>
+</ul>
+<p>这是从“代码生成器”走向“工程执行体”的关键一步。</p>
+<h3 id="36-架构约束越早编码agent-速度越快">3.6 架构约束越早编码，Agent 速度越快
+</h3><p>传统团队常常会觉得：</p>
+<ul>
+<li>早期先快写，后面再治理架构。</li>
+</ul>
+<p>但文章给出的经验恰好相反：</p>
+<ul>
+<li>对 Agent 来说，<strong>强约束不是减速器，而是加速器。</strong></li>
+</ul>
+<p>因为 Agent 最怕的是：</p>
+<ul>
+<li>边界模糊；</li>
+<li>依赖随意；</li>
+<li>模式不统一；</li>
+<li>文件风格漂移；</li>
+<li>质量标准口头化。</li>
+</ul>
+<p>所以 OpenAI 选择：</p>
+<ul>
+<li>固定分层；</li>
+<li>固定依赖方向；</li>
+<li>用自定义 lint 和结构测试强制执行；</li>
+<li>把错误信息本身写成“带修复指导的反馈”。</li>
+</ul>
+<p>这其实已经不是传统意义上的代码规范，而是在做“Agent 编程环境设计”。</p>
+<h3 id="37-高吞吐下合并哲学也要变">3.7 高吞吐下，合并哲学也要变
+</h3><p>文章里有一个很反直觉但很现实的观点：</p>
+<ul>
+<li>当 Agent 的产出速度远远快于人类注意力时，很多传统的重型阻塞式流程反而会拖累整体效率。</li>
+</ul>
+<p>比如：</p>
+<ul>
+<li>PR 尽量短命；</li>
+<li>Merge gate 尽量少阻塞；</li>
+<li>flaky test 不一定要无限期卡住主流程；</li>
+<li>便宜的错误更适合快速修复，而不是长时间等待。</li>
+</ul>
+<p>这并不是说“质量不重要”，而是说：</p>
+<ul>
+<li>在高吞吐系统里，<strong>等待本身就是成本</strong>；</li>
+<li>如果纠错成本很低，快速前进可能比过度阻塞更优。</li>
+</ul>
+<p>但这有前提：</p>
+<ul>
+<li>自动验证链路要足够强；</li>
+<li>回滚和修复能力要足够快；</li>
+<li>系统可观察性要足够好。</li>
+</ul>
+<h3 id="38-自治越高越需要持续垃圾回收">3.8 自治越高，越需要持续垃圾回收
+</h3><p>文章最后提到一个很接地气的问题：</p>
+<ul>
+<li>Agent 会复制已有模式；</li>
+<li>一旦仓库里出现坏模式，它会被持续放大。</li>
+</ul>
+<p>这就是所谓的代码熵增。</p>
+<p>OpenAI 的处理方式是：</p>
+<ul>
+<li>定义 golden principles；</li>
+<li>持续后台扫描偏差；</li>
+<li>自动更新质量评分；</li>
+<li>自动发起小型重构 PR；</li>
+<li>把技术债当成“高利贷”，持续小步偿还。</li>
+</ul>
+<p>这特别像垃圾回收：</p>
+<ul>
+<li>不是等系统烂到无法维护再集中治理；</li>
+<li>而是持续、小步、机械化清理。</li>
+</ul>
+<hr>
+<h2 id="四文章里的关键术语面试必须讲清楚">四、文章里的关键术语，面试必须讲清楚
+</h2><h3 id="41-agent-first-engineering">4.1 Agent-First Engineering
+</h3><h4 id="含义">含义
+</h4><ul>
+<li>把 AI Agent 当成软件交付主力之一来设计工程流程，而不是把它当成一个临时辅助工具。</li>
+</ul>
+<h4 id="核心变化">核心变化
+</h4><ul>
+<li>不是“我写代码，AI 帮我补全”；</li>
+<li>而是“我定义目标和约束，Agent 负责执行和迭代”。</li>
+</ul>
+<h4 id="面试怎么说">面试怎么说
+</h4><ul>
+<li><strong>Agent-first engineering 的核心，不是用了 AI，而是工程流程从面向人类执行优化，转向面向人类决策 + Agent 执行优化。</strong></li>
+</ul>
+<h3 id="42-harness">4.2 Harness
+</h3><h4 id="含义-1">含义
+</h4><ul>
+<li>原意像“马具、控制装置、束具”。</li>
+<li>在工程语境里，可以理解成“把能力约束并导向正确输出的一套支架系统”。</li>
+</ul>
+<h4 id="在本文中的具体指代">在本文中的具体指代
+</h4><ul>
+<li>仓库结构；</li>
+<li>知识文档；</li>
+<li>工具链；</li>
+<li>lint；</li>
+<li>CI；</li>
+<li>测试；</li>
+<li>评审流；</li>
+<li>可观察性；</li>
+<li>运行时验证能力。</li>
+</ul>
+<h4 id="面试怎么说-1">面试怎么说
+</h4><ul>
+<li><strong>Harness 不是一个 prompt，而是让 Agent 在真实项目里可控工作的整体工程基础设施。</strong></li>
+</ul>
+<h3 id="43-agent-legibility">4.3 Agent Legibility
+</h3><h4 id="含义-2">含义
+</h4><ul>
+<li>让 Agent 易于理解系统、定位信息、推理边界、做出正确修改。</li>
+</ul>
+<h4 id="它关注什么">它关注什么
+</h4><ul>
+<li>文档是否在仓库内；</li>
+<li>信息是否结构化；</li>
+<li>依赖关系是否清晰；</li>
+<li>规则是否可执行；</li>
+<li>运行反馈是否可观测。</li>
+</ul>
+<h4 id="为什么重要">为什么重要
+</h4><ul>
+<li>Agent 不是靠“感觉”工作，它依赖上下文和可见信号。</li>
+<li>看不见的信息，对 Agent 来说就等价于不存在。</li>
+</ul>
+<h4 id="面试怎么说-2">面试怎么说
+</h4><ul>
+<li><strong>人类面对不清晰系统时还能靠经验兜底，但 Agent 更依赖可见、结构化、可验证的信息，因此 legibility 是 agent-first 时代的核心工程指标。</strong></li>
+</ul>
+<h3 id="44-system-of-record">4.4 System of Record
+</h3><h4 id="含义-3">含义
+</h4><ul>
+<li>某类信息的权威事实来源。</li>
+</ul>
+<h4 id="在这篇文章里">在这篇文章里
+</h4><ul>
+<li>仓库就是 system of record；</li>
+<li>文档、计划、规则、质量状态必须回到仓库并版本化。</li>
+</ul>
+<h4 id="面试怎么说-3">面试怎么说
+</h4><ul>
+<li><strong>如果知识只存在于会议、聊天、脑子里，那对 Agent 来说不可用；只有进入仓库并版本化，才能真正参与自动化执行。</strong></li>
+</ul>
+<h3 id="45-progressive-disclosure">4.5 Progressive Disclosure
+</h3><h4 id="含义-4">含义
+</h4><ul>
+<li>渐进式暴露信息。</li>
+</ul>
+<h4 id="具体做法">具体做法
+</h4><ul>
+<li>先给 Agent 一个短入口；</li>
+<li>再通过目录、索引、链接引导它逐层深入；</li>
+<li>而不是一开始塞一个几千行总说明书。</li>
+</ul>
+<h4 id="好处">好处
+</h4><ul>
+<li>节省上下文；</li>
+<li>降低噪声；</li>
+<li>提高查找精度；</li>
+<li>减少过度提示造成的误导。</li>
+</ul>
+<h3 id="46-structural-invariants">4.6 Structural Invariants
+</h3><h4 id="含义-5">含义
+</h4><ul>
+<li>结构性不变量，也就是无论谁改代码都必须满足的底层规则。</li>
+</ul>
+<h4 id="例子">例子
+</h4><ul>
+<li>分层方向不能反；</li>
+<li>数据校验必须发生在边界；</li>
+<li>日志必须结构化；</li>
+<li>文件不能无限膨胀；</li>
+<li>某些类型命名必须统一。</li>
+</ul>
+<h4 id="面试怎么说-4">面试怎么说
+</h4><ul>
+<li><strong>高级工程治理的核心，不是反复口头提醒，而是把关键不变量编码成 lint、测试和 CI，让系统自动拒绝错误形态。</strong></li>
+</ul>
+<h3 id="47-taste-invariants">4.7 Taste Invariants
+</h3><h4 id="含义-6">含义
+</h4><ul>
+<li>团队长期形成的风格偏好和可维护性偏好，被进一步抽象成可以自动执行的规则。</li>
+</ul>
+<h4 id="它和普通-code-style-的区别">它和普通 code style 的区别
+</h4><ul>
+<li>普通 code style 更偏格式；</li>
+<li>taste invariants 更偏长期维护哲学。</li>
+</ul>
+<h4 id="例子-1">例子
+</h4><ul>
+<li>偏向共享工具而不是随手造 helper；</li>
+<li>偏向显式 schema 校验，而不是 YOLO 式猜数据结构；</li>
+<li>偏向稳定、透明、可推理的依赖。</li>
+</ul>
+<h3 id="48-entropy--garbage-collection">4.8 Entropy / Garbage Collection
+</h3><h4 id="含义-7">含义
+</h4><ul>
+<li><code>Entropy</code> 指系统会自然走向混乱和漂移；</li>
+<li><code>Garbage collection</code> 在文中是一个类比，指持续清理 Agent 产生的坏模式和技术债。</li>
+</ul>
+<h4 id="为什么会发生">为什么会发生
+</h4><ul>
+<li>Agent 会模仿仓库里已存在的模式；</li>
+<li>一旦旧模式不好，它会被高频复制。</li>
+</ul>
+<h4 id="面试怎么说-5">面试怎么说
+</h4><ul>
+<li><strong>AI 时代的技术债传播速度比人工时代更快，所以治理必须从阶段性大扫除，变成持续性自动回收。</strong></li>
+</ul>
+<hr>
+<h2 id="五openai-这套方法论落到工程里到底长什么样">五、OpenAI 这套方法论，落到工程里到底长什么样
+</h2><p>如果把文章里的做法抽象成一条工程流水线，大概是这样：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>需求/问题
+</span></span><span style="display:flex;"><span>-&gt; 人类把目标写成 prompt 或验收标准
+</span></span><span style="display:flex;"><span>-&gt; Agent 读取仓库内文档、架构图、计划、规则
+</span></span><span style="display:flex;"><span>-&gt; Agent 修改代码/测试/CI/文档
+</span></span><span style="display:flex;"><span>-&gt; Agent 启动应用并驱动 UI
+</span></span><span style="display:flex;"><span>-&gt; Agent 查询日志/指标/Trace
+</span></span><span style="display:flex;"><span>-&gt; Agent 验证结果是否达标
+</span></span><span style="display:flex;"><span>-&gt; Agent 发 PR 并响应反馈
+</span></span><span style="display:flex;"><span>-&gt; 系统通过 lint/CI/结构测试拦截错误
+</span></span><span style="display:flex;"><span>-&gt; 后台清理任务持续修复坏模式和技术债
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这个流程说明：</p>
+<ul>
+<li>Agent 并不是在“盲写代码”；</li>
+<li>它是在一个高度工程化的闭环里工作。</li>
+</ul>
+<p>所以真正的门槛并不只是模型 API 接入，而是你是否有能力把下面这些东西系统化：</p>
+<ul>
+<li>需求表达；</li>
+<li>文档沉淀；</li>
+<li>规则编码；</li>
+<li>自动验证；</li>
+<li>反馈回路；</li>
+<li>漂移治理。</li>
+</ul>
+<hr>
+<h2 id="六为什么这篇文章对面试很重要">六、为什么这篇文章对面试很重要
+</h2><p>因为它回答了一个现在越来越常见的问题：</p>
+<ul>
+<li><strong>AI 会不会取代工程师？</strong></li>
+</ul>
+<p>更成熟的回答不是情绪化地说“不会”，而是说：</p>
+<ul>
+<li>AI 会重塑工程师的工作重心；</li>
+<li>低水平重复编码的价值会下降；</li>
+<li>高水平的系统设计、规则抽象、质量治理、反馈闭环设计会更重要。</li>
+</ul>
+<p>如果你能讲出下面这层意思，面试官通常会觉得你不是在追热点，而是真的理解了工程演进：</p>
+<ul>
+<li>**在 agent-first 时代，工程能力从“实现某个功能”上移到“构建一个可持续产出正确功能的系统”。</li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/harness/">Harness</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm808.github.io\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+    </body>
+</html>
