@@ -1550,6 +1550,87 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
 &lt;blockquote&gt;
 &lt;p&gt;&lt;strong&gt;🧠 记忆口诀&lt;/strong&gt;：普通索引查等值，&lt;strong&gt;锁住自己，还要锁住左右最近邻居之间的空隙&lt;/strong&gt;。&lt;/p&gt;
 &lt;/blockquote&gt;
+&lt;h4 id=&#34;3-唯一索引范围查询-查-id-范围&#34;&gt;3. 唯一索引范围查询 (查 id 范围)
+&lt;/h4&gt;&lt;p&gt;假设主键 &lt;code&gt;id&lt;/code&gt; 的值为：&lt;code&gt;0, 5, 10, 15, 20, 25&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;范围查询和“唯一索引等值命中”不一样。&lt;br&gt;
+只要变成&lt;strong&gt;范围当前读&lt;/strong&gt;，锁的重点就不再是“单行”，而是&lt;strong&gt;扫描到的索引范围&lt;/strong&gt;。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;查 &lt;code&gt;id &amp;gt;= 10 AND id &amp;lt; 20 FOR UPDATE&lt;/code&gt;&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;常见可以理解成锁住：
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;(5, 10]&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;(10, 15]&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;(15, 20)&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;也就是：
+&lt;ul&gt;
+&lt;li&gt;锁住命中的记录 &lt;code&gt;10&lt;/code&gt;、&lt;code&gt;15&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;锁住这些记录前面的间隙&lt;/li&gt;
+&lt;li&gt;还会锁住上边界 &lt;code&gt;20&lt;/code&gt; 之前的 gap，防止别人插入 &lt;code&gt;16/17/18/19&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;查 &lt;code&gt;id &amp;gt; 10 AND id &amp;lt; 20 FOR UPDATE&lt;/code&gt;&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;常见可以理解成锁住：
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;(10, 15]&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;(15, 20)&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;因为左边界 &lt;code&gt;10&lt;/code&gt; 不在结果集里，所以不会再多锁一个 &lt;code&gt;(5, 10]&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;🧠 记忆口诀&lt;/strong&gt;：唯一索引查范围，虽然索引是唯一的，但&lt;strong&gt;只要是范围查询，锁的核心就是扫描范围，不再是单点 Record Lock。&lt;/strong&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h4 id=&#34;4-非唯一索引范围查询-查-c-范围&#34;&gt;4. 非唯一索引范围查询 (查 c 范围)
+&lt;/h4&gt;&lt;p&gt;假设普通索引 &lt;code&gt;c&lt;/code&gt; 的值为：&lt;code&gt;0, 5, 10, 15, 20, 25&lt;/code&gt;。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;查 &lt;code&gt;c &amp;gt;= 10 AND c &amp;lt; 20 FOR UPDATE&lt;/code&gt;&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;常见可以理解成锁住：
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;(5, 10]&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;(10, 15]&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;(15, 20)&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;本质上依然是：&lt;strong&gt;锁扫描到的索引范围&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;查 &lt;code&gt;c &amp;gt; 10 AND c &amp;lt; 20 FOR UPDATE&lt;/code&gt;&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;常见可以理解成锁住：
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;(10, 15]&lt;/strong&gt;&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;(15, 20)&lt;/strong&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;如果普通索引里有重复值，比如：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;0, 5, 10, 10, 10, 15, 20
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;那范围会更大，因为 InnoDB 不是只锁某一条 &lt;code&gt;10&lt;/code&gt;，而是会把&lt;strong&gt;这批满足扫描条件的索引记录及其相关 gap&lt;/strong&gt; 一起锁住。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;🧠 记忆口诀&lt;/strong&gt;：普通索引查范围，比唯一索引更容易扩成“锁一段索引区间”。面试里最稳的答法永远是：**它锁的是扫描范围，而不是只锁命中的某一个值。&lt;/p&gt;
+&lt;/blockquote&gt;
 &lt;hr&gt;
 &lt;h2 id=&#34;四死锁与处理&#34;&gt;四、死锁与处理
 &lt;/h2&gt;&lt;p&gt;当并发系统中不同线程出现循环资源依赖，涉及的线程都在等待别的线程释放资源时，就会导致死锁。&lt;/p&gt;

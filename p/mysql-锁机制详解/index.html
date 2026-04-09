@@ -284,6 +284,8 @@
           <ol>
             <li><a href="#1-唯一索引等值查询-查-id">1. 唯一索引等值查询 (查 id)</a></li>
             <li><a href="#2-非唯一索引等值查询-查-c">2. 非唯一索引等值查询 (查 c)</a></li>
+            <li><a href="#3-唯一索引范围查询-查-id-范围">3. 唯一索引范围查询 (查 id 范围)</a></li>
+            <li><a href="#4-非唯一索引范围查询-查-c-范围">4. 非唯一索引范围查询 (查 c 范围)</a></li>
           </ol>
         </li>
       </ol>
@@ -371,7 +373,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 11 分钟
+                    阅读时长: 12 分钟
                 </time>
             </div>
         
@@ -795,6 +797,87 @@
 </ul>
 <blockquote>
 <p><strong>🧠 记忆口诀</strong>：普通索引查等值，<strong>锁住自己，还要锁住左右最近邻居之间的空隙</strong>。</p>
+</blockquote>
+<h4 id="3-唯一索引范围查询-查-id-范围">3. 唯一索引范围查询 (查 id 范围)
+</h4><p>假设主键 <code>id</code> 的值为：<code>0, 5, 10, 15, 20, 25</code>。</p>
+<p>范围查询和“唯一索引等值命中”不一样。<br>
+只要变成<strong>范围当前读</strong>，锁的重点就不再是“单行”，而是<strong>扫描到的索引范围</strong>。</p>
+<ul>
+<li>
+<p><strong>查 <code>id &gt;= 10 AND id &lt; 20 FOR UPDATE</code></strong>：</p>
+<ul>
+<li>常见可以理解成锁住：
+<ul>
+<li><strong>(5, 10]</strong></li>
+<li><strong>(10, 15]</strong></li>
+<li><strong>(15, 20)</strong></li>
+</ul>
+</li>
+<li>也就是：
+<ul>
+<li>锁住命中的记录 <code>10</code>、<code>15</code></li>
+<li>锁住这些记录前面的间隙</li>
+<li>还会锁住上边界 <code>20</code> 之前的 gap，防止别人插入 <code>16/17/18/19</code></li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>查 <code>id &gt; 10 AND id &lt; 20 FOR UPDATE</code></strong>：</p>
+<ul>
+<li>常见可以理解成锁住：
+<ul>
+<li><strong>(10, 15]</strong></li>
+<li><strong>(15, 20)</strong></li>
+</ul>
+</li>
+<li>因为左边界 <code>10</code> 不在结果集里，所以不会再多锁一个 <code>(5, 10]</code></li>
+</ul>
+</li>
+</ul>
+<blockquote>
+<p><strong>🧠 记忆口诀</strong>：唯一索引查范围，虽然索引是唯一的，但<strong>只要是范围查询，锁的核心就是扫描范围，不再是单点 Record Lock。</strong></p>
+</blockquote>
+<h4 id="4-非唯一索引范围查询-查-c-范围">4. 非唯一索引范围查询 (查 c 范围)
+</h4><p>假设普通索引 <code>c</code> 的值为：<code>0, 5, 10, 15, 20, 25</code>。</p>
+<ul>
+<li>
+<p><strong>查 <code>c &gt;= 10 AND c &lt; 20 FOR UPDATE</code></strong>：</p>
+<ul>
+<li>常见可以理解成锁住：
+<ul>
+<li><strong>(5, 10]</strong></li>
+<li><strong>(10, 15]</strong></li>
+<li><strong>(15, 20)</strong></li>
+</ul>
+</li>
+<li>本质上依然是：<strong>锁扫描到的索引范围</strong></li>
+</ul>
+</li>
+<li>
+<p><strong>查 <code>c &gt; 10 AND c &lt; 20 FOR UPDATE</code></strong>：</p>
+<ul>
+<li>常见可以理解成锁住：
+<ul>
+<li><strong>(10, 15]</strong></li>
+<li><strong>(15, 20)</strong></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>如果普通索引里有重复值，比如：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>0, 5, 10, 10, 10, 15, 20
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>那范围会更大，因为 InnoDB 不是只锁某一条 <code>10</code>，而是会把<strong>这批满足扫描条件的索引记录及其相关 gap</strong> 一起锁住。</p>
+<blockquote>
+<p><strong>🧠 记忆口诀</strong>：普通索引查范围，比唯一索引更容易扩成“锁一段索引区间”。面试里最稳的答法永远是：**它锁的是扫描范围，而不是只锁命中的某一个值。</p>
 </blockquote>
 <hr>
 <h2 id="四死锁与处理">四、死锁与处理
