@@ -8251,7 +8251,7 @@ Go 刻意随机化遍历顺序，不能依赖顺序逻辑。&lt;/p&gt;
         <description></description>
         </item>
         <item>
-        <title>归档 | Archives</title>
+        <title>归档</title>
         <link>https://skylm.top/archives/</link>
         <pubDate>Tue, 28 May 2019 00:00:00 +0000</pubDate>
         
@@ -8259,7 +8259,15 @@ Go 刻意随机化遍历顺序，不能依赖顺序逻辑。&lt;/p&gt;
         <description></description>
         </item>
         <item>
-        <title>搜索 | Search</title>
+        <title>生活 | Life</title>
+        <link>https://skylm.top/life/</link>
+        <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+        
+        <guid>https://skylm.top/life/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>搜索</title>
         <link>https://skylm.top/search/</link>
         <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
         
@@ -8267,7 +8275,7 @@ Go 刻意随机化遍历顺序，不能依赖顺序逻辑。&lt;/p&gt;
         <description></description>
         </item>
         <item>
-        <title>友情链接 | Links</title>
+        <title>友链</title>
         <link>https://skylm.top/links/</link>
         <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
         
