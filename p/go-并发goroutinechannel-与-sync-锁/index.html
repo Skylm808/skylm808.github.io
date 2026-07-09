@@ -4,11 +4,11 @@
 <meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Go 最核心的并发哲学是：**“不要通过共享内存来通信，而应通过通信来共享内存">
 <title>Go 并发：Goroutine、Channel 与 Sync 锁</title>
 
-<link rel='canonical' href='https://skylm808.github.io/p/go-%E5%B9%B6%E5%8F%91goroutinechannel-%E4%B8%8E-sync-%E9%94%81/'>
+<link rel='canonical' href='https://skylm.top/p/go-%E5%B9%B6%E5%8F%91goroutinechannel-%E4%B8%8E-sync-%E9%94%81/'>
 
-<link rel="stylesheet" href="/scss/style.min.96ba1c3608acf4f319504831a9a06a60c4c0f47ce65605b5ca2dab1981e36064.css"><meta property='og:title' content="Go 并发：Goroutine、Channel 与 Sync 锁">
+<link rel="stylesheet" href="/scss/style.min.ccad64c94a1d91d5d20d1574a63d7fd934ce53614c43bd823707afe8230510bb.css"><meta property='og:title' content="Go 并发：Goroutine、Channel 与 Sync 锁">
 <meta property='og:description' content="Go 最核心的并发哲学是：**“不要通过共享内存来通信，而应通过通信来共享内存">
-<meta property='og:url' content='https://skylm808.github.io/p/go-%E5%B9%B6%E5%8F%91goroutinechannel-%E4%B8%8E-sync-%E9%94%81/'>
+<meta property='og:url' content='https://skylm.top/p/go-%E5%B9%B6%E5%8F%91goroutinechannel-%E4%B8%8E-sync-%E9%94%81/'>
 <meta property='og:site_name' content='Skylm'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Go' /><meta property='article:published_time' content='2026-02-28T22:14:06&#43;08:00'/><meta property='article:modified_time' content='2026-02-28T22:14:06&#43;08:00'/>
 <meta name="twitter:title" content="Go 并发：Goroutine、Channel 与 Sync 锁">
@@ -384,40 +384,40 @@
 </ul>
 <h3 id="有缓冲-channel-vs-无缓冲-channel">有缓冲 Channel vs 无缓冲 Channel
 </h3><div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th></th>
-          <th>无缓冲 <code>make(chan int)</code></th>
-          <th>有缓冲 <code>make(chan int, 5)</code></th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><strong>本质</strong></td>
-          <td>没有&quot;传送带&quot;，必须<strong>手递手</strong></td>
-          <td>有一条长度为 5 的&quot;传送带&quot;</td>
-      </tr>
-      <tr>
-          <td><strong>发送阻塞条件</strong></td>
-          <td>对面没人接 → 立刻阻塞</td>
-          <td>传送带放满了 → 才阻塞</td>
-      </tr>
-      <tr>
-          <td><strong>接收阻塞条件</strong></td>
-          <td>对面没人发 → 立刻阻塞</td>
-          <td>传送带是空的 → 才阻塞</td>
-      </tr>
-      <tr>
-          <td><strong>同步性</strong></td>
-          <td>强同步：发送和接收必须<strong>同时就绪</strong>才能完成</td>
-          <td>异步解耦：只要缓冲没满/没空，双方互不等待</td>
-      </tr>
-      <tr>
-          <td><strong>典型用途</strong></td>
-          <td>信号通知、Goroutine 间严格同步</td>
-          <td>生产者-消费者模型、任务队列、削峰缓冲</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th></th>
+					<th>无缓冲 <code>make(chan int)</code></th>
+					<th>有缓冲 <code>make(chan int, 5)</code></th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>本质</strong></td>
+					<td>没有&quot;传送带&quot;，必须<strong>手递手</strong></td>
+					<td>有一条长度为 5 的&quot;传送带&quot;</td>
+			</tr>
+			<tr>
+					<td><strong>发送阻塞条件</strong></td>
+					<td>对面没人接 → 立刻阻塞</td>
+					<td>传送带放满了 → 才阻塞</td>
+			</tr>
+			<tr>
+					<td><strong>接收阻塞条件</strong></td>
+					<td>对面没人发 → 立刻阻塞</td>
+					<td>传送带是空的 → 才阻塞</td>
+			</tr>
+			<tr>
+					<td><strong>同步性</strong></td>
+					<td>强同步：发送和接收必须<strong>同时就绪</strong>才能完成</td>
+					<td>异步解耦：只要缓冲没满/没空，双方互不等待</td>
+			</tr>
+			<tr>
+					<td><strong>典型用途</strong></td>
+					<td>信号通知、Goroutine 间严格同步</td>
+					<td>生产者-消费者模型、任务队列、削峰缓冲</td>
+			</tr>
+	</tbody>
 </table></div>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
@@ -449,35 +449,35 @@
 </h3><h4 id="场景一无缓冲-channel">场景一：无缓冲 Channel
 </h4><p>没有 <code>buf</code>，所有数据必须在发送方和接收方之间<strong>直接传递</strong>。</p>
 <div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>操作</th>
-          <th>情况</th>
-          <th>发生了什么</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>ch &lt;- val</code></td>
-          <td><code>recvq</code> 里有人在等</td>
-          <td>直接把数据拷贝给那个等待的接收者，唤醒它。发送方不阻塞。</td>
-      </tr>
-      <tr>
-          <td><code>ch &lt;- val</code></td>
-          <td><code>recvq</code> 没人</td>
-          <td>发送方被打包成 <code>sudog</code> 挂到 <code>sendq</code>，<strong>睡觉等人来取</strong>。</td>
-      </tr>
-      <tr>
-          <td><code>&lt;-ch</code></td>
-          <td><code>sendq</code> 里有人在等</td>
-          <td>直接从那个等待的发送者手里拷贝数据，唤醒它。接收方不阻塞。</td>
-      </tr>
-      <tr>
-          <td><code>&lt;-ch</code></td>
-          <td><code>sendq</code> 没人</td>
-          <td>接收方被打包成 <code>sudog</code> 挂到 <code>recvq</code>，<strong>睡觉等人来送</strong>。</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>操作</th>
+					<th>情况</th>
+					<th>发生了什么</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>ch &lt;- val</code></td>
+					<td><code>recvq</code> 里有人在等</td>
+					<td>直接把数据拷贝给那个等待的接收者，唤醒它。发送方不阻塞。</td>
+			</tr>
+			<tr>
+					<td><code>ch &lt;- val</code></td>
+					<td><code>recvq</code> 没人</td>
+					<td>发送方被打包成 <code>sudog</code> 挂到 <code>sendq</code>，<strong>睡觉等人来取</strong>。</td>
+			</tr>
+			<tr>
+					<td><code>&lt;-ch</code></td>
+					<td><code>sendq</code> 里有人在等</td>
+					<td>直接从那个等待的发送者手里拷贝数据，唤醒它。接收方不阻塞。</td>
+			</tr>
+			<tr>
+					<td><code>&lt;-ch</code></td>
+					<td><code>sendq</code> 没人</td>
+					<td>接收方被打包成 <code>sudog</code> 挂到 <code>recvq</code>，<strong>睡觉等人来送</strong>。</td>
+			</tr>
+	</tbody>
 </table></div>
 <blockquote>
 <p>核心规律：无缓冲 = 必须&quot;握手&quot;，一方先到就等另一方。</p>
@@ -485,45 +485,45 @@
 <h4 id="场景二有缓冲-channel">场景二：有缓冲 Channel
 </h4><p>有 <code>buf</code> 环形队列作为中间缓冲区。</p>
 <div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>操作</th>
-          <th>情况</th>
-          <th>发生了什么</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><code>ch &lt;- val</code></td>
-          <td><code>recvq</code> 里有人在等</td>
-          <td>跳过缓冲，直接拷贝给接收者并唤醒（性能最高路径）。</td>
-      </tr>
-      <tr>
-          <td><code>ch &lt;- val</code></td>
-          <td>没人等，<code>buf</code> 没满</td>
-          <td>数据拷入 <code>buf</code> 尾部，发送方继续执行，不阻塞。</td>
-      </tr>
-      <tr>
-          <td><code>ch &lt;- val</code></td>
-          <td>没人等，<code>buf</code> 满了</td>
-          <td>发送方挂到 <code>sendq</code> 睡觉，等有人取走数据后被唤醒。</td>
-      </tr>
-      <tr>
-          <td><code>&lt;-ch</code></td>
-          <td><code>sendq</code> 有人等（说明 <code>buf</code> 一定是满的）</td>
-          <td>从 <code>buf</code> 头部取一个数据给接收方，再把 <code>sendq</code> 里等待的发送者的数据补入 <code>buf</code> 尾部，唤醒发送者。</td>
-      </tr>
-      <tr>
-          <td><code>&lt;-ch</code></td>
-          <td><code>sendq</code> 没人，<code>buf</code> 有数据</td>
-          <td>直接从 <code>buf</code> 头部取出数据。</td>
-      </tr>
-      <tr>
-          <td><code>&lt;-ch</code></td>
-          <td><code>sendq</code> 没人，<code>buf</code> 也空</td>
-          <td>接收方挂到 <code>recvq</code> 睡觉，等有人发数据后被唤醒。</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>操作</th>
+					<th>情况</th>
+					<th>发生了什么</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>ch &lt;- val</code></td>
+					<td><code>recvq</code> 里有人在等</td>
+					<td>跳过缓冲，直接拷贝给接收者并唤醒（性能最高路径）。</td>
+			</tr>
+			<tr>
+					<td><code>ch &lt;- val</code></td>
+					<td>没人等，<code>buf</code> 没满</td>
+					<td>数据拷入 <code>buf</code> 尾部，发送方继续执行，不阻塞。</td>
+			</tr>
+			<tr>
+					<td><code>ch &lt;- val</code></td>
+					<td>没人等，<code>buf</code> 满了</td>
+					<td>发送方挂到 <code>sendq</code> 睡觉，等有人取走数据后被唤醒。</td>
+			</tr>
+			<tr>
+					<td><code>&lt;-ch</code></td>
+					<td><code>sendq</code> 有人等（说明 <code>buf</code> 一定是满的）</td>
+					<td>从 <code>buf</code> 头部取一个数据给接收方，再把 <code>sendq</code> 里等待的发送者的数据补入 <code>buf</code> 尾部，唤醒发送者。</td>
+			</tr>
+			<tr>
+					<td><code>&lt;-ch</code></td>
+					<td><code>sendq</code> 没人，<code>buf</code> 有数据</td>
+					<td>直接从 <code>buf</code> 头部取出数据。</td>
+			</tr>
+			<tr>
+					<td><code>&lt;-ch</code></td>
+					<td><code>sendq</code> 没人，<code>buf</code> 也空</td>
+					<td>接收方挂到 <code>recvq</code> 睡觉，等有人发数据后被唤醒。</td>
+			</tr>
+	</tbody>
 </table></div>
 <blockquote>
 <p>核心规律：有缓冲 = 先往传送带上放，放满了才排队等。</p>
@@ -531,30 +531,30 @@
 <hr>
 <h2 id="3-sync-常用机制与适用场景">3. Sync 常用机制与适用场景
 </h2><div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>工具</th>
-          <th>作用说明</th>
-          <th>最佳适用场景</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><strong><code>sync.Mutex</code></strong><br>(互斥锁)</td>
-          <td><strong>独占锁</strong>。同一时刻只能有一个 Goroutine 拿到锁进行读写。</td>
-          <td>保护会被并发读写的单一变量或状态（如：全局并发计数器、状态标志位）。</td>
-      </tr>
-      <tr>
-          <td><strong><code>sync.RWMutex</code></strong><br>(读写锁)</td>
-          <td><strong>读共享，写独占</strong>。多 Goroutine 可同时读，但写时全部阻塞。</td>
-          <td><strong>读多写少</strong>的并发场景（如：内存缓存的读取、全局配置的读取）。性能远高于 Mutex。</td>
-      </tr>
-      <tr>
-          <td><strong><code>sync.WaitGroup</code></strong><br>(等待组)</td>
-          <td><strong>并发计数器</strong>。<code>Add</code> 增加计数，<code>Done</code> 减少计数，<code>Wait</code> 阻塞直到归零。</td>
-          <td>主 Goroutine 需要<strong>等待一组子任务全部执行完毕</strong>后才能继续往下走的操作（如：并行下载分片后合并数据）。</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>工具</th>
+					<th>作用说明</th>
+					<th>最佳适用场景</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong><code>sync.Mutex</code></strong><br>(互斥锁)</td>
+					<td><strong>独占锁</strong>。同一时刻只能有一个 Goroutine 拿到锁进行读写。</td>
+					<td>保护会被并发读写的单一变量或状态（如：全局并发计数器、状态标志位）。</td>
+			</tr>
+			<tr>
+					<td><strong><code>sync.RWMutex</code></strong><br>(读写锁)</td>
+					<td><strong>读共享，写独占</strong>。多 Goroutine 可同时读，但写时全部阻塞。</td>
+					<td><strong>读多写少</strong>的并发场景（如：内存缓存的读取、全局配置的读取）。性能远高于 Mutex。</td>
+			</tr>
+			<tr>
+					<td><strong><code>sync.WaitGroup</code></strong><br>(等待组)</td>
+					<td><strong>并发计数器</strong>。<code>Add</code> 增加计数，<code>Done</code> 减少计数，<code>Wait</code> 阻塞直到归零。</td>
+					<td>主 Goroutine 需要<strong>等待一组子任务全部执行完毕</strong>后才能继续往下走的操作（如：并行下载分片后合并数据）。</td>
+			</tr>
+	</tbody>
 </table></div>
 <hr>
 <h2 id="4-三者协同worker-pool-工作池模式">4. 三者协同：Worker Pool (工作池模式)
@@ -851,8 +851,9 @@
         (d.head || d.body).appendChild(s);
     })();
 </script>
-<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
-<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+		<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+		<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+	
 </div>
 
 <style>
@@ -1100,7 +1101,7 @@
       
       let img = document.createElement('img');
       img.classList.add('code-more-img');
-      img.src = 'https:\/\/skylm808.github.io\/icon\/codeMore.png';
+      img.src = 'https:\/\/skylm.top\/icon\/codeMore.png';
       
       codeMoreBtn.appendChild(img);
       codeMoreBox.appendChild(codeMoreBtn);

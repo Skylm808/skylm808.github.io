@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>开源 on Skylm</title>
-        <link>https://skylm808.github.io/categories/%E5%BC%80%E6%BA%90/</link>
+        <link>https://skylm.top/categories/%E5%BC%80%E6%BA%90/</link>
         <description>Recent content in 开源 on Skylm</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Tue, 17 Mar 2026 23:09:18 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/categories/%E5%BC%80%E6%BA%90/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Tue, 17 Mar 2026 23:09:18 +0800</lastBuildDate><atom:link href="https://skylm.top/categories/%E5%BC%80%E6%BA%90/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>开源社区参与的规范 Git 流程</title>
-        <link>https://skylm808.github.io/p/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA%E5%8F%82%E4%B8%8E%E7%9A%84%E8%A7%84%E8%8C%83-git-%E6%B5%81%E7%A8%8B/</link>
+        <link>https://skylm.top/p/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA%E5%8F%82%E4%B8%8E%E7%9A%84%E8%A7%84%E8%8C%83-git-%E6%B5%81%E7%A8%8B/</link>
         <pubDate>Tue, 17 Mar 2026 23:09:18 +0800</pubDate>
         
-        <guid>https://skylm808.github.io/p/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA%E5%8F%82%E4%B8%8E%E7%9A%84%E8%A7%84%E8%8C%83-git-%E6%B5%81%E7%A8%8B/</guid>
+        <guid>https://skylm.top/p/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA%E5%8F%82%E4%B8%8E%E7%9A%84%E8%A7%84%E8%8C%83-git-%E6%B5%81%E7%A8%8B/</guid>
         <description>&lt;h1 id=&#34;开源社区参与的规范-git-流程&#34;&gt;开源社区参与的规范 Git 流程
 &lt;/h1&gt;&lt;p&gt;这份文档以 GitHub 上最常见的 &lt;strong&gt;Fork + 分支 + Pull Request&lt;/strong&gt; 工作流为主，适合你现在这种参与 Apache 项目、给官方仓库提 PR 的场景。&lt;/p&gt;
 &lt;p&gt;文中会重点说明：&lt;/p&gt;
@@ -1234,10 +1234,10 @@
         </item>
         <item>
         <title>dubbo-go-pixiu添加Saml功能详解</title>
-        <link>https://skylm808.github.io/p/dubbo-go-pixiu%E6%B7%BB%E5%8A%A0saml%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3/</link>
+        <link>https://skylm.top/p/dubbo-go-pixiu%E6%B7%BB%E5%8A%A0saml%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3/</link>
         <pubDate>Sat, 14 Mar 2026 22:21:53 +0800</pubDate>
         
-        <guid>https://skylm808.github.io/p/dubbo-go-pixiu%E6%B7%BB%E5%8A%A0saml%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3/</guid>
+        <guid>https://skylm.top/p/dubbo-go-pixiu%E6%B7%BB%E5%8A%A0saml%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3/</guid>
         <description>&lt;h1 id=&#34;saml-auth-walkthrough&#34;&gt;SAML Auth Walkthrough
 &lt;/h1&gt;&lt;p&gt;这份文档把 &lt;code&gt;apache/dubbo-go-pixiu&lt;/code&gt; 的 &lt;a class=&#34;link&#34; href=&#34;https://github.com/apache/dubbo-go-pixiu/issues/888&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;issue #888&lt;/a&gt; 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。&lt;/p&gt;
@@ -1258,42 +1258,42 @@
 &lt;h2 id=&#34;2-这次改动落在哪些文件&#34;&gt;2. 这次改动落在哪些文件
 &lt;/h2&gt;&lt;p&gt;本次 SAML 功能主要分布在下面这些文件里：&lt;/p&gt;
 &lt;table&gt;
-  &lt;thead&gt;
-      &lt;tr&gt;
-          &lt;th&gt;文件&lt;/th&gt;
-          &lt;th&gt;作用&lt;/th&gt;
-      &lt;/tr&gt;
-  &lt;/thead&gt;
-  &lt;tbody&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;code&gt;pkg/common/constant/key.go&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;定义过滤器名字常量 &lt;code&gt;dgp.filter.http.auth.saml&lt;/code&gt;&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;code&gt;pkg/pluginregistry/registry.go&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;通过匿名导入注册 SAML 插件&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;code&gt;pkg/filter/auth/saml/config.go&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;定义配置结构、参数校验、配置深拷贝&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;code&gt;pkg/filter/auth/saml/saml.go&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;SAML 过滤器核心逻辑&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;code&gt;pkg/filter/auth/saml/config_test.go&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;配置校验测试&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;code&gt;pkg/filter/auth/saml/saml_test.go&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;运行流程、边界条件、安全细节测试&lt;/td&gt;
-      &lt;/tr&gt;
-      &lt;tr&gt;
-          &lt;td&gt;&lt;code&gt;docs/user/filter/saml.md&lt;/code&gt;&lt;/td&gt;
-          &lt;td&gt;面向使用者的配置说明&lt;/td&gt;
-      &lt;/tr&gt;
-  &lt;/tbody&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;文件&lt;/th&gt;
+					&lt;th&gt;作用&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;pkg/common/constant/key.go&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;定义过滤器名字常量 &lt;code&gt;dgp.filter.http.auth.saml&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;pkg/pluginregistry/registry.go&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;通过匿名导入注册 SAML 插件&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;pkg/filter/auth/saml/config.go&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;定义配置结构、参数校验、配置深拷贝&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;pkg/filter/auth/saml/saml.go&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;SAML 过滤器核心逻辑&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;pkg/filter/auth/saml/config_test.go&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;配置校验测试&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;pkg/filter/auth/saml/saml_test.go&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;运行流程、边界条件、安全细节测试&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;docs/user/filter/saml.md&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;面向使用者的配置说明&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;p&gt;如果你只想先抓主线，优先读这两个文件就够了：&lt;/p&gt;
 &lt;ol&gt;

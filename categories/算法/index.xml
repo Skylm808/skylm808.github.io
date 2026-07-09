@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>算法 on Skylm</title>
-        <link>https://skylm808.github.io/categories/%E7%AE%97%E6%B3%95/</link>
+        <link>https://skylm.top/categories/%E7%AE%97%E6%B3%95/</link>
         <description>Recent content in 算法 on Skylm</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Tue, 24 Mar 2026 22:09:27 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/categories/%E7%AE%97%E6%B3%95/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Tue, 24 Mar 2026 22:09:27 +0800</lastBuildDate><atom:link href="https://skylm.top/categories/%E7%AE%97%E6%B3%95/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>贪心、动态规划、背包问题：一份讲清楚</title>
-        <link>https://skylm808.github.io/p/%E8%B4%AA%E5%BF%83%E5%8A%A8%E6%80%81%E8%A7%84%E5%88%92%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E4%B8%80%E4%BB%BD%E8%AE%B2%E6%B8%85%E6%A5%9A/</link>
+        <link>https://skylm.top/p/%E8%B4%AA%E5%BF%83%E5%8A%A8%E6%80%81%E8%A7%84%E5%88%92%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E4%B8%80%E4%BB%BD%E8%AE%B2%E6%B8%85%E6%A5%9A/</link>
         <pubDate>Tue, 24 Mar 2026 22:09:27 +0800</pubDate>
         
-        <guid>https://skylm808.github.io/p/%E8%B4%AA%E5%BF%83%E5%8A%A8%E6%80%81%E8%A7%84%E5%88%92%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E4%B8%80%E4%BB%BD%E8%AE%B2%E6%B8%85%E6%A5%9A/</guid>
+        <guid>https://skylm.top/p/%E8%B4%AA%E5%BF%83%E5%8A%A8%E6%80%81%E8%A7%84%E5%88%92%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E4%B8%80%E4%BB%BD%E8%AE%B2%E6%B8%85%E6%A5%9A/</guid>
         <description>&lt;h1 id=&#34;贪心动态规划背包问题一份讲清楚&#34;&gt;贪心、动态规划、背包问题：一份讲清楚
 &lt;/h1&gt;&lt;blockquote&gt;
 &lt;p&gt;这份笔记的目标不是堆题，而是把三件事讲明白：&lt;/p&gt;
@@ -623,8 +623,8 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#6272a4&#34;&gt;// if dp[j-num] {&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                  dp[j]=&lt;span style=&#34;color:#ff79c6&#34;&gt;true&lt;/span&gt;  
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                }
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#6272a4&#34;&gt;//
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#6272a4&#34;&gt;        }&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;            &lt;span style=&#34;color:#6272a4&#34;&gt;//&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        }
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; dp[target]
@@ -749,10 +749,10 @@
         </item>
         <item>
         <title>买卖股票的最佳时机：从贪心到状态机</title>
-        <link>https://skylm808.github.io/p/%E4%B9%B0%E5%8D%96%E8%82%A1%E7%A5%A8%E7%9A%84%E6%9C%80%E4%BD%B3%E6%97%B6%E6%9C%BA%E4%BB%8E%E8%B4%AA%E5%BF%83%E5%88%B0%E7%8A%B6%E6%80%81%E6%9C%BA/</link>
+        <link>https://skylm.top/p/%E4%B9%B0%E5%8D%96%E8%82%A1%E7%A5%A8%E7%9A%84%E6%9C%80%E4%BD%B3%E6%97%B6%E6%9C%BA%E4%BB%8E%E8%B4%AA%E5%BF%83%E5%88%B0%E7%8A%B6%E6%80%81%E6%9C%BA/</link>
         <pubDate>Tue, 24 Feb 2026 23:02:00 +0800</pubDate>
         
-        <guid>https://skylm808.github.io/p/%E4%B9%B0%E5%8D%96%E8%82%A1%E7%A5%A8%E7%9A%84%E6%9C%80%E4%BD%B3%E6%97%B6%E6%9C%BA%E4%BB%8E%E8%B4%AA%E5%BF%83%E5%88%B0%E7%8A%B6%E6%80%81%E6%9C%BA/</guid>
+        <guid>https://skylm.top/p/%E4%B9%B0%E5%8D%96%E8%82%A1%E7%A5%A8%E7%9A%84%E6%9C%80%E4%BD%B3%E6%97%B6%E6%9C%BA%E4%BB%8E%E8%B4%AA%E5%BF%83%E5%88%B0%E7%8A%B6%E6%80%81%E6%9C%BA/</guid>
         <description>&lt;p&gt;本文将通过力扣（LeetCode）上经典的三道“买卖股票”问题（121, 122, 123），详细解析&lt;strong&gt;贪心算法&lt;/strong&gt;以及**状态机（动态规划）**在其中的应用，并探讨这两种算法思想的本质区别。下面提供了完整的 Go 语言代码实现，包含了输入和输出测试用例以便于本地运行验证。&lt;/p&gt;
 &lt;h2 id=&#34;1-力扣-121-买卖股票的最佳时机贪心&#34;&gt;1. 力扣 121. 买卖股票的最佳时机（贪心）
 &lt;/h2&gt;&lt;p&gt;&lt;strong&gt;题目描述&lt;/strong&gt;：给定一个数组 &lt;code&gt;prices&lt;/code&gt; ，它的第 &lt;code&gt;i&lt;/code&gt; 个元素 &lt;code&gt;prices[i]&lt;/code&gt; 表示一支给定股票第 &lt;code&gt;i&lt;/code&gt; 天的价格。你只能选择&lt;strong&gt;某一天&lt;/strong&gt;买入这只股票，并选择在&lt;strong&gt;未来的某一个不同的日子&lt;/strong&gt;卖出该股票。设计一个算法来计算你所能获取的最大利润。&lt;/p&gt;
@@ -975,10 +975,10 @@
         </item>
         <item>
         <title>链表反转：头插法与双指针迭代法的区别</title>
-        <link>https://skylm808.github.io/p/%E9%93%BE%E8%A1%A8%E5%8F%8D%E8%BD%AC%E5%A4%B4%E6%8F%92%E6%B3%95%E4%B8%8E%E5%8F%8C%E6%8C%87%E9%92%88%E8%BF%AD%E4%BB%A3%E6%B3%95%E7%9A%84%E5%8C%BA%E5%88%AB/</link>
+        <link>https://skylm.top/p/%E9%93%BE%E8%A1%A8%E5%8F%8D%E8%BD%AC%E5%A4%B4%E6%8F%92%E6%B3%95%E4%B8%8E%E5%8F%8C%E6%8C%87%E9%92%88%E8%BF%AD%E4%BB%A3%E6%B3%95%E7%9A%84%E5%8C%BA%E5%88%AB/</link>
         <pubDate>Mon, 08 Dec 2025 10:35:20 +0800</pubDate>
         
-        <guid>https://skylm808.github.io/p/%E9%93%BE%E8%A1%A8%E5%8F%8D%E8%BD%AC%E5%A4%B4%E6%8F%92%E6%B3%95%E4%B8%8E%E5%8F%8C%E6%8C%87%E9%92%88%E8%BF%AD%E4%BB%A3%E6%B3%95%E7%9A%84%E5%8C%BA%E5%88%AB/</guid>
+        <guid>https://skylm.top/p/%E9%93%BE%E8%A1%A8%E5%8F%8D%E8%BD%AC%E5%A4%B4%E6%8F%92%E6%B3%95%E4%B8%8E%E5%8F%8C%E6%8C%87%E9%92%88%E8%BF%AD%E4%BB%A3%E6%B3%95%E7%9A%84%E5%8C%BA%E5%88%AB/</guid>
         <description>&lt;h1 id=&#34;链表反转头插法与双指针迭代法的区别&#34;&gt;链表反转：头插法与双指针迭代法的区别
 &lt;/h1&gt;&lt;p&gt;链表反转是一个经典的算法问题，本文将介绍两种常见的方法：头插法和双指针迭代法。本文将讨论它们的区别，并附上核心代码示例（使用Go）。&lt;/p&gt;
 &lt;h2 id=&#34;头插法&#34;&gt;头插法

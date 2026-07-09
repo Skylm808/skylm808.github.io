@@ -4,11 +4,11 @@
 <meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="MySQL 日志体系详解 MySQL 的日志体系是数据库实现数据恢复、主从复制、高并发（MVCC）及故障排查的核心基石。\n日志主要分为两大类：\nServer 层日志：MySQL 服务层产生，所有存储引擎通用（Binlog, Error Log, Slow Query Log）。 引擎层日志：特定存储引擎产生（InnoDB 的 Redo Log, Undo Log）。 1. 核心日志详解 1.1 二进制日志 (Binlog) 归属：Server 层。 性质：逻辑日志（记录 SQL 语句或行数据的变更）。 作用：数据恢复、主从复制。 写入方式：追加写。文件写满后会切换到下一个新文件。 ❓ Binlog 如何实现主从一致 (Replication)？ 主从复制本质上就是让从库（Slave）把主库（Master）做过的事情再做一遍。整个过程分为三步（3个线程）：\n">
 <title>Mysql 日志详解</title>
 
-<link rel='canonical' href='https://skylm808.github.io/p/mysql-%E6%97%A5%E5%BF%97%E8%AF%A6%E8%A7%A3/'>
+<link rel='canonical' href='https://skylm.top/p/mysql-%E6%97%A5%E5%BF%97%E8%AF%A6%E8%A7%A3/'>
 
-<link rel="stylesheet" href="/scss/style.min.96ba1c3608acf4f319504831a9a06a60c4c0f47ce65605b5ca2dab1981e36064.css"><meta property='og:title' content="Mysql 日志详解">
+<link rel="stylesheet" href="/scss/style.min.ccad64c94a1d91d5d20d1574a63d7fd934ce53614c43bd823707afe8230510bb.css"><meta property='og:title' content="Mysql 日志详解">
 <meta property='og:description' content="MySQL 日志体系详解 MySQL 的日志体系是数据库实现数据恢复、主从复制、高并发（MVCC）及故障排查的核心基石。\n日志主要分为两大类：\nServer 层日志：MySQL 服务层产生，所有存储引擎通用（Binlog, Error Log, Slow Query Log）。 引擎层日志：特定存储引擎产生（InnoDB 的 Redo Log, Undo Log）。 1. 核心日志详解 1.1 二进制日志 (Binlog) 归属：Server 层。 性质：逻辑日志（记录 SQL 语句或行数据的变更）。 作用：数据恢复、主从复制。 写入方式：追加写。文件写满后会切换到下一个新文件。 ❓ Binlog 如何实现主从一致 (Replication)？ 主从复制本质上就是让从库（Slave）把主库（Master）做过的事情再做一遍。整个过程分为三步（3个线程）：\n">
-<meta property='og:url' content='https://skylm808.github.io/p/mysql-%E6%97%A5%E5%BF%97%E8%AF%A6%E8%A7%A3/'>
+<meta property='og:url' content='https://skylm.top/p/mysql-%E6%97%A5%E5%BF%97%E8%AF%A6%E8%A7%A3/'>
 <meta property='og:site_name' content='Skylm'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Mysql' /><meta property='article:published_time' content='2026-02-02T19:35:29&#43;08:00'/><meta property='article:modified_time' content='2026-02-02T19:35:29&#43;08:00'/>
 <meta name="twitter:title" content="Mysql 日志详解">
@@ -430,52 +430,52 @@
 <h2 id="2-核心机制辨析">2. 核心机制辨析
 </h2><h3 id="31-redo-log-vs-undo-log">3.1 Redo Log vs Undo Log
 </h3><div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>特性</th>
-          <th>Undo Log (回滚日志)</th>
-          <th>Redo Log (重做日志)</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><strong>记录的数据状态</strong></td>
-          <td><strong>事务开始前</strong> (更新之前的值)</td>
-          <td><strong>事务完成后</strong> (更新之后的值)</td>
-      </tr>
-      <tr>
-          <td><strong>主要目的</strong></td>
-          <td>撤销操作 (回滚)</td>
-          <td>重做操作 (恢复)</td>
-      </tr>
-      <tr>
-          <td><strong>崩溃恢复</strong></td>
-          <td>提交<strong>前</strong>崩溃 -&gt; <strong>回滚</strong></td>
-          <td>提交<strong>后</strong>崩溃 -&gt; <strong>恢复</strong></td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>特性</th>
+					<th>Undo Log (回滚日志)</th>
+					<th>Redo Log (重做日志)</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>记录的数据状态</strong></td>
+					<td><strong>事务开始前</strong> (更新之前的值)</td>
+					<td><strong>事务完成后</strong> (更新之后的值)</td>
+			</tr>
+			<tr>
+					<td><strong>主要目的</strong></td>
+					<td>撤销操作 (回滚)</td>
+					<td>重做操作 (恢复)</td>
+			</tr>
+			<tr>
+					<td><strong>崩溃恢复</strong></td>
+					<td>提交<strong>前</strong>崩溃 -&gt; <strong>回滚</strong></td>
+					<td>提交<strong>后</strong>崩溃 -&gt; <strong>恢复</strong></td>
+			</tr>
+	</tbody>
 </table></div>
 <h3 id="32-redo-log-vs-binlog">3.2 Redo Log vs Binlog
 </h3><div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>维度</th>
-          <th>Redo Log</th>
-          <th>Binlog</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td><strong>核心能力</strong></td>
-          <td>Crash-safe (崩溃恢复)</td>
-          <td>归档、主从复制</td>
-      </tr>
-      <tr>
-          <td><strong>写入特征</strong></td>
-          <td><strong>循环写</strong> (空间固定)</td>
-          <td><strong>追加写</strong> (无限增长)</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>维度</th>
+					<th>Redo Log</th>
+					<th>Binlog</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>核心能力</strong></td>
+					<td>Crash-safe (崩溃恢复)</td>
+					<td>归档、主从复制</td>
+			</tr>
+			<tr>
+					<td><strong>写入特征</strong></td>
+					<td><strong>循环写</strong> (空间固定)</td>
+					<td><strong>追加写</strong> (无限增长)</td>
+			</tr>
+	</tbody>
 </table></div>
 <hr>
 <h2 id="3-事务执行与日志写入时序">3. 事务执行与日志写入时序
@@ -603,8 +603,9 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
         (d.head || d.body).appendChild(s);
     })();
 </script>
-<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
-<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+		<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+		<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+	
 </div>
 
 <style>
@@ -852,7 +853,7 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
       
       let img = document.createElement('img');
       img.classList.add('code-more-img');
-      img.src = 'https:\/\/skylm808.github.io\/icon\/codeMore.png';
+      img.src = 'https:\/\/skylm.top\/icon\/codeMore.png';
       
       codeMoreBtn.appendChild(img);
       codeMoreBox.appendChild(codeMoreBtn);

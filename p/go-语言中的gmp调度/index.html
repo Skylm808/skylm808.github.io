@@ -4,11 +4,11 @@
 <meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Go 语言中的GMP调度。">
 <title>Go 语言中的GMP调度</title>
 
-<link rel='canonical' href='https://skylm808.github.io/p/go-%E8%AF%AD%E8%A8%80%E4%B8%AD%E7%9A%84gmp%E8%B0%83%E5%BA%A6/'>
+<link rel='canonical' href='https://skylm.top/p/go-%E8%AF%AD%E8%A8%80%E4%B8%AD%E7%9A%84gmp%E8%B0%83%E5%BA%A6/'>
 
-<link rel="stylesheet" href="/scss/style.min.96ba1c3608acf4f319504831a9a06a60c4c0f47ce65605b5ca2dab1981e36064.css"><meta property='og:title' content="Go 语言中的GMP调度">
+<link rel="stylesheet" href="/scss/style.min.ccad64c94a1d91d5d20d1574a63d7fd934ce53614c43bd823707afe8230510bb.css"><meta property='og:title' content="Go 语言中的GMP调度">
 <meta property='og:description' content="Go 语言中的GMP调度。">
-<meta property='og:url' content='https://skylm808.github.io/p/go-%E8%AF%AD%E8%A8%80%E4%B8%AD%E7%9A%84gmp%E8%B0%83%E5%BA%A6/'>
+<meta property='og:url' content='https://skylm.top/p/go-%E8%AF%AD%E8%A8%80%E4%B8%AD%E7%9A%84gmp%E8%B0%83%E5%BA%A6/'>
 <meta property='og:site_name' content='Skylm'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Go' /><meta property='article:published_time' content='2026-03-10T19:12:01&#43;08:00'/><meta property='article:modified_time' content='2026-03-10T19:12:01&#43;08:00'/>
 <meta name="twitter:title" content="Go 语言中的GMP调度">
@@ -406,46 +406,46 @@
 </ul>
 <h3 id="对比总结">对比总结
 </h3><div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th>特性</th>
-          <th>进程</th>
-          <th>线程</th>
-          <th>协程</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>调度者</td>
-          <td>操作系统</td>
-          <td>操作系统</td>
-          <td>用户态调度器</td>
-      </tr>
-      <tr>
-          <td>切换开销</td>
-          <td>最大（ms级）</td>
-          <td>中等（μs级）</td>
-          <td>最小（ns级）</td>
-      </tr>
-      <tr>
-          <td>内存占用</td>
-          <td>最大（MB级）</td>
-          <td>中等（MB级）</td>
-          <td>最小（KB级）</td>
-      </tr>
-      <tr>
-          <td>通信方式</td>
-          <td>IPC</td>
-          <td>共享内存</td>
-          <td>共享内存</td>
-      </tr>
-      <tr>
-          <td>并发数量</td>
-          <td>数十个</td>
-          <td>数百个</td>
-          <td>数百万个</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th>特性</th>
+					<th>进程</th>
+					<th>线程</th>
+					<th>协程</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>调度者</td>
+					<td>操作系统</td>
+					<td>操作系统</td>
+					<td>用户态调度器</td>
+			</tr>
+			<tr>
+					<td>切换开销</td>
+					<td>最大（ms级）</td>
+					<td>中等（μs级）</td>
+					<td>最小（ns级）</td>
+			</tr>
+			<tr>
+					<td>内存占用</td>
+					<td>最大（MB级）</td>
+					<td>中等（MB级）</td>
+					<td>最小（KB级）</td>
+			</tr>
+			<tr>
+					<td>通信方式</td>
+					<td>IPC</td>
+					<td>共享内存</td>
+					<td>共享内存</td>
+			</tr>
+			<tr>
+					<td>并发数量</td>
+					<td>数十个</td>
+					<td>数百个</td>
+					<td>数百万个</td>
+			</tr>
+	</tbody>
 </table></div>
 <hr>
 <h2 id="二go-gmp-调度模型">二、Go GMP 调度模型
@@ -645,40 +645,40 @@
 <p><strong>解决了什么：</strong> 即使是没有函数调用的死循环，SIGURG 信号也能从 OS 层面强制打断，彻底解决了协作式抢占的缺陷。</p>
 <h5 id="两种抢占对比">两种抢占对比
 </h5><div class="table-wrapper"><table>
-  <thead>
-      <tr>
-          <th></th>
-          <th>协作式（1.2~1.13）</th>
-          <th>异步抢占（1.14+）</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td>触发者</td>
-          <td>sysmon（10ms 巡检）</td>
-          <td>sysmon（10ms 巡检）</td>
-      </tr>
-      <tr>
-          <td>通知方式</td>
-          <td>设置 G 的抢占标志</td>
-          <td>向 M 发送 SIGURG 信号</td>
-      </tr>
-      <tr>
-          <td>生效时机</td>
-          <td>G 的下一次<strong>函数调用</strong>入口</td>
-          <td><strong>立即</strong>，无论 G 在做什么</td>
-      </tr>
-      <tr>
-          <td>空循环能抢占吗</td>
-          <td>不能</td>
-          <td>能</td>
-      </tr>
-      <tr>
-          <td>本质</td>
-          <td>G 自己检查标志，主动让出</td>
-          <td>OS 强制中断，被动让出</td>
-      </tr>
-  </tbody>
+	<thead>
+			<tr>
+					<th></th>
+					<th>协作式（1.2~1.13）</th>
+					<th>异步抢占（1.14+）</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>触发者</td>
+					<td>sysmon（10ms 巡检）</td>
+					<td>sysmon（10ms 巡检）</td>
+			</tr>
+			<tr>
+					<td>通知方式</td>
+					<td>设置 G 的抢占标志</td>
+					<td>向 M 发送 SIGURG 信号</td>
+			</tr>
+			<tr>
+					<td>生效时机</td>
+					<td>G 的下一次<strong>函数调用</strong>入口</td>
+					<td><strong>立即</strong>，无论 G 在做什么</td>
+			</tr>
+			<tr>
+					<td>空循环能抢占吗</td>
+					<td>不能</td>
+					<td>能</td>
+			</tr>
+			<tr>
+					<td>本质</td>
+					<td>G 自己检查标志，主动让出</td>
+					<td>OS 强制中断，被动让出</td>
+			</tr>
+	</tbody>
 </table></div>
 <h3 id="优势">优势
 </h3><ol>
@@ -870,8 +870,9 @@
         (d.head || d.body).appendChild(s);
     })();
 </script>
-<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
-<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+		<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+		<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+	
 </div>
 
 <style>
@@ -1119,7 +1120,7 @@
       
       let img = document.createElement('img');
       img.classList.add('code-more-img');
-      img.src = 'https:\/\/skylm808.github.io\/icon\/codeMore.png';
+      img.src = 'https:\/\/skylm.top\/icon\/codeMore.png';
       
       codeMoreBtn.appendChild(img);
       codeMoreBox.appendChild(codeMoreBtn);

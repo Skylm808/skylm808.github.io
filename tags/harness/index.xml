@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>Harness on Skylm</title>
-        <link>https://skylm808.github.io/tags/harness/</link>
+        <link>https://skylm.top/tags/harness/</link>
         <description>Recent content in Harness on Skylm</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Mon, 06 Apr 2026 22:55:45 +0800</lastBuildDate><atom:link href="https://skylm808.github.io/tags/harness/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 06 Apr 2026 22:55:45 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/harness/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>Harness</title>
-        <link>https://skylm808.github.io/p/harness/</link>
+        <link>https://skylm.top/p/harness/</link>
         <pubDate>Mon, 06 Apr 2026 22:55:45 +0800</pubDate>
         
-        <guid>https://skylm808.github.io/p/harness/</guid>
+        <guid>https://skylm.top/p/harness/</guid>
         <description>&lt;p&gt;一、这篇文章到底在讲什么&lt;/p&gt;
 &lt;p&gt;OpenAI 在 2026 年 2 月 11 日发布了一篇文章：&lt;a class=&#34;link&#34; href=&#34;https://openai.com/zh-Hans-CN/index/harness-engineering/&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;《Harness engineering: leveraging Codex in an agent-first world》&lt;/a&gt;。&lt;/p&gt;
