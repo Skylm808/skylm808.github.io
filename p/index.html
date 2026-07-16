@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="en-us" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 1 date = &#39;2026-03-14T22:21:53+08:00&#39;title = &#39;dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码&#39;categories = [&#34;Go&#34;, &#34;开源&#34;]tags = [&#34;Go&#34;, &#34;开源&#34;, &#34;SAML&#34;, &#34;SSO&#34;, &#34;Pixiu&#34;] dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n">
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 1 2 3 4 date = &#39;2026-03-14T22:21:53+08:00&#39; title = &#39;dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码&#39; categories = [&#34;Go&#34;, &#34;开源&#34;] tags = [&#34;Go&#34;, &#34;开源&#34;, &#34;SAML&#34;, &#34;SSO&#34;, &#34;Pixiu&#34;] dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n">
 <title></title>
 
 <link rel='canonical' href='https://skylm.top/p/'>
 
 <link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="">
-<meta property='og:description' content=" 1 date = &#39;2026-03-14T22:21:53+08:00&#39;title = &#39;dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码&#39;categories = [&#34;Go&#34;, &#34;开源&#34;]tags = [&#34;Go&#34;, &#34;开源&#34;, &#34;SAML&#34;, &#34;SSO&#34;, &#34;Pixiu&#34;] dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n">
+<meta property='og:description' content=" 1 2 3 4 date = &#39;2026-03-14T22:21:53+08:00&#39; title = &#39;dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码&#39; categories = [&#34;Go&#34;, &#34;开源&#34;] tags = [&#34;Go&#34;, &#34;开源&#34;, &#34;SAML&#34;, &#34;SSO&#34;, &#34;Pixiu&#34;] dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n">
 <meta property='og:url' content='https://skylm.top/p/'>
 <meta property='og:site_name' content='Skylm'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' />
 <meta name="twitter:title" content="">
-<meta name="twitter:description" content=" 1 date = &#39;2026-03-14T22:21:53+08:00&#39;title = &#39;dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码&#39;categories = [&#34;Go&#34;, &#34;开源&#34;]tags = [&#34;Go&#34;, &#34;开源&#34;, &#34;SAML&#34;, &#34;SSO&#34;, &#34;Pixiu&#34;] dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n">
+<meta name="twitter:description" content=" 1 2 3 4 date = &#39;2026-03-14T22:21:53+08:00&#39; title = &#39;dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码&#39; categories = [&#34;Go&#34;, &#34;开源&#34;] tags = [&#34;Go&#34;, &#34;开源&#34;, &#34;SAML&#34;, &#34;SSO&#34;, &#34;Pixiu&#34;] dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n">
     <link rel="shortcut icon" href="/favicon.ico" />
 
     </head>
@@ -378,9 +378,15 @@
     <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
 </span></code></pre></td>
 <td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-toml" data-lang="toml"><span style="display:flex;"><span>date = <span style="color:#f1fa8c">&#39;2026-03-14T22:21:53+08:00&#39;</span>title = <span style="color:#f1fa8c">&#39;dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码&#39;</span>categories = [<span style="color:#f1fa8c">&#34;Go&#34;</span>, <span style="color:#f1fa8c">&#34;开源&#34;</span>]tags = [<span style="color:#f1fa8c">&#34;Go&#34;</span>, <span style="color:#f1fa8c">&#34;开源&#34;</span>, <span style="color:#f1fa8c">&#34;SAML&#34;</span>, <span style="color:#f1fa8c">&#34;SSO&#34;</span>, <span style="color:#f1fa8c">&#34;Pixiu&#34;</span>]
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-toml" data-lang="toml"><span style="display:flex;"><span>date = <span style="color:#f1fa8c">&#39;2026-03-14T22:21:53+08:00&#39;</span>
+</span></span><span style="display:flex;"><span>title = <span style="color:#f1fa8c">&#39;dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码&#39;</span>
+</span></span><span style="display:flex;"><span>categories = [<span style="color:#f1fa8c">&#34;Go&#34;</span>, <span style="color:#f1fa8c">&#34;开源&#34;</span>]
+</span></span><span style="display:flex;"><span>tags = [<span style="color:#f1fa8c">&#34;Go&#34;</span>, <span style="color:#f1fa8c">&#34;开源&#34;</span>, <span style="color:#f1fa8c">&#34;SAML&#34;</span>, <span style="color:#f1fa8c">&#34;SSO&#34;</span>, <span style="color:#f1fa8c">&#34;Pixiu&#34;</span>]
 </span></span></code></pre></td></tr></table>
 </div>
 </div><h1 id="dubbo-go-pixiu-添加-saml-功能详解">dubbo-go-pixiu 添加 SAML 功能详解
