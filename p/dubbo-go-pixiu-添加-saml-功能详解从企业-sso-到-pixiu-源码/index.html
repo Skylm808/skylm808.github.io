@@ -439,39 +439,20 @@
 <p>最短记忆法是：<strong>IdP 负责证明“用户是谁”，SP 负责提供服务并相信这个证明。Pixiu 在这里是 SP。</strong></p>
 <h3 id="01-不要把-saml-当作pixiu-自己登录">0.1 不要把 SAML 当作“Pixiu 自己登录”
 </h3><p>假设公司有一个统一登录页 <code>https://login.okta.com</code>，业务网关是 <code>https://gateway.company.com</code>。用户访问订单系统时，真实过程如下：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>sequenceDiagram
-</span></span><span style="display:flex;"><span>    participant B as 浏览器
-</span></span><span style="display:flex;"><span>    participant P as Pixiu（SP）
-</span></span><span style="display:flex;"><span>    participant I as IdP（统一登录）
-</span></span><span style="display:flex;"><span>    participant U as 订单后端
-</span></span><span style="display:flex;"><span>    B-&gt;&gt;P: GET /app/orders
-</span></span><span style="display:flex;"><span>    P--&gt;&gt;B: 302 跳转到 IdP
-</span></span><span style="display:flex;"><span>    B-&gt;&gt;I: 打开登录页，输入账号/MFA
-</span></span><span style="display:flex;"><span>    I--&gt;&gt;B: 包含 SAMLResponse 的表单
-</span></span><span style="display:flex;"><span>    B-&gt;&gt;P: POST /saml/acs
-</span></span><span style="display:flex;"><span>    P--&gt;&gt;B: Set-Cookie，302 回 /app/orders
-</span></span><span style="display:flex;"><span>    B-&gt;&gt;P: GET /app/orders + session Cookie
-</span></span><span style="display:flex;"><span>    P-&gt;&gt;U: 转发请求与可信用户 Header
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>Pixiu 不验证用户密码，也不展示登录页面；这些工作由 IdP 完成。Pixiu 的职责是发起认证、校验 IdP 返回的证明、建立自己的 session，并把认证结果安全地交给后端。</p>
+<pre class="mermaid">sequenceDiagram
+    participant B as 浏览器
+    participant P as Pixiu（SP）
+    participant I as IdP（统一登录）
+    participant U as 订单后端
+    B-&gt;&gt;P: GET /app/orders
+    P--&gt;&gt;B: 302 跳转到 IdP
+    B-&gt;&gt;I: 打开登录页，输入账号/MFA
+    I--&gt;&gt;B: 包含 SAMLResponse 的表单
+    B-&gt;&gt;P: POST /saml/acs
+    P--&gt;&gt;B: Set-Cookie，302 回 /app/orders
+    B-&gt;&gt;P: GET /app/orders &#43; session Cookie
+    P-&gt;&gt;U: 转发请求与可信用户 Header</pre>
+<p>Pixiu 不验证用户密码，也不展示登录页面；这些工作由 IdP 完成。Pixiu 的职责是发起认证、校验 IdP 返回的证明、建立自己的 session，并把认证结果安全地交给后端。</p>
 <h3 id="02-acs-url-和-metadata-url-分别是什么">0.2 ACS URL 和 Metadata URL 分别是什么
 </h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
@@ -580,33 +561,17 @@
 <h2 id="3-先从-pixiu-的插件接入流程看">3. 先从 Pixiu 的插件接入流程看
 </h2><p>SAML 功能虽然业务上看起来复杂，但接入 Pixiu 的方式其实很标准，和 JWT 过滤器是同一套框架。</p>
 <p>整体链路如下：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>flowchart TD
-</span></span><span style="display:flex;"><span>    A[&#34;YAML 里写 name: dgp.filter.http.auth.saml&#34;] --&gt; B[&#34;Pixiu 按 name 查找 Kind&#34;]
-</span></span><span style="display:flex;"><span>    B --&gt; C[&#34;pkg/pluginregistry/registry.go 匿名导入 saml 包&#34;]
-</span></span><span style="display:flex;"><span>    C --&gt; D[&#34;saml.init() 调用 RegisterHttpFilter(&amp;Plugin{})&#34;]
-</span></span><span style="display:flex;"><span>    D --&gt; E[&#34;框架根据 Plugin 创建 FilterFactory&#34;]
-</span></span><span style="display:flex;"><span>    E --&gt; F[&#34;框架把 YAML config 注入 Config() 返回的结构体&#34;]
-</span></span><span style="display:flex;"><span>    F --&gt; G[&#34;Apply() 做初始化：校验配置、加载证书、加载 IdP metadata、创建 middleware&#34;]
-</span></span><span style="display:flex;"><span>    G --&gt; H[&#34;每次请求进入时调用 PrepareFilterChain()&#34;]
-</span></span><span style="display:flex;"><span>    H --&gt; I[&#34;把 Filter 挂到当前请求的 decode filter chain&#34;]
-</span></span><span style="display:flex;"><span>    I --&gt; J[&#34;Decode() 按请求路径执行 metadata / acs / 鉴权逻辑&#34;]
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>这里最容易理解错的一点是：<code>Plugin</code>、<code>FilterFactory</code>、<code>Filter</code> 不是一回事。</p>
+<pre class="mermaid">flowchart TD
+    A[&#34;YAML 里写 name: dgp.filter.http.auth.saml&#34;] --&gt; B[&#34;Pixiu 按 name 查找 Kind&#34;]
+    B --&gt; C[&#34;pkg/pluginregistry/registry.go 匿名导入 saml 包&#34;]
+    C --&gt; D[&#34;saml.init() 调用 RegisterHttpFilter(&amp;Plugin{})&#34;]
+    D --&gt; E[&#34;框架根据 Plugin 创建 FilterFactory&#34;]
+    E --&gt; F[&#34;框架把 YAML config 注入 Config() 返回的结构体&#34;]
+    F --&gt; G[&#34;Apply() 做初始化：校验配置、加载证书、加载 IdP metadata、创建 middleware&#34;]
+    G --&gt; H[&#34;每次请求进入时调用 PrepareFilterChain()&#34;]
+    H --&gt; I[&#34;把 Filter 挂到当前请求的 decode filter chain&#34;]
+    I --&gt; J[&#34;Decode() 按请求路径执行 metadata / acs / 鉴权逻辑&#34;]</pre>
+<p>这里最容易理解错的一点是：<code>Plugin</code>、<code>FilterFactory</code>、<code>Filter</code> 不是一回事。</p>
 <h3 id="plugin插件的登记入口">Plugin：插件的“登记入口”
 </h3><p><code>pkg/filter/auth/saml/saml.go</code> 里有：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
@@ -1694,6 +1659,24 @@
   }
   
   initCodeMoreBox();
+</script>
+
+<style>
+    .article-content .mermaid {
+        display: block;
+        overflow-x: auto;
+        padding: 1rem;
+        text-align: center;
+    }
+</style>
+<script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+    });
+    mermaid.run({ nodes: document.querySelectorAll(".article-content .mermaid") });
 </script>
 
     </body>
