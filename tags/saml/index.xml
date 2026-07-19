@@ -13,7 +13,8 @@
         <pubDate>Sat, 14 Mar 2026 22:21:53 +0800</pubDate>
         
         <guid>https://skylm.top/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-saml-%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3%E4%BB%8E%E4%BC%81%E4%B8%9A-sso-%E5%88%B0-pixiu-%E6%BA%90%E7%A0%81/</guid>
-        <description>&lt;p&gt;这份文档把 &lt;code&gt;apache/dubbo-go-pixiu&lt;/code&gt; 的 &lt;a class=&#34;link&#34; href=&#34;https://github.com/apache/dubbo-go-pixiu/issues/888&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+        <description>&lt;h1 id=&#34;dubbo-go-pixiu-添加-saml-功能详解&#34;&gt;dubbo-go-pixiu 添加 SAML 功能详解
+&lt;/h1&gt;&lt;p&gt;这份文档把 &lt;code&gt;apache/dubbo-go-pixiu&lt;/code&gt; 的 &lt;a class=&#34;link&#34; href=&#34;https://github.com/apache/dubbo-go-pixiu/issues/888&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;issue #888&lt;/a&gt; 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。&lt;/p&gt;
 &lt;p&gt;如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。&lt;/p&gt;
 &lt;h2 id=&#34;0-先用一句人话理解-saml&#34;&gt;0. 先用一句人话理解 SAML
@@ -244,6 +245,41 @@
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;这样 Pixiu 启动时，SAML 插件就会自动注册到 HTTP filter registry 里。&lt;/p&gt;
+&lt;p&gt;把注册函数简化后，实际发生的是：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;var&lt;/span&gt; registry = &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;map&lt;/span&gt;[&lt;span style=&#34;color:#8be9fd&#34;&gt;string&lt;/span&gt;]HttpFilterPlugin{}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;func&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;RegisterHttpFilter&lt;/span&gt;(f HttpFilterPlugin) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    registry[f.&lt;span style=&#34;color:#50fa7b&#34;&gt;Kind&lt;/span&gt;()] = f
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;因此 &lt;code&gt;&amp;amp;Plugin{}&lt;/code&gt; 不是“返回一个 Kind 字符串”，而是开发者手动创建的 SAML 插件对象。注册函数调用该对象的 &lt;code&gt;Kind()&lt;/code&gt;，用返回值当 map key，同时保存整个对象：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&amp;amp;Plugin{}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; Kind() 返回 dgp.filter.http.auth.saml
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; registry[&amp;#34;dgp.filter.http.auth.saml&amp;#34;] = &amp;amp;Plugin{}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; YAML 的 name 查回这个 Plugin
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 调用 Plugin.CreateFilterFactory()
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;之所以写 &lt;code&gt;&amp;amp;Plugin{}&lt;/code&gt; 而非 &lt;code&gt;Plugin{}&lt;/code&gt;，是因为 &lt;code&gt;CreateFilterFactory&lt;/code&gt; 的接收者是 &lt;code&gt;*Plugin&lt;/code&gt;。指针类型才同时满足 &lt;code&gt;Kind&lt;/code&gt; 和 &lt;code&gt;CreateFilterFactory&lt;/code&gt;，也就满足 &lt;code&gt;HttpFilterPlugin&lt;/code&gt; 接口。&lt;/p&gt;
 &lt;h2 id=&#34;4-config-做了什么&#34;&gt;4. Config 做了什么
 &lt;/h2&gt;&lt;p&gt;&lt;code&gt;pkg/filter/auth/saml/config.go&lt;/code&gt; 主要做三件事。&lt;/p&gt;
 &lt;h3 id=&#34;41-定义配置项&#34;&gt;4.1 定义配置项
@@ -290,6 +326,47 @@
 &lt;li&gt;Pixiu 还要知道“对面的 IdP 是谁、它的登录入口和签名证书是什么”；&lt;/li&gt;
 &lt;li&gt;最后再决定“哪些 URL 需要登录、登录后把哪些身份属性带给后端”。&lt;/li&gt;
 &lt;/ul&gt;
+&lt;h3 id=&#34;41-本地-docker-keycloak-在这里扮演什么角色&#34;&gt;4.1 本地 Docker Keycloak 在这里扮演什么角色
+&lt;/h3&gt;&lt;p&gt;Keycloak、Okta、Microsoft Entra ID 都是 IdP（Identity Provider，身份提供方）。区别主要是部署方式：Keycloak 是常见的开源自建方案，适合 Docker 本地调试；Okta 与 Entra ID 多用于企业云身份管理。对 Pixiu 的 SAML 流程而言，它们做的事情相同：验证用户账号/MFA，并签发 SAMLResponse。&lt;/p&gt;
+&lt;p&gt;你本地 Docker 启动的 Keycloak 就是一个本地 IdP：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;Pixiu = SP，保护业务路径
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;Keycloak = IdP，展示登录页、验证用户、签发 Assertion
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;浏览器 = 在两者之间跳转并携带 Cookie 的用户代理
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;Keycloak 通常会配置 Realm、测试 User 与一个 SAML Client；该 Client 保存 Pixiu 的 &lt;code&gt;entity_id&lt;/code&gt;、ACS URL 和 SP metadata/证书。&lt;/p&gt;
+&lt;h3 id=&#34;42-两份-metadata-是双方交换的身份说明书&#34;&gt;4.2 两份 metadata 是双方交换的“身份说明书”
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;idp_metadata_url&lt;/code&gt; / &lt;code&gt;idp_metadata_file&lt;/code&gt; 让 Pixiu 获取 &lt;strong&gt;IdP metadata&lt;/strong&gt;。其中通常有：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;IdP &lt;code&gt;entityID&lt;/code&gt;：这个 IdP 在 SAML 世界里的唯一身份；Pixiu 据此知道信任谁。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;SingleSignOnService&lt;/code&gt;（SSO endpoint）：用户未登录时浏览器应跳转到的 IdP 登录入口。&lt;/li&gt;
+&lt;li&gt;IdP 公钥证书：Pixiu 用它验证 IdP 签发的 SAMLResponse/Assertion。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;反向地，&lt;code&gt;metadata_url&lt;/code&gt; 是 Pixiu 暴露的 &lt;strong&gt;SP metadata&lt;/strong&gt;。IdP 管理员在 Keycloak、Okta 或 Entra 中导入该 XML，从中得到：Pixiu 的 &lt;code&gt;entity_id&lt;/code&gt;、ACS URL、SP 公钥证书和支持的协议能力。通常是配置阶段导入一次，不是每个用户登录时 IdP 都来访问一次。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;Pixiu --读取 idp_metadata_url--&amp;gt; IdP 的身份、登录入口、公钥
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;IdP  --导入 metadata_url------&amp;gt; Pixiu 的身份、ACS、公钥
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;h3 id=&#34;43-sp-证书与私钥在哪里使用&#34;&gt;4.3 SP 证书与私钥在哪里使用
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;cert_file&lt;/code&gt; 是 SP 公钥证书，可放入 SP metadata；&lt;code&gt;key_file&lt;/code&gt; 是对应私钥，只能保留在 Pixiu。当前传入的 &lt;code&gt;samlsp.Middleware&lt;/code&gt; 默认会用该私钥签名两类 Cookie：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;请求跟踪 Cookie&lt;/strong&gt;：保存本次 AuthnRequest 的关联信息，ACS 回调时用来核对 &lt;code&gt;InResponseTo&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;登录 Session Cookie&lt;/strong&gt;：ACS 成功后保存已登录用户的 session，后续业务请求用它恢复登录状态。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;签名的意义是防篡改：浏览器即使把 Cookie 中的 &lt;code&gt;email&lt;/code&gt; 从 &lt;code&gt;alice@example.com&lt;/code&gt; 改成 &lt;code&gt;admin@example.com&lt;/code&gt;，也无法用 Pixiu 私钥重新生成合法签名。SAML 也可以让 SP 私钥签名 AuthnRequest，不过当前 Pixiu 没有显式打开库的 &lt;code&gt;SignRequest: true&lt;/code&gt;，不要把“签名 AuthnRequest”当成当前默认行为。&lt;/p&gt;
 &lt;h3 id=&#34;42-validate把参数校验单独抽出来&#34;&gt;4.2 Validate：把参数校验单独抽出来
 &lt;/h3&gt;&lt;p&gt;&lt;code&gt;Validate()&lt;/code&gt; 负责校验必填项，比如：&lt;/p&gt;
 &lt;ul&gt;
@@ -447,7 +524,7 @@
 &lt;li&gt;生产环境推荐：HTTPS + &lt;code&gt;allow_idp_initiated: false&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;本地开发调试：HTTP 时可能需要 &lt;code&gt;allow_idp_initiated: true&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;6-每个请求进入后decode-是怎么跑的&#34;&gt;6. 每个请求进入后，Decode 是怎么跑的
+&lt;h2 id=&#34;6-decode四岔路口决定一条请求的去向&#34;&gt;6. Decode：四岔路口决定一条请求的去向
 &lt;/h2&gt;&lt;p&gt;&lt;code&gt;Decode()&lt;/code&gt; 是请求期的主入口。它按顺序处理 4 类情况。&lt;/p&gt;
 &lt;h3 id=&#34;61-metadata-请求&#34;&gt;6.1 metadata 请求
 &lt;/h3&gt;&lt;p&gt;如果请求路径等于 &lt;code&gt;metadataPath&lt;/code&gt;，就走：&lt;/p&gt;
@@ -526,8 +603,45 @@
 &lt;li&gt;按配置映射到 HTTP header&lt;/li&gt;
 &lt;li&gt;让请求继续往后端走&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;7-forwardattributes-为什么要先删-header&#34;&gt;7. forwardAttributes 为什么要先删 header
-&lt;/h2&gt;&lt;p&gt;&lt;code&gt;forwardAttributes()&lt;/code&gt; 有一个非常重要的安全动作：&lt;/p&gt;
+&lt;h2 id=&#34;7-受保护路径session属性与-header-防伪造&#34;&gt;7. 受保护路径：session、属性与 Header 防伪造
+&lt;/h2&gt;&lt;p&gt;命中 &lt;code&gt;/app&lt;/code&gt; 等受保护路径后，SAML filter 首先调用：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;session, err &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; f.middleware.Session.&lt;span style=&#34;color:#50fa7b&#34;&gt;GetSession&lt;/span&gt;(ctx.Request)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这里的 &lt;code&gt;middleware&lt;/code&gt; 是第三方 &lt;code&gt;samlsp.Middleware&lt;/code&gt;，不是 Pixiu 的普通 filter。它从当前请求携带的 Cookie 恢复 session；session 代表用户是否已完成登录，必要时还保存已经验证的 Assertion 属性。&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;结果&lt;/th&gt;
+					&lt;th&gt;含义&lt;/th&gt;
+					&lt;th&gt;动作&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;ErrNoSession&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;未登录或没有 session Cookie&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;HandleStartAuthFlow&lt;/code&gt;，通常 302 到 IdP，随后 Stop&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;其他 error&lt;/td&gt;
+					&lt;td&gt;Cookie 损坏、无法解密等&lt;/td&gt;
+					&lt;td&gt;本地 500，Stop，避免无限登录重定向&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;有效 session&lt;/td&gt;
+					&lt;td&gt;用户已登录&lt;/td&gt;
+					&lt;td&gt;继续处理属性，然后 Continue&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;这一段的三种结果很重要：无 session 是正常业务状态；无法解密等异常不是“再登录一次”就能解决，若一律重定向会造成循环。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;forwardAttributes()&lt;/code&gt; 有一个非常重要的安全动作：&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
 &lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
@@ -551,228 +665,55 @@
 &lt;li&gt;把真实属性重新写回请求&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;这就是这次实现里“防 header spoofing”的核心。&lt;/p&gt;
-&lt;h2 id=&#34;8-把-decode-当成四岔路口来读源码&#34;&gt;8. 把 Decode 当成四岔路口来读源码
-&lt;/h2&gt;&lt;p&gt;如果前面的术语很多，可以先只看这段真实控制流。&lt;code&gt;Decode&lt;/code&gt; 的输入是当前请求 &lt;code&gt;ctx&lt;/code&gt;，输出只有两种：&lt;code&gt;Continue&lt;/code&gt; 表示交给后续 filter；&lt;code&gt;Stop&lt;/code&gt; 表示本 filter 已经处理完，后续 filter 不要再执行。&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
-&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 1
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 2
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 3
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 4
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 5
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 6
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 7
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 8
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 9
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;10
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;11
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;12
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;13
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;14
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;15
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;16
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;17
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;18
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;19
-&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
-&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;path &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; ctx.Request.URL.Path
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; path &lt;span style=&#34;color:#ff79c6&#34;&gt;==&lt;/span&gt; f.metadataPath {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; f.&lt;span style=&#34;color:#50fa7b&#34;&gt;handleMetadata&lt;/span&gt;(ctx)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; path &lt;span style=&#34;color:#ff79c6&#34;&gt;==&lt;/span&gt; f.acsPath {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; f.&lt;span style=&#34;color:#50fa7b&#34;&gt;handleACS&lt;/span&gt;(ctx)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;matched &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;false&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;for&lt;/span&gt; _, rule &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;range&lt;/span&gt; f.cfg.Rules {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; strings.&lt;span style=&#34;color:#50fa7b&#34;&gt;HasPrefix&lt;/span&gt;(path, rule.Match.Prefix) {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        matched = &lt;span style=&#34;color:#ff79c6&#34;&gt;true&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;break&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; !matched {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; filter.Continue
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;以配置 &lt;code&gt;prefix: /app&lt;/code&gt; 为例，下面四个 URL 的去向不同：&lt;/p&gt;
-&lt;table&gt;
-	&lt;thead&gt;
-			&lt;tr&gt;
-					&lt;th&gt;请求&lt;/th&gt;
-					&lt;th&gt;走哪个分支&lt;/th&gt;
-					&lt;th&gt;为什么&lt;/th&gt;
-			&lt;/tr&gt;
-	&lt;/thead&gt;
-	&lt;tbody&gt;
-			&lt;tr&gt;
-					&lt;td&gt;&lt;code&gt;GET /saml/metadata&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;&lt;code&gt;handleMetadata&lt;/code&gt;，然后 Stop&lt;/td&gt;
-					&lt;td&gt;返回给 IdP 管理员导入的 SP XML&lt;/td&gt;
-			&lt;/tr&gt;
-			&lt;tr&gt;
-					&lt;td&gt;&lt;code&gt;POST /saml/acs&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;&lt;code&gt;handleACS&lt;/code&gt;，然后 Stop&lt;/td&gt;
-					&lt;td&gt;接收 IdP 返回的 SAMLResponse&lt;/td&gt;
-			&lt;/tr&gt;
-			&lt;tr&gt;
-					&lt;td&gt;&lt;code&gt;GET /health&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;Continue&lt;/td&gt;
-					&lt;td&gt;不以 &lt;code&gt;/app&lt;/code&gt; 开头，SAML 不介入&lt;/td&gt;
-			&lt;/tr&gt;
-			&lt;tr&gt;
-					&lt;td&gt;&lt;code&gt;GET /app/orders&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;读取 session&lt;/td&gt;
-					&lt;td&gt;这是受保护资源&lt;/td&gt;
-			&lt;/tr&gt;
-	&lt;/tbody&gt;
-&lt;/table&gt;
-&lt;p&gt;&lt;code&gt;handleMetadata&lt;/code&gt; 将 &lt;code&gt;f.serviceProvider.Metadata()&lt;/code&gt; 序列化成 XML 并返回。&lt;code&gt;handleACS&lt;/code&gt; 则只有一行核心调用：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
-&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
-&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
-&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;f.middleware.&lt;span style=&#34;color:#50fa7b&#34;&gt;ServeHTTP&lt;/span&gt;(ctx.Writer, ctx.Request)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; filter.Stop
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;这里的 &lt;code&gt;middleware&lt;/code&gt; 是第三方库 &lt;code&gt;github.com/crewjam/saml/samlsp&lt;/code&gt; 创建的 &lt;code&gt;*samlsp.Middleware&lt;/code&gt;，不是 Pixiu 的普通 filter。Pixiu 把 SAML 协议细节交给它：解析 XML、校验 IdP 签名、检查 assertion、创建 session Cookie、根据 RelayState 跳回原始业务页面。Pixiu 自己只负责判断“何时进入这条 SAML 流程”和“何时停止 Pixiu filter chain”。&lt;/p&gt;
-&lt;h2 id=&#34;9-受保护路径三种-session-结果&#34;&gt;9. 受保护路径：三种 session 结果
-&lt;/h2&gt;&lt;p&gt;只有 &lt;code&gt;/app/orders&lt;/code&gt; 这类受保护请求才会走到下面代码：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
-&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 1
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 2
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 3
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 4
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 5
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 6
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 7
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 8
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 9
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;10
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;11
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;12
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;13
-&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
-&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;session, err &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; f.middleware.Session.&lt;span style=&#34;color:#50fa7b&#34;&gt;GetSession&lt;/span&gt;(ctx.Request)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; err &lt;span style=&#34;color:#ff79c6&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;nil&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; errors.&lt;span style=&#34;color:#50fa7b&#34;&gt;Is&lt;/span&gt;(err, samlsp.ErrNoSession) {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        f.middleware.&lt;span style=&#34;color:#50fa7b&#34;&gt;HandleStartAuthFlow&lt;/span&gt;(ctx.Writer, ctx.Request)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; filter.Stop
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    ctx.&lt;span style=&#34;color:#50fa7b&#34;&gt;SendLocalReply&lt;/span&gt;(http.StatusInternalServerError,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        []&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;byte&lt;/span&gt;(&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;internal authentication error&amp;#34;&lt;/span&gt;))
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; filter.Stop
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;f.&lt;span style=&#34;color:#50fa7b&#34;&gt;forwardAttributes&lt;/span&gt;(ctx, session)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; filter.Continue
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;code&gt;f.middleware.Session.GetSession(ctx.Request)&lt;/code&gt; 的意思是：让 SAML 库从当前浏览器请求的 Cookie 恢复“这个用户是否已完成登录，以及登录后保存的属性”。它不是去数据库查用户，也不是 Pixiu 自己解析 SAML XML。&lt;/p&gt;
-&lt;table&gt;
-	&lt;thead&gt;
-			&lt;tr&gt;
-					&lt;th&gt;&lt;code&gt;GetSession&lt;/code&gt; 结果&lt;/th&gt;
-					&lt;th&gt;表示什么&lt;/th&gt;
-					&lt;th&gt;Pixiu 的动作&lt;/th&gt;
-			&lt;/tr&gt;
-	&lt;/thead&gt;
-	&lt;tbody&gt;
-			&lt;tr&gt;
-					&lt;td&gt;&lt;code&gt;ErrNoSession&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;用户尚未登录，或浏览器没有 session Cookie&lt;/td&gt;
-					&lt;td&gt;&lt;code&gt;HandleStartAuthFlow&lt;/code&gt;，通常返回 302 到 IdP&lt;/td&gt;
-			&lt;/tr&gt;
-			&lt;tr&gt;
-					&lt;td&gt;其他 error&lt;/td&gt;
-					&lt;td&gt;Cookie 损坏、无法解密等异常&lt;/td&gt;
-					&lt;td&gt;本地 500，不重定向&lt;/td&gt;
-			&lt;/tr&gt;
-			&lt;tr&gt;
-					&lt;td&gt;有效 session&lt;/td&gt;
-					&lt;td&gt;用户已登录&lt;/td&gt;
-					&lt;td&gt;注入属性，Continue&lt;/td&gt;
-			&lt;/tr&gt;
-	&lt;/tbody&gt;
-&lt;/table&gt;
-&lt;p&gt;第二行和第三行的区别很重要。若 Cookie 已损坏还一律跳 IdP，用户可能经历“登录成功 -&amp;gt; 回到 Pixiu -&amp;gt; Cookie 仍读失败 -&amp;gt; 再跳登录”的无限循环。返回 500 和记录日志，会让真实配置或 Cookie 问题可见。&lt;/p&gt;
-&lt;h2 id=&#34;10-forwardattributes-是如何建立可信边界的&#34;&gt;10. &lt;code&gt;forwardAttributes&lt;/code&gt; 是如何建立可信边界的
-&lt;/h2&gt;&lt;p&gt;配置：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
-&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
-&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
-&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;forward_attributes&lt;/span&gt;:
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  - &lt;span style=&#34;color:#ff79c6&#34;&gt;saml_attribute&lt;/span&gt;: email
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;header&lt;/span&gt;: X-User-Email
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;想表达的是：“IdP 已认证 assertion 中的 &lt;code&gt;email&lt;/code&gt;，转成发往后端的 &lt;code&gt;X-User-Email&lt;/code&gt;。”但 HTTP header 本身完全可以由客户端伪造：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
-&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
-&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
-&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-http&#34; data-lang=&#34;http&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;GET /app/orders
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;X-User-Email: admin@example.com
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;因此实现绝不能简单地“有值就覆盖”。它先清除所有由 SAML 控制的 header：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
-&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
-&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
-&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;for&lt;/span&gt; _, fa &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;range&lt;/span&gt; f.cfg.ForwardAttributes {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    ctx.Request.Header.&lt;span style=&#34;color:#50fa7b&#34;&gt;Del&lt;/span&gt;(fa.Header)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;即使 session 不带 &lt;code&gt;email&lt;/code&gt; 属性，攻击者提供的 &lt;code&gt;X-User-Email&lt;/code&gt; 也已经被删除。之后只有 session 实现了 &lt;code&gt;SessionWithAttributes&lt;/code&gt;，并且 assertion 中真的存在该属性时，才写回：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
-&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
-&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
-&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; val &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; attrs.&lt;span style=&#34;color:#50fa7b&#34;&gt;Get&lt;/span&gt;(fa.SAMLAttribute); val &lt;span style=&#34;color:#ff79c6&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;&amp;#34;&lt;/span&gt; {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    ctx.Request.Header.&lt;span style=&#34;color:#50fa7b&#34;&gt;Set&lt;/span&gt;(fa.Header, val)
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;整个信任转换过程是：&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;session&lt;/code&gt; 不一定都带可读取的用户属性。代码中的类型断言：&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
 &lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
 &lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
 &lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
 &lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
 &lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
 &lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;客户端任意 Header（不可信）
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 删除 X-User-Email
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 从已验证 SAML session 读取 email（可信）
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 写入新的 X-User-Email
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 后端只信任 Pixiu 注入后的值
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;sa, ok &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; session.(samlsp.SessionWithAttributes)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; !ok {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;后端必须部署在 Pixiu 信任边界之后，或者网络层禁止外部客户端绕过 Pixiu 直连后端。否则攻击者绕过网关直接请求后端，仍可以自行伪造这个 header。&lt;/p&gt;
-&lt;h2 id=&#34;11-从配置到后端的一次完整复盘&#34;&gt;11. 从配置到后端的一次完整复盘
+&lt;/div&gt;&lt;p&gt;是在问：“当前这个已登录 session 是否支持读取 Assertion 属性？”&lt;code&gt;SessionWithAttributes&lt;/code&gt; 不是验证客户端 HTTP header 的组件，也不是 IdP 返回的 header；IdP 返回的是已签名的 SAMLResponse/Assertion，库验证后才把 &lt;code&gt;email&lt;/code&gt;、&lt;code&gt;department&lt;/code&gt; 等属性保存进 session。&lt;/p&gt;
+&lt;p&gt;删除动作与 IdP 是否提供属性无关。只要进入 &lt;code&gt;forwardAttributes&lt;/code&gt;，每个受控 header 都会先被删除；之后仅当 session 带属性、且 Assertion 中确实存在对应值时，才 &lt;code&gt;Set&lt;/code&gt; 回去。&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;已登录 session 的情况&lt;/th&gt;
+					&lt;th&gt;客户端传入 &lt;code&gt;X-User-Email&lt;/code&gt;&lt;/th&gt;
+					&lt;th&gt;Assertion 的 &lt;code&gt;email&lt;/code&gt;&lt;/th&gt;
+					&lt;th&gt;后端最终收到&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;session 无属性能力&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;admin@example.com&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;无法读取&lt;/td&gt;
+					&lt;td&gt;没有此 header&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;有属性能力，但没有 email&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;admin@example.com&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;空&lt;/td&gt;
+					&lt;td&gt;没有此 header&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;有属性且 email 合法&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;admin@example.com&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;alice@example.com&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;X-User-Email: alice@example.com&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;因此删除 header 不是为了让 SP 验证 Assertion 属性，SP 已经用 IdP 证书验证过 Assertion。删除是为了让后端看到的身份 header &lt;strong&gt;只可能由 Pixiu 根据已验证 Assertion 注入&lt;/strong&gt;，而不能残留客户端伪造值。&lt;/p&gt;
+&lt;h2 id=&#34;8-从配置到后端的一次完整复盘&#34;&gt;8. 从配置到后端的一次完整复盘
 &lt;/h2&gt;&lt;p&gt;最后把文章压缩成一条你可以在面试中复述的链路：&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
@@ -801,7 +742,7 @@
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;一句话总结：&lt;strong&gt;SAML filter 让 Pixiu 成为企业 SSO 的 SP；成熟库负责协议与 session，Pixiu 负责把认证结果安全地放入网关请求链。&lt;/strong&gt;&lt;/p&gt;
-&lt;h2 id=&#34;12-这一版实现解决了哪些实际问题&#34;&gt;12. 这一版实现解决了哪些实际问题
+&lt;h2 id=&#34;9-这一版实现解决了哪些实际问题&#34;&gt;9. 这一版实现解决了哪些实际问题
 &lt;/h2&gt;&lt;p&gt;结合当前代码，可以把这次 SAML 功能的价值总结成 5 点：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;Pixiu 可以作为 SAML SP 暴露 metadata，方便 IdP 对接。&lt;/li&gt;
@@ -810,7 +751,7 @@
 &lt;li&gt;Pixiu 可以把登录后的用户属性转成后端更容易消费的 HTTP header。&lt;/li&gt;
 &lt;li&gt;Pixiu 可以在安全细节上避免明显坑点，比如 header 伪造、错误 session 无限重定向、HTTP/HTTPS cookie 差异。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;h2 id=&#34;13-和项目里已有-jwt--mcp-能力的关系&#34;&gt;13. 和项目里已有 JWT / MCP 能力的关系
+&lt;h2 id=&#34;10-和项目里已有-jwt--mcp-能力的关系&#34;&gt;10. 和项目里已有 JWT / MCP 能力的关系
 &lt;/h2&gt;&lt;p&gt;如果你已经看过 &lt;code&gt;pkg/filter/auth/jwt/jwt.go&lt;/code&gt; 或 &lt;code&gt;pkg/filter/auth/mcp/filter.go&lt;/code&gt;，会发现三者在“插件接入方式”上很像：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;都有 &lt;code&gt;Kind&lt;/code&gt;&lt;/li&gt;
@@ -844,7 +785,7 @@
 &lt;li&gt;MCP Auth：更偏 MCP/OAuth 资源保护&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;这三者是互补关系，不是简单重复。&lt;/p&gt;
-&lt;h2 id=&#34;14-测试覆盖了哪些点&#34;&gt;14. 测试覆盖了哪些点
+&lt;h2 id=&#34;11-测试覆盖了哪些点&#34;&gt;11. 测试覆盖了哪些点
 &lt;/h2&gt;&lt;p&gt;当前 SAML 测试主要在：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;pkg/filter/auth/saml/config_test.go&lt;/code&gt;&lt;/li&gt;
@@ -863,7 +804,7 @@
 &lt;li&gt;HTTP / HTTPS 场景下 &lt;code&gt;CookieSameSite&lt;/code&gt; 的不同分支&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;这说明当前实现不只是“主流程能跑”，而是已经把一些容易出问题的边界也考虑进去了。&lt;/p&gt;
-&lt;h2 id=&#34;15-如果你接下来要继续维护这块代码建议怎么读&#34;&gt;15. 如果你接下来要继续维护这块代码，建议怎么读
+&lt;h2 id=&#34;12-如果你接下来要继续维护这块代码建议怎么读&#34;&gt;12. 如果你接下来要继续维护这块代码，建议怎么读
 &lt;/h2&gt;&lt;p&gt;推荐阅读顺序：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;先读 &lt;code&gt;docs/user/filter/saml.md&lt;/code&gt;，知道使用者怎么配置&lt;/li&gt;
@@ -880,7 +821,7 @@
 &lt;li&gt;单元测试编写&lt;/li&gt;
 &lt;li&gt;文档补充&lt;/li&gt;
 &lt;/ul&gt;
-&lt;h2 id=&#34;16-一句话总结&#34;&gt;16. 一句话总结
+&lt;h2 id=&#34;13-一句话总结&#34;&gt;13. 一句话总结
 &lt;/h2&gt;&lt;p&gt;这次 issue #888 的本质，不是“往 Pixiu 里塞一个新协议名词”，而是：&lt;/p&gt;
 &lt;blockquote&gt;
 &lt;p&gt;让 Pixiu 从“会校验 token 的网关”，进一步变成“能接企业统一登录系统的网关”。&lt;/p&gt;

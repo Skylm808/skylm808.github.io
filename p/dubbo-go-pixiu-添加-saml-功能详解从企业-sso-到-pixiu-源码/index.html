@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="en-us" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。\n">
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。\n">
 <title>dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码</title>
 
 <link rel='canonical' href='https://skylm.top/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-saml-%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3%E4%BB%8E%E4%BC%81%E4%B8%9A-sso-%E5%88%B0-pixiu-%E6%BA%90%E7%A0%81/'>
 
 <link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码">
-<meta property='og:description' content="这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。\n">
+<meta property='og:description' content="dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。\n">
 <meta property='og:url' content='https://skylm.top/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-saml-%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3%E4%BB%8E%E4%BC%81%E4%B8%9A-sso-%E5%88%B0-pixiu-%E6%BA%90%E7%A0%81/'>
 <meta property='og:site_name' content='Skylm'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Go' /><meta property='article:tag' content='开源' /><meta property='article:tag' content='SAML' /><meta property='article:tag' content='SSO' /><meta property='article:tag' content='Pixiu' /><meta property='article:published_time' content='2026-03-14T22:21:53&#43;08:00'/><meta property='article:modified_time' content='2026-03-14T22:21:53&#43;08:00'/>
 <meta name="twitter:title" content="dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码">
-<meta name="twitter:description" content="这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。\n">
+<meta name="twitter:description" content="dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。\n">
     <link rel="shortcut icon" href="/favicon.ico" />
 
     </head>
@@ -268,6 +268,9 @@
     <li><a href="#4-config-做了什么">4. Config 做了什么</a>
       <ol>
         <li><a href="#41-定义配置项">4.1 定义配置项</a></li>
+        <li><a href="#41-本地-docker-keycloak-在这里扮演什么角色">4.1 本地 Docker Keycloak 在这里扮演什么角色</a></li>
+        <li><a href="#42-两份-metadata-是双方交换的身份说明书">4.2 两份 metadata 是双方交换的“身份说明书”</a></li>
+        <li><a href="#43-sp-证书与私钥在哪里使用">4.3 SP 证书与私钥在哪里使用</a></li>
         <li><a href="#42-validate把参数校验单独抽出来">4.2 Validate：把参数校验单独抽出来</a></li>
         <li><a href="#43-deepcopy避免工厂配置和请求配置共用指针">4.3 DeepCopy：避免工厂配置和请求配置共用指针</a></li>
       </ol>
@@ -287,7 +290,7 @@
         <li><a href="#53-cookiesamesite为什么这里专门区分-http-和-https">5.3 CookieSameSite：为什么这里专门区分 HTTP 和 HTTPS</a></li>
       </ol>
     </li>
-    <li><a href="#6-每个请求进入后decode-是怎么跑的">6. 每个请求进入后，Decode 是怎么跑的</a>
+    <li><a href="#6-decode四岔路口决定一条请求的去向">6. Decode：四岔路口决定一条请求的去向</a>
       <ol>
         <li><a href="#61-metadata-请求">6.1 metadata 请求</a></li>
         <li><a href="#62-acs-请求">6.2 ACS 请求</a></li>
@@ -301,22 +304,19 @@
         </li>
       </ol>
     </li>
-    <li><a href="#7-forwardattributes-为什么要先删-header">7. forwardAttributes 为什么要先删 header</a></li>
-    <li><a href="#8-把-decode-当成四岔路口来读源码">8. 把 Decode 当成四岔路口来读源码</a></li>
-    <li><a href="#9-受保护路径三种-session-结果">9. 受保护路径：三种 session 结果</a></li>
-    <li><a href="#10-forwardattributes-是如何建立可信边界的">10. <code>forwardAttributes</code> 是如何建立可信边界的</a></li>
-    <li><a href="#11-从配置到后端的一次完整复盘">11. 从配置到后端的一次完整复盘</a></li>
-    <li><a href="#12-这一版实现解决了哪些实际问题">12. 这一版实现解决了哪些实际问题</a></li>
-    <li><a href="#13-和项目里已有-jwt--mcp-能力的关系">13. 和项目里已有 JWT / MCP 能力的关系</a>
+    <li><a href="#7-受保护路径session属性与-header-防伪造">7. 受保护路径：session、属性与 Header 防伪造</a></li>
+    <li><a href="#8-从配置到后端的一次完整复盘">8. 从配置到后端的一次完整复盘</a></li>
+    <li><a href="#9-这一版实现解决了哪些实际问题">9. 这一版实现解决了哪些实际问题</a></li>
+    <li><a href="#10-和项目里已有-jwt--mcp-能力的关系">10. 和项目里已有 JWT / MCP 能力的关系</a>
       <ol>
         <li><a href="#jwt">JWT</a></li>
         <li><a href="#mcp-auth">MCP Auth</a></li>
         <li><a href="#saml">SAML</a></li>
       </ol>
     </li>
-    <li><a href="#14-测试覆盖了哪些点">14. 测试覆盖了哪些点</a></li>
-    <li><a href="#15-如果你接下来要继续维护这块代码建议怎么读">15. 如果你接下来要继续维护这块代码，建议怎么读</a></li>
-    <li><a href="#16-一句话总结">16. 一句话总结</a></li>
+    <li><a href="#11-测试覆盖了哪些点">11. 测试覆盖了哪些点</a></li>
+    <li><a href="#12-如果你接下来要继续维护这块代码建议怎么读">12. 如果你接下来要继续维护这块代码，建议怎么读</a></li>
+    <li><a href="#13-一句话总结">13. 一句话总结</a></li>
   </ol>
 </nav>
         </div>
@@ -385,7 +385,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 15 分钟
+                    阅读时长: 17 分钟
                 </time>
             </div>
         
@@ -400,7 +400,8 @@
     <section class="article-content">
     
     
-    <p>这份文档把 <code>apache/dubbo-go-pixiu</code> 的 <a class="link" href="https://github.com/apache/dubbo-go-pixiu/issues/888"  target="_blank" rel="noopener"
+    <h1 id="dubbo-go-pixiu-添加-saml-功能详解">dubbo-go-pixiu 添加 SAML 功能详解
+</h1><p>这份文档把 <code>apache/dubbo-go-pixiu</code> 的 <a class="link" href="https://github.com/apache/dubbo-go-pixiu/issues/888"  target="_blank" rel="noopener"
     >issue #888</a> 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。</p>
 <p>如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。</p>
 <h2 id="0-先用一句人话理解-saml">0. 先用一句人话理解 SAML
@@ -631,6 +632,41 @@
 </span></span></code></pre></td></tr></table>
 </div>
 </div><p>这样 Pixiu 启动时，SAML 插件就会自动注册到 HTTP filter registry 里。</p>
+<p>把注册函数简化后，实际发生的是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">var</span> registry = <span style="color:#8be9fd;font-style:italic">map</span>[<span style="color:#8be9fd">string</span>]HttpFilterPlugin{}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">RegisterHttpFilter</span>(f HttpFilterPlugin) {
+</span></span><span style="display:flex;"><span>    registry[f.<span style="color:#50fa7b">Kind</span>()] = f
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>因此 <code>&amp;Plugin{}</code> 不是“返回一个 Kind 字符串”，而是开发者手动创建的 SAML 插件对象。注册函数调用该对象的 <code>Kind()</code>，用返回值当 map key，同时保存整个对象：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>&amp;Plugin{}
+</span></span><span style="display:flex;"><span>  -&gt; Kind() 返回 dgp.filter.http.auth.saml
+</span></span><span style="display:flex;"><span>  -&gt; registry[&#34;dgp.filter.http.auth.saml&#34;] = &amp;Plugin{}
+</span></span><span style="display:flex;"><span>  -&gt; YAML 的 name 查回这个 Plugin
+</span></span><span style="display:flex;"><span>  -&gt; 调用 Plugin.CreateFilterFactory()
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>之所以写 <code>&amp;Plugin{}</code> 而非 <code>Plugin{}</code>，是因为 <code>CreateFilterFactory</code> 的接收者是 <code>*Plugin</code>。指针类型才同时满足 <code>Kind</code> 和 <code>CreateFilterFactory</code>，也就满足 <code>HttpFilterPlugin</code> 接口。</p>
 <h2 id="4-config-做了什么">4. Config 做了什么
 </h2><p><code>pkg/filter/auth/saml/config.go</code> 主要做三件事。</p>
 <h3 id="41-定义配置项">4.1 定义配置项
@@ -677,6 +713,47 @@
 <li>Pixiu 还要知道“对面的 IdP 是谁、它的登录入口和签名证书是什么”；</li>
 <li>最后再决定“哪些 URL 需要登录、登录后把哪些身份属性带给后端”。</li>
 </ul>
+<h3 id="41-本地-docker-keycloak-在这里扮演什么角色">4.1 本地 Docker Keycloak 在这里扮演什么角色
+</h3><p>Keycloak、Okta、Microsoft Entra ID 都是 IdP（Identity Provider，身份提供方）。区别主要是部署方式：Keycloak 是常见的开源自建方案，适合 Docker 本地调试；Okta 与 Entra ID 多用于企业云身份管理。对 Pixiu 的 SAML 流程而言，它们做的事情相同：验证用户账号/MFA，并签发 SAMLResponse。</p>
+<p>你本地 Docker 启动的 Keycloak 就是一个本地 IdP：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Pixiu = SP，保护业务路径
+</span></span><span style="display:flex;"><span>Keycloak = IdP，展示登录页、验证用户、签发 Assertion
+</span></span><span style="display:flex;"><span>浏览器 = 在两者之间跳转并携带 Cookie 的用户代理
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Keycloak 通常会配置 Realm、测试 User 与一个 SAML Client；该 Client 保存 Pixiu 的 <code>entity_id</code>、ACS URL 和 SP metadata/证书。</p>
+<h3 id="42-两份-metadata-是双方交换的身份说明书">4.2 两份 metadata 是双方交换的“身份说明书”
+</h3><p><code>idp_metadata_url</code> / <code>idp_metadata_file</code> 让 Pixiu 获取 <strong>IdP metadata</strong>。其中通常有：</p>
+<ul>
+<li>IdP <code>entityID</code>：这个 IdP 在 SAML 世界里的唯一身份；Pixiu 据此知道信任谁。</li>
+<li><code>SingleSignOnService</code>（SSO endpoint）：用户未登录时浏览器应跳转到的 IdP 登录入口。</li>
+<li>IdP 公钥证书：Pixiu 用它验证 IdP 签发的 SAMLResponse/Assertion。</li>
+</ul>
+<p>反向地，<code>metadata_url</code> 是 Pixiu 暴露的 <strong>SP metadata</strong>。IdP 管理员在 Keycloak、Okta 或 Entra 中导入该 XML，从中得到：Pixiu 的 <code>entity_id</code>、ACS URL、SP 公钥证书和支持的协议能力。通常是配置阶段导入一次，不是每个用户登录时 IdP 都来访问一次。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Pixiu --读取 idp_metadata_url--&gt; IdP 的身份、登录入口、公钥
+</span></span><span style="display:flex;"><span>IdP  --导入 metadata_url------&gt; Pixiu 的身份、ACS、公钥
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="43-sp-证书与私钥在哪里使用">4.3 SP 证书与私钥在哪里使用
+</h3><p><code>cert_file</code> 是 SP 公钥证书，可放入 SP metadata；<code>key_file</code> 是对应私钥，只能保留在 Pixiu。当前传入的 <code>samlsp.Middleware</code> 默认会用该私钥签名两类 Cookie：</p>
+<ol>
+<li><strong>请求跟踪 Cookie</strong>：保存本次 AuthnRequest 的关联信息，ACS 回调时用来核对 <code>InResponseTo</code>。</li>
+<li><strong>登录 Session Cookie</strong>：ACS 成功后保存已登录用户的 session，后续业务请求用它恢复登录状态。</li>
+</ol>
+<p>签名的意义是防篡改：浏览器即使把 Cookie 中的 <code>email</code> 从 <code>alice@example.com</code> 改成 <code>admin@example.com</code>，也无法用 Pixiu 私钥重新生成合法签名。SAML 也可以让 SP 私钥签名 AuthnRequest，不过当前 Pixiu 没有显式打开库的 <code>SignRequest: true</code>，不要把“签名 AuthnRequest”当成当前默认行为。</p>
 <h3 id="42-validate把参数校验单独抽出来">4.2 Validate：把参数校验单独抽出来
 </h3><p><code>Validate()</code> 负责校验必填项，比如：</p>
 <ul>
@@ -834,7 +911,7 @@
 <li>生产环境推荐：HTTPS + <code>allow_idp_initiated: false</code></li>
 <li>本地开发调试：HTTP 时可能需要 <code>allow_idp_initiated: true</code></li>
 </ul>
-<h2 id="6-每个请求进入后decode-是怎么跑的">6. 每个请求进入后，Decode 是怎么跑的
+<h2 id="6-decode四岔路口决定一条请求的去向">6. Decode：四岔路口决定一条请求的去向
 </h2><p><code>Decode()</code> 是请求期的主入口。它按顺序处理 4 类情况。</p>
 <h3 id="61-metadata-请求">6.1 metadata 请求
 </h3><p>如果请求路径等于 <code>metadataPath</code>，就走：</p>
@@ -913,8 +990,45 @@
 <li>按配置映射到 HTTP header</li>
 <li>让请求继续往后端走</li>
 </ul>
-<h2 id="7-forwardattributes-为什么要先删-header">7. forwardAttributes 为什么要先删 header
-</h2><p><code>forwardAttributes()</code> 有一个非常重要的安全动作：</p>
+<h2 id="7-受保护路径session属性与-header-防伪造">7. 受保护路径：session、属性与 Header 防伪造
+</h2><p>命中 <code>/app</code> 等受保护路径后，SAML filter 首先调用：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>session, err <span style="color:#ff79c6">:=</span> f.middleware.Session.<span style="color:#50fa7b">GetSession</span>(ctx.Request)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这里的 <code>middleware</code> 是第三方 <code>samlsp.Middleware</code>，不是 Pixiu 的普通 filter。它从当前请求携带的 Cookie 恢复 session；session 代表用户是否已完成登录，必要时还保存已经验证的 Assertion 属性。</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>结果</th>
+					<th>含义</th>
+					<th>动作</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>ErrNoSession</code></td>
+					<td>未登录或没有 session Cookie</td>
+					<td><code>HandleStartAuthFlow</code>，通常 302 到 IdP，随后 Stop</td>
+			</tr>
+			<tr>
+					<td>其他 error</td>
+					<td>Cookie 损坏、无法解密等</td>
+					<td>本地 500，Stop，避免无限登录重定向</td>
+			</tr>
+			<tr>
+					<td>有效 session</td>
+					<td>用户已登录</td>
+					<td>继续处理属性，然后 Continue</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>这一段的三种结果很重要：无 session 是正常业务状态；无法解密等异常不是“再登录一次”就能解决，若一律重定向会造成循环。</p>
+<p><code>forwardAttributes()</code> 有一个非常重要的安全动作：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
@@ -938,228 +1052,55 @@
 <li>把真实属性重新写回请求</li>
 </ol>
 <p>这就是这次实现里“防 header spoofing”的核心。</p>
-<h2 id="8-把-decode-当成四岔路口来读源码">8. 把 Decode 当成四岔路口来读源码
-</h2><p>如果前面的术语很多，可以先只看这段真实控制流。<code>Decode</code> 的输入是当前请求 <code>ctx</code>，输出只有两种：<code>Continue</code> 表示交给后续 filter；<code>Stop</code> 表示本 filter 已经处理完，后续 filter 不要再执行。</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>path <span style="color:#ff79c6">:=</span> ctx.Request.URL.Path
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> path <span style="color:#ff79c6">==</span> f.metadataPath {
-</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> f.<span style="color:#50fa7b">handleMetadata</span>(ctx)
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> path <span style="color:#ff79c6">==</span> f.acsPath {
-</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> f.<span style="color:#50fa7b">handleACS</span>(ctx)
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>matched <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">false</span>
-</span></span><span style="display:flex;"><span><span style="color:#ff79c6">for</span> _, rule <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> f.cfg.Rules {
-</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> strings.<span style="color:#50fa7b">HasPrefix</span>(path, rule.Match.Prefix) {
-</span></span><span style="display:flex;"><span>        matched = <span style="color:#ff79c6">true</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">break</span>
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> !matched {
-</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> filter.Continue
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>以配置 <code>prefix: /app</code> 为例，下面四个 URL 的去向不同：</p>
-<div class="table-wrapper"><table>
-	<thead>
-			<tr>
-					<th>请求</th>
-					<th>走哪个分支</th>
-					<th>为什么</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>GET /saml/metadata</code></td>
-					<td><code>handleMetadata</code>，然后 Stop</td>
-					<td>返回给 IdP 管理员导入的 SP XML</td>
-			</tr>
-			<tr>
-					<td><code>POST /saml/acs</code></td>
-					<td><code>handleACS</code>，然后 Stop</td>
-					<td>接收 IdP 返回的 SAMLResponse</td>
-			</tr>
-			<tr>
-					<td><code>GET /health</code></td>
-					<td>Continue</td>
-					<td>不以 <code>/app</code> 开头，SAML 不介入</td>
-			</tr>
-			<tr>
-					<td><code>GET /app/orders</code></td>
-					<td>读取 session</td>
-					<td>这是受保护资源</td>
-			</tr>
-	</tbody>
-</table></div>
-<p><code>handleMetadata</code> 将 <code>f.serviceProvider.Metadata()</code> 序列化成 XML 并返回。<code>handleACS</code> 则只有一行核心调用：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>f.middleware.<span style="color:#50fa7b">ServeHTTP</span>(ctx.Writer, ctx.Request)
-</span></span><span style="display:flex;"><span><span style="color:#ff79c6">return</span> filter.Stop
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>这里的 <code>middleware</code> 是第三方库 <code>github.com/crewjam/saml/samlsp</code> 创建的 <code>*samlsp.Middleware</code>，不是 Pixiu 的普通 filter。Pixiu 把 SAML 协议细节交给它：解析 XML、校验 IdP 签名、检查 assertion、创建 session Cookie、根据 RelayState 跳回原始业务页面。Pixiu 自己只负责判断“何时进入这条 SAML 流程”和“何时停止 Pixiu filter chain”。</p>
-<h2 id="9-受保护路径三种-session-结果">9. 受保护路径：三种 session 结果
-</h2><p>只有 <code>/app/orders</code> 这类受保护请求才会走到下面代码：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>session, err <span style="color:#ff79c6">:=</span> f.middleware.Session.<span style="color:#50fa7b">GetSession</span>(ctx.Request)
-</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> errors.<span style="color:#50fa7b">Is</span>(err, samlsp.ErrNoSession) {
-</span></span><span style="display:flex;"><span>        f.middleware.<span style="color:#50fa7b">HandleStartAuthFlow</span>(ctx.Writer, ctx.Request)
-</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> filter.Stop
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>    ctx.<span style="color:#50fa7b">SendLocalReply</span>(http.StatusInternalServerError,
-</span></span><span style="display:flex;"><span>        []<span style="color:#8be9fd;font-style:italic">byte</span>(<span style="color:#f1fa8c">&#34;internal authentication error&#34;</span>))
-</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> filter.Stop
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>f.<span style="color:#50fa7b">forwardAttributes</span>(ctx, session)
-</span></span><span style="display:flex;"><span><span style="color:#ff79c6">return</span> filter.Continue
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p><code>f.middleware.Session.GetSession(ctx.Request)</code> 的意思是：让 SAML 库从当前浏览器请求的 Cookie 恢复“这个用户是否已完成登录，以及登录后保存的属性”。它不是去数据库查用户，也不是 Pixiu 自己解析 SAML XML。</p>
-<div class="table-wrapper"><table>
-	<thead>
-			<tr>
-					<th><code>GetSession</code> 结果</th>
-					<th>表示什么</th>
-					<th>Pixiu 的动作</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>ErrNoSession</code></td>
-					<td>用户尚未登录，或浏览器没有 session Cookie</td>
-					<td><code>HandleStartAuthFlow</code>，通常返回 302 到 IdP</td>
-			</tr>
-			<tr>
-					<td>其他 error</td>
-					<td>Cookie 损坏、无法解密等异常</td>
-					<td>本地 500，不重定向</td>
-			</tr>
-			<tr>
-					<td>有效 session</td>
-					<td>用户已登录</td>
-					<td>注入属性，Continue</td>
-			</tr>
-	</tbody>
-</table></div>
-<p>第二行和第三行的区别很重要。若 Cookie 已损坏还一律跳 IdP，用户可能经历“登录成功 -&gt; 回到 Pixiu -&gt; Cookie 仍读失败 -&gt; 再跳登录”的无限循环。返回 500 和记录日志，会让真实配置或 Cookie 问题可见。</p>
-<h2 id="10-forwardattributes-是如何建立可信边界的">10. <code>forwardAttributes</code> 是如何建立可信边界的
-</h2><p>配置：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">forward_attributes</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ff79c6">saml_attribute</span>: email
-</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">header</span>: X-User-Email
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>想表达的是：“IdP 已认证 assertion 中的 <code>email</code>，转成发往后端的 <code>X-User-Email</code>。”但 HTTP header 本身完全可以由客户端伪造：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-http" data-lang="http"><span style="display:flex;"><span>GET /app/orders
-</span></span><span style="display:flex;"><span>X-User-Email: admin@example.com
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>因此实现绝不能简单地“有值就覆盖”。它先清除所有由 SAML 控制的 header：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">for</span> _, fa <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> f.cfg.ForwardAttributes {
-</span></span><span style="display:flex;"><span>    ctx.Request.Header.<span style="color:#50fa7b">Del</span>(fa.Header)
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>即使 session 不带 <code>email</code> 属性，攻击者提供的 <code>X-User-Email</code> 也已经被删除。之后只有 session 实现了 <code>SessionWithAttributes</code>，并且 assertion 中真的存在该属性时，才写回：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">if</span> val <span style="color:#ff79c6">:=</span> attrs.<span style="color:#50fa7b">Get</span>(fa.SAMLAttribute); val <span style="color:#ff79c6">!=</span> <span style="color:#f1fa8c">&#34;&#34;</span> {
-</span></span><span style="display:flex;"><span>    ctx.Request.Header.<span style="color:#50fa7b">Set</span>(fa.Header, val)
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>整个信任转换过程是：</p>
+<p><code>session</code> 不一定都带可读取的用户属性。代码中的类型断言：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
 </span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
 </span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
 </span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
 </span></code></pre></td>
 <td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>客户端任意 Header（不可信）
-</span></span><span style="display:flex;"><span>  -&gt; 删除 X-User-Email
-</span></span><span style="display:flex;"><span>  -&gt; 从已验证 SAML session 读取 email（可信）
-</span></span><span style="display:flex;"><span>  -&gt; 写入新的 X-User-Email
-</span></span><span style="display:flex;"><span>  -&gt; 后端只信任 Pixiu 注入后的值
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>sa, ok <span style="color:#ff79c6">:=</span> session.(samlsp.SessionWithAttributes)
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> !ok {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span>
+</span></span><span style="display:flex;"><span>}
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>后端必须部署在 Pixiu 信任边界之后，或者网络层禁止外部客户端绕过 Pixiu 直连后端。否则攻击者绕过网关直接请求后端，仍可以自行伪造这个 header。</p>
-<h2 id="11-从配置到后端的一次完整复盘">11. 从配置到后端的一次完整复盘
+</div><p>是在问：“当前这个已登录 session 是否支持读取 Assertion 属性？”<code>SessionWithAttributes</code> 不是验证客户端 HTTP header 的组件，也不是 IdP 返回的 header；IdP 返回的是已签名的 SAMLResponse/Assertion，库验证后才把 <code>email</code>、<code>department</code> 等属性保存进 session。</p>
+<p>删除动作与 IdP 是否提供属性无关。只要进入 <code>forwardAttributes</code>，每个受控 header 都会先被删除；之后仅当 session 带属性、且 Assertion 中确实存在对应值时，才 <code>Set</code> 回去。</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>已登录 session 的情况</th>
+					<th>客户端传入 <code>X-User-Email</code></th>
+					<th>Assertion 的 <code>email</code></th>
+					<th>后端最终收到</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>session 无属性能力</td>
+					<td><code>admin@example.com</code></td>
+					<td>无法读取</td>
+					<td>没有此 header</td>
+			</tr>
+			<tr>
+					<td>有属性能力，但没有 email</td>
+					<td><code>admin@example.com</code></td>
+					<td>空</td>
+					<td>没有此 header</td>
+			</tr>
+			<tr>
+					<td>有属性且 email 合法</td>
+					<td><code>admin@example.com</code></td>
+					<td><code>alice@example.com</code></td>
+					<td><code>X-User-Email: alice@example.com</code></td>
+			</tr>
+	</tbody>
+</table></div>
+<p>因此删除 header 不是为了让 SP 验证 Assertion 属性，SP 已经用 IdP 证书验证过 Assertion。删除是为了让后端看到的身份 header <strong>只可能由 Pixiu 根据已验证 Assertion 注入</strong>，而不能残留客户端伪造值。</p>
+<h2 id="8-从配置到后端的一次完整复盘">8. 从配置到后端的一次完整复盘
 </h2><p>最后把文章压缩成一条你可以在面试中复述的链路：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
@@ -1188,7 +1129,7 @@
 </span></span></code></pre></td></tr></table>
 </div>
 </div><p>一句话总结：<strong>SAML filter 让 Pixiu 成为企业 SSO 的 SP；成熟库负责协议与 session，Pixiu 负责把认证结果安全地放入网关请求链。</strong></p>
-<h2 id="12-这一版实现解决了哪些实际问题">12. 这一版实现解决了哪些实际问题
+<h2 id="9-这一版实现解决了哪些实际问题">9. 这一版实现解决了哪些实际问题
 </h2><p>结合当前代码，可以把这次 SAML 功能的价值总结成 5 点：</p>
 <ol>
 <li>Pixiu 可以作为 SAML SP 暴露 metadata，方便 IdP 对接。</li>
@@ -1197,7 +1138,7 @@
 <li>Pixiu 可以把登录后的用户属性转成后端更容易消费的 HTTP header。</li>
 <li>Pixiu 可以在安全细节上避免明显坑点，比如 header 伪造、错误 session 无限重定向、HTTP/HTTPS cookie 差异。</li>
 </ol>
-<h2 id="13-和项目里已有-jwt--mcp-能力的关系">13. 和项目里已有 JWT / MCP 能力的关系
+<h2 id="10-和项目里已有-jwt--mcp-能力的关系">10. 和项目里已有 JWT / MCP 能力的关系
 </h2><p>如果你已经看过 <code>pkg/filter/auth/jwt/jwt.go</code> 或 <code>pkg/filter/auth/mcp/filter.go</code>，会发现三者在“插件接入方式”上很像：</p>
 <ul>
 <li>都有 <code>Kind</code></li>
@@ -1231,7 +1172,7 @@
 <li>MCP Auth：更偏 MCP/OAuth 资源保护</li>
 </ul>
 <p>这三者是互补关系，不是简单重复。</p>
-<h2 id="14-测试覆盖了哪些点">14. 测试覆盖了哪些点
+<h2 id="11-测试覆盖了哪些点">11. 测试覆盖了哪些点
 </h2><p>当前 SAML 测试主要在：</p>
 <ul>
 <li><code>pkg/filter/auth/saml/config_test.go</code></li>
@@ -1250,7 +1191,7 @@
 <li>HTTP / HTTPS 场景下 <code>CookieSameSite</code> 的不同分支</li>
 </ul>
 <p>这说明当前实现不只是“主流程能跑”，而是已经把一些容易出问题的边界也考虑进去了。</p>
-<h2 id="15-如果你接下来要继续维护这块代码建议怎么读">15. 如果你接下来要继续维护这块代码，建议怎么读
+<h2 id="12-如果你接下来要继续维护这块代码建议怎么读">12. 如果你接下来要继续维护这块代码，建议怎么读
 </h2><p>推荐阅读顺序：</p>
 <ol>
 <li>先读 <code>docs/user/filter/saml.md</code>，知道使用者怎么配置</li>
@@ -1267,7 +1208,7 @@
 <li>单元测试编写</li>
 <li>文档补充</li>
 </ul>
-<h2 id="16-一句话总结">16. 一句话总结
+<h2 id="13-一句话总结">13. 一句话总结
 </h2><p>这次 issue #888 的本质，不是“往 Pixiu 里塞一个新协议名词”，而是：</p>
 <blockquote>
 <p>让 Pixiu 从“会校验 token 的网关”，进一步变成“能接企业统一登录系统的网关”。</p>
