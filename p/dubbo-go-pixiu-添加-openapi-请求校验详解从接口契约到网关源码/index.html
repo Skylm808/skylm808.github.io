@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="从 OpenAPI 基础概念出发，结合 Pixiu 源码讲解独立请求校验 Filter、请求体保护、路由边界与安全设计。">
+<title>dubbo-go-pixiu 添加 OpenAPI 请求校验详解：从接口契约到网关源码</title>
+
+<link rel='canonical' href='https://skylm.top/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-openapi-%E8%AF%B7%E6%B1%82%E6%A0%A1%E9%AA%8C%E8%AF%A6%E8%A7%A3%E4%BB%8E%E6%8E%A5%E5%8F%A3%E5%A5%91%E7%BA%A6%E5%88%B0%E7%BD%91%E5%85%B3%E6%BA%90%E7%A0%81/'>
+
+<link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="dubbo-go-pixiu 添加 OpenAPI 请求校验详解：从接口契约到网关源码">
+<meta property='og:description' content="从 OpenAPI 基础概念出发，结合 Pixiu 源码讲解独立请求校验 Filter、请求体保护、路由边界与安全设计。">
+<meta property='og:url' content='https://skylm.top/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-openapi-%E8%AF%B7%E6%B1%82%E6%A0%A1%E9%AA%8C%E8%AF%A6%E8%A7%A3%E4%BB%8E%E6%8E%A5%E5%8F%A3%E5%A5%91%E7%BA%A6%E5%88%B0%E7%BD%91%E5%85%B3%E6%BA%90%E7%A0%81/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Go' /><meta property='article:tag' content='开源' /><meta property='article:tag' content='OpenAPI' /><meta property='article:tag' content='API Gateway' /><meta property='article:tag' content='Pixiu' /><meta property='article:published_time' content='2026-07-19T22:21:53&#43;08:00'/><meta property='article:modified_time' content='2026-07-19T22:21:53&#43;08:00'/>
+<meta name="twitter:title" content="dubbo-go-pixiu 添加 OpenAPI 请求校验详解：从接口契约到网关源码">
+<meta name="twitter:description" content="从 OpenAPI 基础概念出发，结合 Pixiu 源码讲解独立请求校验 Filter、请求体保护、路由边界与安全设计。">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友链</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#0-openapi-是什么">0. OpenAPI 是什么</a>
+      <ol>
+        <li><a href="#01-用一个请求先看完整效果">0.1 用一个请求先看完整效果</a></li>
+      </ol>
+    </li>
+    <li><a href="#1-openapi-先从-0-理解">1. OpenAPI 先从 0 理解</a>
+      <ol>
+        <li><a href="#11-在网关里用-openapi-做什么">1.1 在网关里用 OpenAPI 做什么</a></li>
+      </ol>
+    </li>
+    <li><a href="#2-pr-948-做了什么">2. PR #948 做了什么</a></li>
+    <li><a href="#3-为什么要从-apiconfig-拆出来">3. 为什么要从 apiconfig 拆出来</a></li>
+    <li><a href="#4-最终代码怎么跑">4. 最终代码怎么跑</a>
+      <ol>
+        <li><a href="#41-注册-filter">4.1 注册 filter</a></li>
+        <li><a href="#42-apply启动阶段加载和预处理">4.2 Apply：启动阶段加载和预处理</a></li>
+        <li><a href="#43-loadvalidatorfromfile从文件到-sdk-validator">4.3 loadValidatorFromFile：从文件到 SDK validator</a></li>
+        <li><a href="#44-decode请求阶段校验">4.4 Decode：请求阶段校验</a></li>
+        <li><a href="#45-为什么要先判断-path--method">4.5 为什么要先判断 path + method</a></li>
+        <li><a href="#46-为什么-head-不-fallback-到-get">4.6 为什么 HEAD 不 fallback 到 GET</a></li>
+        <li><a href="#47-为什么要读完-body-再-reset">4.7 为什么要读完 body 再 reset</a></li>
+        <li><a href="#48-为什么要限制-body-大小">4.8 为什么要限制 body 大小</a></li>
+      </ol>
+    </li>
+    <li><a href="#5-路径和-ref-安全">5. 路径和 <code>$ref</code> 安全</a>
+      <ol>
+        <li><a href="#51-主-openapi-文件路径">5.1 主 OpenAPI 文件路径</a></li>
+        <li><a href="#52-openapi-外部-ref">5.2 OpenAPI 外部 <code>$ref</code></a></li>
+      </ol>
+    </li>
+    <li><a href="#6-apiconfig-迁移兼容怎么写">6. apiconfig 迁移兼容怎么写</a></li>
+    <li><a href="#7-reviewer-评论暴露出的坑">7. Reviewer 评论暴露出的坑</a>
+      <ol>
+        <li><a href="#71-p0buildv3model-error-不能丢">7.1 P0：<code>BuildV3Model()</code> error 不能丢</a></li>
+        <li><a href="#72-path-存在不等于-operation-存在">7.2 path 存在不等于 operation 存在</a></li>
+        <li><a href="#73-findpath-错误和未声明路径不能混在一起">7.3 <code>FindPath</code> 错误和“未声明路径”不能混在一起</a></li>
+        <li><a href="#74-osreadfilepath-前必须有路径边界">7.4 <code>os.ReadFile(path)</code> 前必须有路径边界</a></li>
+        <li><a href="#75-body-读取不能无限制">7.5 body 读取不能无限制</a></li>
+        <li><a href="#76-findpathnil-options-会绕过-pathtree-优化">7.6 <code>FindPath(nil options)</code> 会绕过 PathTree 优化</a></li>
+        <li><a href="#77-旧配置不能静默失效">7.7 旧配置不能静默失效</a></li>
+        <li><a href="#78-文档不能夸大能力边界">7.8 文档不能夸大能力边界</a></li>
+        <li><a href="#79-head-行为要明确">7.9 HEAD 行为要明确</a></li>
+        <li><a href="#710-ci-和-import-分组">7.10 CI 和 import 分组</a></li>
+        <li><a href="#711-一个未在本-pr-修的系统性问题">7.11 一个未在本 PR 修的系统性问题</a></li>
+      </ol>
+    </li>
+    <li><a href="#8-如果从-0-写这个功能推荐顺序">8. 如果从 0 写这个功能，推荐顺序</a></li>
+    <li><a href="#9-最后记住这些设计原则">9. 最后记住这些设计原则</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/go/" >
+                Go
+            </a>
+        
+            <a href="/categories/%E5%BC%80%E6%BA%90/" >
+                开源
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-openapi-%E8%AF%B7%E6%B1%82%E6%A0%A1%E9%AA%8C%E8%AF%A6%E8%A7%A3%E4%BB%8E%E6%8E%A5%E5%8F%A3%E5%A5%91%E7%BA%A6%E5%88%B0%E7%BD%91%E5%85%B3%E6%BA%90%E7%A0%81/">dubbo-go-pixiu 添加 OpenAPI 请求校验详解：从接口契约到网关源码</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Jul 19, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 13 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="dubbo-go-pixiu-添加-openapi-请求校验详解">dubbo-go-pixiu 添加 OpenAPI 请求校验详解
+</h1><p>这份文档不是单纯的 changelog，而是把 OpenAPI 的基础概念、Pixiu 里这次功能的代码写法、reviewer 指出的坑，以及最终修复思路串起来。读完之后，你应该能回答三个问题：</p>
+<ul>
+<li>OpenAPI 到底描述了什么，为什么可以拿来做请求校验。</li>
+<li>PR #948 为什么把 OpenAPI 校验从 <code>apiconfig</code> 中拆出来，最终代码怎么跑。</li>
+<li>这类网关热路径功能容易踩哪些坑，reviewer 为什么抓这些点。</li>
+</ul>
+<h2 id="0-openapi-是什么">0. OpenAPI 是什么
+</h2><p><strong>API</strong> 是 Application Programming Interface，泛指接口；HTTP、gRPC、Dubbo 都可以叫 API。<strong>OpenAPI</strong> 不是“新版本 API 的统一名字”，而是一种用 YAML/JSON 描述 HTTP API 契约的规范。</p>
+<p>可以把它理解为一份机器可读的接口说明书：不仅写给人看，也能用于生成文档、生成客户端、Mock，以及在网关中校验请求。</p>
+<p>它和 Pixiu 的路由不是一回事：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>组件</th>
+					<th>回答的问题</th>
+					<th>例子</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>OpenAPI filter</td>
+					<td>请求是否合法？</td>
+					<td><code>source</code> 是否必填、<code>role</code> 是否在 enum 内</td>
+			</tr>
+			<tr>
+					<td>apiconfig / Route</td>
+					<td>请求去哪里？</td>
+					<td><code>POST /users</code> 命中哪个 Pixiu API/cluster</td>
+			</tr>
+			<tr>
+					<td>cluster</td>
+					<td>选哪个实例？</td>
+					<td>在健康 endpoint 中选一个</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>最短记忆法：<strong>OpenAPI 决定“是否合法”，路由决定“去哪里”。</strong></p>
+<h3 id="01-用一个请求先看完整效果">0.1 用一个请求先看完整效果
+</h3><p>下面规范声明 <code>POST /users</code>：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">paths</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">/users</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">post</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">parameters</span>:
+</span></span><span style="display:flex;"><span>        - <span style="color:#ff79c6">name</span>: source
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">in</span>: query
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">required</span>: <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">schema</span>: { <span style="color:#ff79c6">type</span>: <span style="color:#ff79c6">string, enum</span>: [web, app] }
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">requestBody</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">required</span>: <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">content</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">application/json</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">schema</span>:
+</span></span><span style="display:flex;"><span>              <span style="color:#ff79c6">required</span>: [name, role]
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>请求进入 Pixiu 时可能走三条路径：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>POST /users?source=web + 合法 JSON
+</span></span><span style="display:flex;"><span>  -&gt; OpenAPI Continue
+</span></span><span style="display:flex;"><span>  -&gt; apiconfig/route/proxy 继续处理
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>POST /users（缺 source）
+</span></span><span style="display:flex;"><span>  -&gt; OpenAPI 本地 400 + Stop
+</span></span><span style="display:flex;"><span>  -&gt; 不会调用上游
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>GET /health（规范没有声明）
+</span></span><span style="display:flex;"><span>  -&gt; OpenAPI Continue
+</span></span><span style="display:flex;"><span>  -&gt; 是否存在、是否可访问由后续路由决定
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>当前实现是“只校验规范已声明的 operation”，不是“规范外所有请求一律拒绝”。</p>
+<h2 id="1-openapi-先从-0-理解">1. OpenAPI 先从 0 理解
+</h2><p>OpenAPI 是一种 HTTP API 契约。它把“一个接口长什么样”写成机器可读的 YAML/JSON 文件。最小可以理解成四类信息：</p>
+<ul>
+<li><code>paths</code>：有哪些 URL，例如 <code>/users</code>、<code>/users/{id}</code>。</li>
+<li><code>operation</code>：每个 URL 支持哪些 HTTP method，例如 <code>get</code>、<code>post</code>。</li>
+<li><code>parameters</code>：path/query/header/cookie 参数长什么样，是否必填，有没有枚举、类型、长度、数值范围。</li>
+<li><code>requestBody</code> / <code>responses</code>：请求体和响应体的 schema。</li>
+</ul>
+<p>一个极简例子：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">openapi</span>: <span style="color:#bd93f9">3.0.3</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">info</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">title</span>: users
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">version</span>: <span style="color:#f1fa8c">&#34;1.0.0&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">paths</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">/users</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">post</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">parameters</span>:
+</span></span><span style="display:flex;"><span>        - <span style="color:#ff79c6">name</span>: source
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">in</span>: query
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">required</span>: <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">schema</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">type</span>: string
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">enum</span>: [web, app]
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">requestBody</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">required</span>: <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">content</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">application/json</span>:
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">schema</span>:
+</span></span><span style="display:flex;"><span>              <span style="color:#ff79c6">type</span>: object
+</span></span><span style="display:flex;"><span>              <span style="color:#ff79c6">required</span>: [name]
+</span></span><span style="display:flex;"><span>              <span style="color:#ff79c6">properties</span>:
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">name</span>:
+</span></span><span style="display:flex;"><span>                  <span style="color:#ff79c6">type</span>: string
+</span></span><span style="display:flex;"><span>                  <span style="color:#ff79c6">minLength</span>: <span style="color:#bd93f9">3</span>
+</span></span><span style="display:flex;"><span>                  <span style="color:#ff79c6">maxLength</span>: <span style="color:#bd93f9">8</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#ff79c6">responses</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;200&#34;</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#ff79c6">description</span>: ok
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这份契约表达的是：</p>
+<ul>
+<li>只有 <code>POST /users</code> 这个 operation 被声明。</li>
+<li>query 参数 <code>source</code> 必填，只能是 <code>web</code> 或 <code>app</code>。</li>
+<li>JSON body 必须是 object，且必须有 <code>name</code> 字段。</li>
+<li><code>name</code> 必须是字符串，长度在 3 到 8 之间。</li>
+</ul>
+<p>所以 <code>POST /users?source=web</code> 携带 <code>{&quot;name&quot;:&quot;tom&quot;}</code> 会通过；<code>POST /users</code> 少了 <code>source</code>，应该被拦。</p>
+<h3 id="11-在网关里用-openapi-做什么">1.1 在网关里用 OpenAPI 做什么
+</h3><p>在 Pixiu 这种网关里，请求进入上游服务前会经过 filter chain。OpenAPI 校验 filter 的职责是：</p>
+<ol>
+<li>启动时加载 OpenAPI 文件。</li>
+<li>请求进来时先判断这个 path + method 是否在 OpenAPI 中声明。</li>
+<li>如果没声明，跳过校验，把请求交给后续 filter 或上游。</li>
+<li>如果声明了，就校验 path/query/header/body。</li>
+<li>校验失败时本地返回 <code>400 Bad Request</code>，停止过滤链。</li>
+</ol>
+<p>注意：这不是路由创建，也不是鉴权。OpenAPI 的 <code>security</code> 在本 PR 中故意关闭，认证授权仍由 JWT、OPA、SAML 等专门 filter 处理。</p>
+<hr>
+<h2 id="2-pr-948-做了什么">2. PR #948 做了什么
+</h2><p>这次合入的核心变化是：新增独立的 <code>dgp.filter.http.openapi</code>，并删除原来塞在 <code>dgp.filter.http.apiconfig</code> 里的自研 OpenAPI 校验代码。</p>
+<p>主要文件：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>文件</th>
+					<th>作用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>pkg/filter/http/openapi/openapi.go</code></td>
+					<td>新 filter 的主体：加载 spec、构建 validator、匹配 operation、校验请求</td>
+			</tr>
+			<tr>
+					<td><code>pkg/filter/http/openapi/openapi_test.go</code></td>
+					<td>新 filter 的单元测试</td>
+			</tr>
+			<tr>
+					<td><code>pkg/filter/http/apiconfig/api_config.go</code></td>
+					<td><code>apiconfig</code> 不再做 OpenAPI 校验，只做 API 路由元信息</td>
+			</tr>
+			<tr>
+					<td><code>pkg/filter/http/apiconfig/config.go</code></td>
+					<td>保留旧字段并检测旧配置是否出现，用于 fail fast 迁移提示</td>
+			</tr>
+			<tr>
+					<td><code>pkg/filter/http/apiconfig/openapi/*</code></td>
+					<td>删除旧的自研 compiler / validator</td>
+			</tr>
+			<tr>
+					<td><code>pkg/common/constant/key.go</code></td>
+					<td>新增 <code>HTTPOpenAPIFilter = &quot;dgp.filter.http.openapi&quot;</code></td>
+			</tr>
+			<tr>
+					<td><code>pkg/pluginregistry/registry.go</code></td>
+					<td>注册 <code>pkg/filter/http/openapi</code> 包</td>
+			</tr>
+			<tr>
+					<td><code>pkg/context/http/erroresponse.go</code></td>
+					<td>新增 <code>PayloadTooLarge</code>，用于 request body 超限返回 413</td>
+			</tr>
+			<tr>
+					<td><code>docs/user/filter/openapi.md</code> / <code>openapi_CN.md</code></td>
+					<td>用户文档</td>
+			</tr>
+	</tbody>
+</table></div>
+<hr>
+<h2 id="3-为什么要从-apiconfig-拆出来">3. 为什么要从 apiconfig 拆出来
+</h2><p>旧实现把两件事混在一起：</p>
+<ul>
+<li><code>apiconfig</code>：Pixiu 自己的 API 路由配置，负责匹配 API，并把 API 元信息写入请求上下文。</li>
+<li>OpenAPI request validation：按 OpenAPI 契约校验请求参数和 body。</li>
+</ul>
+<p>这两个职责不是一回事。把 OpenAPI 校验做成独立 filter 后，配置和行为更清楚：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span>- <span style="color:#ff79c6">name</span>: dgp.filter.http.apiconfig
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">config</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">path</span>: configs/api_config.yaml
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>- <span style="color:#ff79c6">name</span>: dgp.filter.http.openapi
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">config</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">path</span>: configs/openapi_users.yaml
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">max_request_body_bytes</span>: <span style="color:#bd93f9">1048576</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这意味着：</p>
+<ul>
+<li><code>apiconfig</code> 继续管 Pixiu 路由元数据。</li>
+<li><code>openapi</code> 只管 OpenAPI 文件中声明过的 operation。</li>
+<li>两个 filter 可以按需要组合，也可以单独使用。</li>
+</ul>
+<p>迁移兼容的关键点是：旧字段 <code>openapi_path</code> 和 <code>enable_openapi_validation</code> 不能直接删掉，否则老配置会被 YAML 静默忽略，用户以为校验还开着，实际已经没生效。最终实现保留旧字段，但只要它们出现在配置里就启动失败，并提示迁移到 <code>dgp.filter.http.openapi</code>。</p>
+<hr>
+<h2 id="4-最终代码怎么跑">4. 最终代码怎么跑
+</h2><h3 id="41-注册-filter">4.1 注册 filter
+</h3><p><code>openapi.go</code> 的 <code>init()</code> 调用：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>filter.<span style="color:#50fa7b">RegisterHttpFilter</span>(<span style="color:#ff79c6">&amp;</span>Plugin{})
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>Plugin.Kind()</code> 返回常量：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>Kind = constant.HTTPOpenAPIFilter
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>常量值是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>HTTPOpenAPIFilter = <span style="color:#f1fa8c">&#34;dgp.filter.http.openapi&#34;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>pluginregistry/registry.go</code> 里 blank import 了 <code>pkg/filter/http/openapi</code>，保证程序启动时包的 <code>init()</code> 会执行。</p>
+<p>这与 SAML filter 使用的是同一套 Pixiu 插件机制。匿名导入只为触发：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">init</span>() {
+</span></span><span style="display:flex;"><span>    filter.<span style="color:#50fa7b">RegisterHttpFilter</span>(<span style="color:#ff79c6">&amp;</span>Plugin{})
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>&amp;Plugin{}</code> 是一个没有字段的插件入口对象。注册表调用它的 <code>Kind()</code>，以 <code>dgp.filter.http.openapi</code> 为 key 保存整个 Plugin；之后 YAML 的 <code>name</code> 用该 key 查回 Plugin，再调用 <code>CreateFilterFactory()</code>。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>registry.go 匿名导入 openapi 包
+</span></span><span style="display:flex;"><span>  -&gt; Go 执行 openapi.init()
+</span></span><span style="display:flex;"><span>  -&gt; RegisterHttpFilter(&amp;Plugin{})
+</span></span><span style="display:flex;"><span>  -&gt; registry[&#34;dgp.filter.http.openapi&#34;] = Plugin
+</span></span><span style="display:flex;"><span>  -&gt; YAML name 查到 Plugin
+</span></span><span style="display:flex;"><span>  -&gt; Plugin 创建 FilterFactory
+</span></span><span style="display:flex;"><span>  -&gt; 框架注入 path、max_request_body_bytes
+</span></span><span style="display:flex;"><span>  -&gt; Apply 创建可复用 validator
+</span></span><span style="display:flex;"><span>  -&gt; 每个请求创建 Filter，执行 Decode
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这里同样要区分三个对象：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>对象</th>
+					<th>作用</th>
+					<th>生命周期</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>Plugin</code></td>
+					<td>给框架登记名字，并创建 factory</td>
+					<td>程序启动后长期存在</td>
+			</tr>
+			<tr>
+					<td><code>FilterFactory</code></td>
+					<td>保存 OpenAPI model、validator、body 上限</td>
+					<td>配置加载/重载后复用</td>
+			</tr>
+			<tr>
+					<td><code>Filter</code></td>
+					<td>将 factory 的只读资源挂到当前请求 chain</td>
+					<td>单条请求</td>
+			</tr>
+	</tbody>
+</table></div>
+<h3 id="42-apply启动阶段加载和预处理">4.2 Apply：启动阶段加载和预处理
+</h3><p><code>FilterFactory.Apply()</code> 是最重要的启动阶段入口。最终逻辑是：</p>
+<ol>
+<li><code>cleanOpenAPIPath(factory.cfg.Path)</code> 清理并校验 OpenAPI 文件路径。</li>
+<li><code>effectiveMaxRequestBodyBytes()</code> 计算 request body 限制，默认 1MB，负数报错。</li>
+<li><code>loadValidatorFromFile(path)</code> 读取 OpenAPI 文件，构建 SDK validator。</li>
+<li>把 <code>validator</code>、<code>model</code>、<code>validationOptions</code>、<code>maxRequestBody</code> 存到 factory，后续每条请求复用。</li>
+</ol>
+<p>这一步选择 fail fast：OpenAPI 文件缺失、路径不安全、<code>$ref</code> 不安全、模型构建失败，都会让 filter 启动失败，而不是运行时再出问题。</p>
+<h3 id="43-loadvalidatorfromfile从文件到-sdk-validator">4.3 loadValidatorFromFile：从文件到 SDK validator
+</h3><p>核心调用链：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#50fa7b">validateExternalRefs</span>(path)
+</span></span><span style="display:flex;"><span>spec, err <span style="color:#ff79c6">:=</span> os.<span style="color:#50fa7b">ReadFile</span>(path)
+</span></span><span style="display:flex;"><span>doc, err <span style="color:#ff79c6">:=</span> libopenapi.<span style="color:#50fa7b">NewDocumentWithConfiguration</span>(spec, <span style="color:#ff79c6">&amp;</span>datamodel.DocumentConfiguration{
+</span></span><span style="display:flex;"><span>    BasePath: filepath.<span style="color:#50fa7b">Dir</span>(path),
+</span></span><span style="display:flex;"><span>})
+</span></span><span style="display:flex;"><span>model, err <span style="color:#ff79c6">:=</span> doc.<span style="color:#50fa7b">BuildV3Model</span>()
+</span></span><span style="display:flex;"><span>validationOptions <span style="color:#ff79c6">:=</span> validatorConfig.<span style="color:#50fa7b">NewValidationOptions</span>(validatorConfig.<span style="color:#50fa7b">WithoutSecurityValidation</span>())
+</span></span><span style="display:flex;"><span>validationOptions.PathTree = validatorRadix.<span style="color:#50fa7b">BuildPathTree</span>(<span style="color:#ff79c6">&amp;</span>model.Model)
+</span></span><span style="display:flex;"><span>validator <span style="color:#ff79c6">:=</span> openapiValidator.<span style="color:#50fa7b">NewValidatorFromV3Model</span>(<span style="color:#ff79c6">&amp;</span>model.Model, validatorConfig.<span style="color:#50fa7b">WithExistingOpts</span>(validationOptions))
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这里有几个关键决策：</p>
+<ul>
+<li>用 <code>libopenapi</code> 负责解析和构建 OpenAPI v3 model。</li>
+<li>用 <code>libopenapi-validator</code> 负责请求校验，不再维护自研 schema 校验器。</li>
+<li><code>BuildV3Model()</code> 的 error 必须检查，不能拿半成品 model 继续跑。</li>
+<li><code>WithoutSecurityValidation()</code> 明确关闭 OpenAPI security 校验。</li>
+<li>手动构建并复用 <code>PathTree</code>，避免每个请求都做全量 path 扫描。</li>
+</ul>
+<h3 id="44-decode请求阶段校验">4.4 Decode：请求阶段校验
+</h3><p><code>Filter.Decode()</code> 是每个请求的入口：</p>
+<ol>
+<li>如果 validator/model 没准备好，直接 <code>Continue</code>。</li>
+<li><code>findRequestOperation(req)</code> 查找 OpenAPI 是否声明了当前 path + method。</li>
+<li>如果没声明，跳过校验，<code>Continue</code>。</li>
+<li>如果声明了，先 <code>prepareRequestBodyForValidation(req)</code> 做 body 大小限制和 body reset。</li>
+<li>调用 <code>ValidateHttpRequestSyncWithPathItem(req, pathItem, foundPath)</code> 校验。</li>
+<li>校验失败返回本地 <code>400 Bad Request</code>，并停止 filter chain。</li>
+<li>body 超限返回 <code>413 Payload Too Large</code>。</li>
+</ol>
+<p>把源码和一次请求放在一起读会更直观：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>req <span style="color:#ff79c6">:=</span> ctx.Request
+</span></span><span style="display:flex;"><span>pathItem, foundPath, ok <span style="color:#ff79c6">:=</span> f.<span style="color:#50fa7b">findRequestOperation</span>(req)
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> !ok {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> filter.Continue
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">:=</span> f.<span style="color:#50fa7b">prepareRequestBodyForValidation</span>(req); err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>    ctx.<span style="color:#50fa7b">SendLocalReply</span>(<span style="color:#ff79c6">...</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> filter.Stop
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> valid, errs <span style="color:#ff79c6">:=</span> f.validator.<span style="color:#50fa7b">ValidateHttpRequestSyncWithPathItem</span>(
+</span></span><span style="display:flex;"><span>    req, pathItem, foundPath,
+</span></span><span style="display:flex;"><span>); !valid {
+</span></span><span style="display:flex;"><span>    ctx.<span style="color:#50fa7b">SendLocalReply</span>(<span style="color:#bd93f9">400</span>, <span style="color:#ff79c6">...</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> filter.Stop
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">return</span> filter.Continue
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>对 <code>POST /users?source=web</code>，<code>findRequestOperation</code> 先在规范中找到 <code>/users</code> 的 <code>post</code> operation；接着 body 限制逻辑读取并重新放回 <code>req.Body</code>；最后 validator 校验 query/body。任一步失败都会设置 local reply 并 <code>Stop</code>。HTTP connection manager 看到 local reply 后不会构造上游响应，因此非法请求不会到业务服务。</p>
+<h3 id="45-为什么要先判断-path--method">4.5 为什么要先判断 path + method
+</h3><p>文档契约说的是“未声明的 path + method 跳过校验”。所以只找到 path 不够，还必须确认 method 也声明了。</p>
+<p>最终实现的 <code>hasRequestOperation()</code> 按 HTTP method 检查 <code>PathItem</code>：</p>
+<ul>
+<li><code>GET</code> 必须有 <code>pathItem.Get</code></li>
+<li><code>POST</code> 必须有 <code>pathItem.Post</code></li>
+<li><code>HEAD</code> 必须显式有 <code>pathItem.Head</code></li>
+<li>其它 method 走 <code>GetOperations()</code> 兜底</li>
+</ul>
+<p>这解决了 reviewer 指出的行为不一致问题：如果 OpenAPI 只声明 <code>GET /users</code>，请求来了 <code>POST /users</code>，它应该被视为“未声明 operation”，跳过校验，而不是被 validator 当成错误请求拦掉。</p>
+<h3 id="46-为什么-head-不-fallback-到-get">4.6 为什么 HEAD 不 fallback 到 GET
+</h3><p>HTTP 语义里 HEAD 常常和 GET 相关，但这里最终选择更保守的 OpenAPI 契约语义：只有显式声明 <code>head</code> operation 才校验 HEAD。</p>
+<p>原因是 filter 的文档契约已经定义为“未声明 path + method 就跳过”。如果只声明了 <code>get</code> 却让 <code>HEAD</code> 走 GET 的参数/body 校验，会让行为变得隐式，甚至被 GET 的 requestBody 或参数约束误伤。</p>
+<h3 id="47-为什么要读完-body-再-reset">4.7 为什么要读完 body 再 reset
+</h3><p>validator 要读取 request body 才能校验 JSON schema。Go 的 <code>req.Body</code> 是 stream，读一次就没了。如果 filter 读了 body 又不放回去，后续 filter 或上游就读不到 body。</p>
+<p>最终实现：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>body, err <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">readRequestBodyWithinLimit</span>(req.Body, f.maxRequestBody)
+</span></span><span style="display:flex;"><span>req.Body = io.<span style="color:#50fa7b">NopCloser</span>(bytes.<span style="color:#50fa7b">NewReader</span>(body))
+</span></span><span style="display:flex;"><span>req.ContentLength = <span style="color:#8be9fd;font-style:italic">int64</span>(<span style="color:#8be9fd;font-style:italic">len</span>(body))
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这保证了 validator 可以读，后续链路也还能读。</p>
+<h3 id="48-为什么要限制-body-大小">4.8 为什么要限制 body 大小
+</h3><p>旧写法或 SDK 内部如果直接 <code>io.ReadAll(req.Body)</code>，遇到很大的 JSON 或 chunked body，会在网关热路径上放大内存和延迟风险。</p>
+<p>最终实现分两层：</p>
+<ul>
+<li>如果 <code>ContentLength &gt; maxRequestBody</code>，不用读 body，直接 413。</li>
+<li>如果 <code>ContentLength == -1</code> 或未知，用 <code>io.LimitReader(body, limit+1)</code> 最多读 <code>limit+1</code> 字节，超过就 413。</li>
+</ul>
+<p>默认限制是 <code>1 &lt;&lt; 20</code>，也就是 1MB。配置为 <code>0</code> 使用默认值；负数启动失败。</p>
+<hr>
+<h2 id="5-路径和-ref-安全">5. 路径和 <code>$ref</code> 安全
+</h2><p>OpenAPI 文件路径看起来只是本地配置，但在网关场景中，配置可能来自远程配置中心或被不同部署流程生成。reviewer 指出：如果直接 <code>os.ReadFile(path)</code>，就可能被配置成读取任意本地文件。</p>
+<p>最终做了两层防护。</p>
+<h3 id="51-主-openapi-文件路径">5.1 主 OpenAPI 文件路径
+</h3><p><code>cleanOpenAPIPath()</code> 要求：</p>
+<ul>
+<li><code>path</code> 不能为空。</li>
+<li>必须是相对路径，拒绝 <code>/etc/passwd</code> 这种绝对路径。</li>
+<li>拒绝包含 <code>..</code> 的父目录跳转。</li>
+<li><code>filepath.Clean()</code> 规范化路径。</li>
+<li>用 <code>filepath.EvalSymlinks()</code> 解析 symlink。</li>
+<li>拒绝敏感 base 目录，例如 <code>/</code>、<code>/etc</code>、<code>/proc</code>、<code>/sys</code>、<code>/dev</code>、<code>/run</code>、<code>/var/run</code>。</li>
+</ul>
+<p>重点是 symlink：如果只检查字符串，<code>specs/current</code> 可以是指向 <code>/etc</code> 的符号链接。最终实现会解析真实路径，再判断是否落到敏感目录里。</p>
+<h3 id="52-openapi-外部-ref">5.2 OpenAPI 外部 <code>$ref</code>
+</h3><p>OpenAPI 支持：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">$ref</span>: ./schemas/user.yaml#/User
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这很常见，但也带来同样的文件读取边界问题。最终实现 <code>validateExternalRefs()</code> 会递归扫描 spec 中的外部 <code>$ref</code>：</p>
+<ul>
+<li>允许本地相对 <code>$ref</code>。</li>
+<li>拒绝远程 URL，例如 <code>https://example.com/schema.yaml</code>。</li>
+<li>拒绝绝对路径。</li>
+<li>拒绝 <code>..</code>。</li>
+<li>解析 symlink 后必须仍在 OpenAPI 根目录内。</li>
+<li>用 <code>visited</code> 防止重复递归。</li>
+</ul>
+<p>这部分是 review 后补强的，不只是功能问题，更是安全边界问题。</p>
+<hr>
+<h2 id="6-apiconfig-迁移兼容怎么写">6. apiconfig 迁移兼容怎么写
+</h2><p>旧配置可能长这样：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span>- <span style="color:#ff79c6">name</span>: dgp.filter.http.apiconfig
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">config</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">path</span>: configs/api_config.yaml
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">openapi_path</span>: configs/openapi.yaml
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">enable_openapi_validation</span>: <span style="color:#ff79c6">true</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>新版本要求改成：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span>- <span style="color:#ff79c6">name</span>: dgp.filter.http.apiconfig
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">config</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">path</span>: configs/api_config.yaml
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>- <span style="color:#ff79c6">name</span>: dgp.filter.http.openapi
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">config</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">path</span>: configs/openapi.yaml
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>兼容实现的细节在 <code>pkg/filter/http/apiconfig/config.go</code>：</p>
+<ul>
+<li>字段 <code>OpenAPIPath</code> 和 <code>EnableOpenAPIValidation</code> 仍然保留。</li>
+<li>自定义 <code>UnmarshalYAML</code> 遍历 YAML node，记录旧 key 是否出现过。</li>
+<li><code>hasDeprecatedOpenAPIConfig()</code> 同时检查字段值和 key presence。</li>
+</ul>
+<p>为什么要检查 key presence？因为这两个配置即使写成下面这样，也应该提示用户迁移：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">openapi_path</span>: <span style="color:#f1fa8c">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">enable_openapi_validation</span>: <span style="color:#ff79c6">false</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>如果只看 Go 零值，空字符串和 false 会被当成“没有配置”，导致老配置静默通过。这是 reviewer 点出的兼容性坑。</p>
+<hr>
+<h2 id="7-reviewer-评论暴露出的坑">7. Reviewer 评论暴露出的坑
+</h2><h3 id="71-p0buildv3model-error-不能丢">7.1 P0：<code>BuildV3Model()</code> error 不能丢
+</h3><p>Reviewer: AlexStocks<br>
+讨论: <a class="link" href="https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3308060049"  target="_blank" rel="noopener"
+    >https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3308060049</a></p>
+<p>问题：<code>doc.BuildV3Model()</code> 可能同时返回部分 model 和非 nil error。如果只拿 model、不处理 error，就会让残缺 OpenAPI model 进入 validator。</p>
+<p>风险：</p>
+<ul>
+<li>本该拒绝的请求被放行。</li>
+<li>本该放行的请求被误拦。</li>
+<li>启动看起来成功，实际 validator 状态不可信。</li>
+</ul>
+<p>最终修法：只要 <code>BuildV3Model()</code> 返回 error，<code>Apply()</code> 阶段直接失败：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>model, err <span style="color:#ff79c6">:=</span> doc.<span style="color:#50fa7b">BuildV3Model</span>()
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>, <span style="color:#ff79c6">nil</span>, <span style="color:#ff79c6">nil</span>, errors.<span style="color:#50fa7b">Wrap</span>(err, <span style="color:#f1fa8c">&#34;build openapi model&#34;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>经验：初始化阶段拿到“不完整但可用”的对象时要非常谨慎。网关校验类功能最好 fail fast，不要带病运行。</p>
+<h3 id="72-path-存在不等于-operation-存在">7.2 path 存在不等于 operation 存在
+</h3><p>Reviewer: Copilot<br>
+讨论: <a class="link" href="https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3307899137"  target="_blank" rel="noopener"
+    >https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3307899137</a></p>
+<p>问题：只检查 <code>/users</code> 这个 path 是否存在，不检查 <code>POST /users</code> 是否存在，会让“未声明 method 应跳过”的文档行为失效。</p>
+<p>最终修法：<code>findRequestOperation()</code> 找到 <code>PathItem</code> 后再调用 <code>hasRequestOperation()</code>，确认 method-specific operation 存在。</p>
+<p>经验：OpenAPI 的最小校验单位不是 path，而是 path + method，也就是 operation。</p>
+<h3 id="73-findpath-错误和未声明路径不能混在一起">7.3 <code>FindPath</code> 错误和“未声明路径”不能混在一起
+</h3><p>Reviewer: AlexStocks<br>
+问题：<code>FindPath</code> 返回的 <code>validationErrs</code> 如果直接当成“不匹配”吞掉，会让排查困难。</p>
+<p>最终修法：如果 <code>validationErrs</code> 非空，记录 Debug 日志，包含 method、path 和错误详情；业务上仍按未匹配跳过，避免把 lookup 异常暴露给客户端。</p>
+<p>经验：客户端响应要克制，但内部日志要能定位问题。</p>
+<h3 id="74-osreadfilepath-前必须有路径边界">7.4 <code>os.ReadFile(path)</code> 前必须有路径边界
+</h3><p>Reviewer: AlexStocks / Similarityoung<br>
+相关后续回复: <a class="link" href="https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369027070"  target="_blank" rel="noopener"
+    >https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369027070</a></p>
+<p>问题：OpenAPI path 来自配置，直接读文件可能让配置注入变成本地文件读取。</p>
+<p>最终修法：</p>
+<ul>
+<li>主 OpenAPI path 必须相对。</li>
+<li>拒绝 <code>..</code> 和敏感目录。</li>
+<li>解析 symlink 后再判断。</li>
+<li>外部 <code>$ref</code> 也做同样的相对路径和根目录限制。</li>
+</ul>
+<p>经验：配置文件路径也是输入。只要输入能影响 <code>ReadFile</code>，就需要边界。</p>
+<h3 id="75-body-读取不能无限制">7.5 body 读取不能无限制
+</h3><p>Reviewer: Similarityoung<br>
+问题：请求校验前读取 body，如果没有大小限制，会导致大 body 或 chunked body 消耗过多内存。</p>
+<p>最终修法：新增 <code>max_request_body_bytes</code>，默认 1MB；已知 <code>Content-Length</code> 超限直接 413，未知长度用 <code>LimitReader(limit+1)</code>。</p>
+<p>经验：网关热路径不要无界 <code>io.ReadAll</code>。</p>
+<h3 id="76-findpathnil-options-会绕过-pathtree-优化">7.6 <code>FindPath(nil options)</code> 会绕过 PathTree 优化
+</h3><p>Reviewer: Similarityoung<br>
+问题：每次请求都传 nil options，SDK 可能走全量 path 扫描和正则匹配。</p>
+<p>最终修法：<code>Apply()</code> 阶段构造 <code>ValidationOptions</code>，并显式构建 <code>PathTree</code>，请求阶段复用。</p>
+<p>经验：能在启动时做的索引构建，不要放到每个请求里做。</p>
+<h3 id="77-旧配置不能静默失效">7.7 旧配置不能静默失效
+</h3><p>Reviewer: Alanxtl / Similarityoung<br>
+问题：删除 <code>apiconfig</code> 中旧字段会导致老配置被忽略。用户以为 OpenAPI 校验还在，实际已经没开。</p>
+<p>最终修法：保留旧字段，并检测 key 是否出现；只要出现就启动失败，提示迁移。</p>
+<p>经验：配置迁移时，最危险的不是报错，而是静默降级。</p>
+<h3 id="78-文档不能夸大能力边界">7.8 文档不能夸大能力边界
+</h3><p>Reviewer: Similarityoung<br>
+相关后续回复: <a class="link" href="https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369028350"  target="_blank" rel="noopener"
+    >https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369028350</a></p>
+<p>问题：OpenAPI 3.2 有 additional operations，但当前 filter 只接入标准 HTTP operation。如果文档写成“完整支持 OpenAPI 3.2”，就和实际能力不一致。</p>
+<p>最终修法：文档收窄为“OpenAPI 3.2 文档中使用标准 HTTP operation 的部分可被当前 filter 覆盖”。</p>
+<p>经验：文档是契约。实现没有覆盖的行为，不要提前承诺。</p>
+<h3 id="79-head-行为要明确">7.9 HEAD 行为要明确
+</h3><p>Reviewer: Similarityoung<br>
+相关后续回复: <a class="link" href="https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369027921"  target="_blank" rel="noopener"
+    >https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369027921</a></p>
+<p>问题：HEAD 是否可以 fallback 到 GET 容易产生歧义。</p>
+<p>最终修法：HEAD 必须显式声明 <code>head</code> operation 才校验；只声明 GET 时，HEAD 跳过校验。</p>
+<p>经验：遇到协议习惯和 OpenAPI 契约语义冲突时，要选一个清晰、可测试的规则，并写入文档。</p>
+<h3 id="710-ci-和-import-分组">7.10 CI 和 import 分组
+</h3><p>Reviewer: Copilot / Similarityoung<br>
+Issue comment: <a class="link" href="https://github.com/apache/dubbo-go-pixiu/pull/948#issuecomment-4608535037"  target="_blank" rel="noopener"
+    >https://github.com/apache/dubbo-go-pixiu/pull/948#issuecomment-4608535037</a></p>
+<p>问题：新增 import 分组不符合仓库风格，CI 要求格式化。</p>
+<p>最终处理：使用仓库匹配的 import formatting 修复。</p>
+<p>经验：Go 代码不只是 <code>gofmt</code>，有些仓库还依赖 <code>imports-formatter</code> 或自定义 import 分组规则。</p>
+<h3 id="711-一个未在本-pr-修的系统性问题">7.11 一个未在本 PR 修的系统性问题
+</h3><p>讨论: <a class="link" href="https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369035830"  target="_blank" rel="noopener"
+    >https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369035830</a><br>
+补充: <a class="link" href="https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369354582"  target="_blank" rel="noopener"
+    >https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369354582</a></p>
+<p>问题：<code>FilterManager.ReLoad()</code> 中如果某个 filter 的 <code>Apply()</code> 失败，错误传播和失败 factory 安装逻辑存在系统性风险，可能影响所有会在 <code>Apply()</code> 失败的 filter，不只是 OpenAPI。</p>
+<p>本 PR 的边界：OpenAPI filter 已经正确返回 error；FilterManager 的 reload 行为建议单独 follow-up 修。</p>
+<p>经验：review 中发现的问题要分清“本 PR 内的职责”和“系统性 follow-up”。不要把一个功能 PR 扩成无边界重构，但要把风险记录清楚。</p>
+<hr>
+<h2 id="8-如果从-0-写这个功能推荐顺序">8. 如果从 0 写这个功能，推荐顺序
+</h2><ol>
+<li>先把 filter 边界想清楚：只做请求校验，不做路由、不做鉴权、不做响应校验。</li>
+<li>先写最小 happy path：加载 spec，构建 validator，<code>POST /users</code> 合法请求通过。</li>
+<li>加失败路径：必填 query 缺失、body schema 不符合时返回 400。</li>
+<li>加“未声明跳过”：path 未声明跳过，method 未声明跳过。</li>
+<li>加启动 fail fast：无效 spec、无效 <code>$ref</code>、validator nil 都不能运行。</li>
+<li>加热路径保护：body size limit，body reset，PathTree 复用。</li>
+<li>加配置迁移：旧 <code>apiconfig</code> 字段存在就报错，不能静默忽略。</li>
+<li>最后写用户文档：明确支持什么、不支持什么、怎么配置、怎么迁移。</li>
+</ol>
+<hr>
+<h2 id="9-最后记住这些设计原则">9. 最后记住这些设计原则
+</h2><ul>
+<li>OpenAPI 校验单位是 operation，也就是 path + method。</li>
+<li>OpenAPI 文件和 <code>$ref</code> 都是输入，不可信。</li>
+<li>网关热路径不能有无界读、无界扫描、无界解析。</li>
+<li>初始化阶段错误要 fail fast，不要拿部分构建结果继续跑。</li>
+<li>客户端错误信息要克制，内部 Debug 日志要足够定位。</li>
+<li>配置迁移时宁可启动失败，也不要让老配置静默失效。</li>
+<li>文档不要写超过实现能力的承诺。</li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/go/">Go</a>
+        
+            <a href="/tags/%E5%BC%80%E6%BA%90/">开源</a>
+        
+            <a href="/tags/openapi/">OpenAPI</a>
+        
+            <a href="/tags/api-gateway/">API Gateway</a>
+        
+            <a href="/tags/pixiu/">Pixiu</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-saml-%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3%E4%BB%8E%E4%BC%81%E4%B8%9A-sso-%E5%88%B0-pixiu-%E6%BA%90%E7%A0%81/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA%E5%8F%82%E4%B8%8E%E7%9A%84%E8%A7%84%E8%8C%83-git-%E6%B5%81%E7%A8%8B/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">开源社区参与的规范 Git 流程</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/go-%E8%AF%AD%E8%A8%80%E4%B8%AD%E7%9A%84gmp%E8%B0%83%E5%BA%A6/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Go 语言中的GMP调度</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/go-%E5%B9%B6%E5%8F%91goroutinechannel-%E4%B8%8E-sync-%E9%94%81/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Go 并发：Goroutine、Channel 与 Sync 锁</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/go-%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D%E7%AD%96%E7%95%A5%E5%86%85%E5%AD%98%E9%80%83%E9%80%B8%E4%B8%8E-gc-%E6%9C%BA%E5%88%B6/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Go 内存分配策略、内存逃逸、与 GC 机制</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+		<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+		<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+	
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm.top\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+    </body>
+</html>
