@@ -17,7 +17,7 @@
 &lt;/h1&gt;&lt;p&gt;这份文档把 &lt;code&gt;apache/dubbo-go-pixiu&lt;/code&gt; 的 &lt;a class=&#34;link&#34; href=&#34;https://github.com/apache/dubbo-go-pixiu/issues/888&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;issue #888&lt;/a&gt; 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。&lt;/p&gt;
 &lt;p&gt;如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。&lt;/p&gt;
-&lt;h2 id=&#34;0-先用一句人话理解-saml&#34;&gt;0. 先用一句人话理解 SAML
+&lt;h2 id=&#34;0-saml-是什么&#34;&gt;0. SAML 是什么
 &lt;/h2&gt;&lt;p&gt;SAML 全称是 &lt;strong&gt;Security Assertion Markup Language&lt;/strong&gt;，中文常译为“安全断言标记语言”。它是企业单点登录（SSO）的一种标准：用户不用在每个内部系统分别输入密码，而是在统一身份系统登录一次，再进入各个业务系统。&lt;/p&gt;
 &lt;p&gt;本篇出现的三个角色可以先这样记：&lt;/p&gt;
 &lt;table&gt;
