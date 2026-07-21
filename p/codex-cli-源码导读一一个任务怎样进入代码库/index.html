@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="en-us" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（一）：一个任务怎样进入代码库 假设你正在维护一个 Go 服务。线上偶发空指针，测试还没有覆盖这个分支。你进入仓库根目录，输入：\n1 codex &#34;找出订单接口的空指针来源，修复它，并补上回归测试&#34; 这看上去像把一句话交给模型，但真正开始工作的，是一个运行在本机、知道自己身处哪个代码库的程序。它要先找到项目指令和当前会话，决定哪些文件可以读取，执行测试，再把测试输出带回下一轮。模型提出下一步；Codex 让这一步在仓库里发生。\n">
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（一）：一个任务怎样进入代码库 运行 codex 后，终端里出现的是一段对话；它的工作对象却是当前目录下的代码库。\n它需要找到项目约定，读取相关文件，运行测试，并在准备修改代码时遵守本地权限。模型只是其中一部分。围绕模型建立的运行时负责管理上下文、调用工具、保存会话，并限制每一次动作的范围。\n">
 <title>Codex CLI 源码导读（一）：一个任务怎样进入代码库</title>
 
 <link rel='canonical' href='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%80%E4%B8%80%E4%B8%AA%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E8%BF%9B%E5%85%A5%E4%BB%A3%E7%A0%81%E5%BA%93/'>
 
 <link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="Codex CLI 源码导读（一）：一个任务怎样进入代码库">
-<meta property='og:description' content="Codex CLI 源码导读（一）：一个任务怎样进入代码库 假设你正在维护一个 Go 服务。线上偶发空指针，测试还没有覆盖这个分支。你进入仓库根目录，输入：\n1 codex &#34;找出订单接口的空指针来源，修复它，并补上回归测试&#34; 这看上去像把一句话交给模型，但真正开始工作的，是一个运行在本机、知道自己身处哪个代码库的程序。它要先找到项目指令和当前会话，决定哪些文件可以读取，执行测试，再把测试输出带回下一轮。模型提出下一步；Codex 让这一步在仓库里发生。\n">
+<meta property='og:description' content="Codex CLI 源码导读（一）：一个任务怎样进入代码库 运行 codex 后，终端里出现的是一段对话；它的工作对象却是当前目录下的代码库。\n它需要找到项目约定，读取相关文件，运行测试，并在准备修改代码时遵守本地权限。模型只是其中一部分。围绕模型建立的运行时负责管理上下文、调用工具、保存会话，并限制每一次动作的范围。\n">
 <meta property='og:url' content='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%80%E4%B8%80%E4%B8%AA%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E8%BF%9B%E5%85%A5%E4%BB%A3%E7%A0%81%E5%BA%93/'>
 <meta property='og:site_name' content='Skylm'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Codex' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='CLI' /><meta property='article:tag' content='源码导读' /><meta property='article:published_time' content='2026-07-21T21:00:00&#43;08:00'/><meta property='article:modified_time' content='2026-07-21T21:00:00&#43;08:00'/>
 <meta name="twitter:title" content="Codex CLI 源码导读（一）：一个任务怎样进入代码库">
-<meta name="twitter:description" content="Codex CLI 源码导读（一）：一个任务怎样进入代码库 假设你正在维护一个 Go 服务。线上偶发空指针，测试还没有覆盖这个分支。你进入仓库根目录，输入：\n1 codex &#34;找出订单接口的空指针来源，修复它，并补上回归测试&#34; 这看上去像把一句话交给模型，但真正开始工作的，是一个运行在本机、知道自己身处哪个代码库的程序。它要先找到项目指令和当前会话，决定哪些文件可以读取，执行测试，再把测试输出带回下一轮。模型提出下一步；Codex 让这一步在仓库里发生。\n">
+<meta name="twitter:description" content="Codex CLI 源码导读（一）：一个任务怎样进入代码库 运行 codex 后，终端里出现的是一段对话；它的工作对象却是当前目录下的代码库。\n它需要找到项目约定，读取相关文件，运行测试，并在准备修改代码时遵守本地权限。模型只是其中一部分。围绕模型建立的运行时负责管理上下文、调用工具、保存会话，并限制每一次动作的范围。\n">
     <link rel="shortcut icon" href="/favicon.ico" />
 
     </head>
@@ -346,22 +346,15 @@
     
     
     <h1 id="codex-cli-源码导读一一个任务怎样进入代码库">Codex CLI 源码导读（一）：一个任务怎样进入代码库
-</h1><p>假设你正在维护一个 Go 服务。线上偶发空指针，测试还没有覆盖这个分支。你进入仓库根目录，输入：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>codex <span style="color:#f1fa8c">&#34;找出订单接口的空指针来源，修复它，并补上回归测试&#34;</span>
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>这看上去像把一句话交给模型，但真正开始工作的，是一个运行在本机、知道自己身处哪个代码库的程序。它要先找到项目指令和当前会话，决定哪些文件可以读取，执行测试，再把测试输出带回下一轮。模型提出下一步；Codex 让这一步在仓库里发生。</p>
-<p>这就是读 Codex 源码时最该抓住的主线：把 Codex 看成一套运行时更准确。它让模型在真实工程环境里观察、行动和校验。</p>
-<p>本文不从 <code>core</code> 目录或一堆 Rust crate 开始。先认识 Codex CLI，再看它和 App 的关系，最后沿着这条任务把整体结构走一遍。目录名会出现，但它们是路标，不是正文。</p>
+</h1><p>运行 <code>codex</code> 后，终端里出现的是一段对话；它的工作对象却是当前目录下的代码库。</p>
+<p>它需要找到项目约定，读取相关文件，运行测试，并在准备修改代码时遵守本地权限。模型只是其中一部分。围绕模型建立的运行时负责管理上下文、调用工具、保存会话，并限制每一次动作的范围。</p>
+<p>理解 Codex CLI 的起点不该是“它用了哪个模型”，而是“它怎样让模型在一个真实项目里工作”。</p>
+<p>本文先介绍 Codex CLI，再说明它和 App 的关系，最后沿着一次任务画出整体结构。目录名会出现，但它们只是路标。</p>
 <h2 id="codex-cli任务发生在本地">Codex CLI：任务发生在本地
 </h2><p><code>openai/codex</code> 的 README 将它定位为运行在本机的 Codex CLI。这个“本机”并不是一个无关紧要的部署细节。</p>
 <p>在普通聊天窗口里，模型只能根据你贴进去的内容回答。CLI 则站在当前工作目录中。它可以查看 Git 状态、读取项目文件、运行已有测试，并在权限允许时写入修改。于是，“修一个空指针”不再是一段建议，而是一段可以被验证的工作。</p>
-<p>不过，模型并不会天然看到整个仓库。一次任务通常是逐步展开的：先搜索 <code>OrderService</code>，再读取相关实现与测试，然后运行目标测试。每次工具返回的内容，才会进入下一轮决策。</p>
+<p>模型不会一次看完整个仓库。一次任务通常是逐步展开的：先搜索 <code>OrderService</code>，再读取相关实现与测试，然后运行目标测试。每次工具返回的内容，才会进入下一轮决策。</p>
+<p>后面会一直用一个 Go 服务的空指针问题作为例子：它足够具体，能把一次工具调用和后续的测试验证串起来。</p>
 <pre class="mermaid">sequenceDiagram
     participant D as 开发者
     participant C as Codex 本地运行时
@@ -380,10 +373,9 @@
     C--&gt;&gt;D: 修改与验证结果</pre>
 <p>图中的 Codex 是关键。它夹在模型和工作区之间，既负责传递信息，也负责控制动作。没有这一层，模型只能给出建议；有了它，模型才可以参与一次完整的软件任务。</p>
 <h2 id="cli-和-codex-app两个入口各自分工">CLI 和 Codex App：两个入口，各自分工
-</h2><p>第一次看到 <code>codex app</code> 时，我也会产生一个疑问：既然仓库主要叫 Codex CLI，为什么又有 App？</p>
-<p>答案不复杂。CLI 和 App 是使用 Codex 的两个入口。</p>
+</h2><p>CLI 和 App 提供的是两种使用 Codex 的方式。</p>
 <p>CLI 以终端为中心。开发者在代码库里发起任务，直接看到命令、文件改动和测试输出。它的节奏和日常开发很接近。</p>
-<p>App 以桌面界面为中心。它更适合查看任务、过程与结果。当前 README 也将 <code>codex app</code> 列为桌面端体验的启动方式，仓库因此也包含通向桌面体验的入口。</p>
+<p>App 以桌面界面为中心，更适合查看任务、过程与结果。当前 README 也将 <code>codex app</code> 列为桌面端体验的启动方式。</p>
 <p>两者真正共用的重点，是本地任务运行时：会话怎样建立，模型怎样获得上下文，工具怎样执行，哪些动作需要被限制。界面层决定人怎样发起和查看任务；运行时决定任务怎样进入代码库。</p>
 <div class="table-wrapper"><table>
 	<thead>
