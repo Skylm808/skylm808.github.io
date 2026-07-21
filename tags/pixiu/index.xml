@@ -518,6 +518,39 @@
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;这保证了 validator 可以读，后续链路也还能读。&lt;/p&gt;
+&lt;p&gt;这里三个对象的分工很容易混淆：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;req.Body = io.&lt;span style=&#34;color:#50fa7b&#34;&gt;NopCloser&lt;/span&gt;(bytes.&lt;span style=&#34;color:#50fa7b&#34;&gt;NewReader&lt;/span&gt;(body))
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;部分&lt;/th&gt;
+					&lt;th&gt;作用&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;body []byte&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;真正保存已经读出的 JSON 字节&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;bytes.NewReader(body)&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;从这份内存字节的开头重新创建一个可读流&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;io.NopCloser(...)&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;给 reader 补一个什么都不做的 &lt;code&gt;Close()&lt;/code&gt;，使其满足 &lt;code&gt;req.Body&lt;/code&gt; 要求的 &lt;code&gt;io.ReadCloser&lt;/code&gt; 接口&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;code&gt;io.NopCloser&lt;/code&gt; 不保存 body，也不会重新读取网络；它只是适配类型。原始 HTTP body 通常关联网络资源，读完要关闭；现在的 body 已经在内存里，关闭时没有资源需要释放，所以 &lt;code&gt;Close()&lt;/code&gt; 直接返回 &lt;code&gt;nil&lt;/code&gt; 即可。&lt;/p&gt;
+&lt;p&gt;例如请求体是 &lt;code&gt;{&amp;quot;name&amp;quot;:&amp;quot;tom&amp;quot;}&lt;/code&gt;：filter 先读出字节到 &lt;code&gt;body&lt;/code&gt;，原始 &lt;code&gt;req.Body&lt;/code&gt; 此时已经 EOF；&lt;code&gt;bytes.NewReader(body)&lt;/code&gt; 让下一位读取者又能从 &lt;code&gt;{&lt;/code&gt; 开始读；&lt;code&gt;io.NopCloser&lt;/code&gt; 让这个内存 reader 可以赋值给 &lt;code&gt;req.Body&lt;/code&gt;。&lt;/p&gt;
 &lt;h3 id=&#34;48-为什么要限制-body-大小&#34;&gt;4.8 为什么要限制 body 大小
 &lt;/h3&gt;&lt;p&gt;旧写法或 SDK 内部如果直接 &lt;code&gt;io.ReadAll(req.Body)&lt;/code&gt;，遇到很大的 JSON 或 chunked body，会在网关热路径上放大内存和延迟风险。&lt;/p&gt;
 &lt;p&gt;最终实现分两层：&lt;/p&gt;
@@ -551,16 +584,90 @@
 &lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;$ref&lt;/span&gt;: ./schemas/user.yaml#/User
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;这很常见，但也带来同样的文件读取边界问题。最终实现 &lt;code&gt;validateExternalRefs()&lt;/code&gt; 会递归扫描 spec 中的外部 &lt;code&gt;$ref&lt;/code&gt;：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;允许本地相对 &lt;code&gt;$ref&lt;/code&gt;。&lt;/li&gt;
-&lt;li&gt;拒绝远程 URL，例如 &lt;code&gt;https://example.com/schema.yaml&lt;/code&gt;。&lt;/li&gt;
-&lt;li&gt;拒绝绝对路径。&lt;/li&gt;
-&lt;li&gt;拒绝 &lt;code&gt;..&lt;/code&gt;。&lt;/li&gt;
-&lt;li&gt;解析 symlink 后必须仍在 OpenAPI 根目录内。&lt;/li&gt;
-&lt;li&gt;用 &lt;code&gt;visited&lt;/code&gt; 防止重复递归。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;这部分是 review 后补强的，不只是功能问题，更是安全边界问题。&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;这很常见，但也意味着：&lt;strong&gt;OpenAPI 文件里的一个字符串，会影响网关启动时读取哪个本地文件。&lt;/strong&gt; 因此它不能只交给 SDK 随意解析，必须先划定读取边界。&lt;/p&gt;
+&lt;p&gt;假设主文件是 &lt;code&gt;configs/openapi/api.yaml&lt;/code&gt;，它所在目录就是本次允许读取的根目录 &lt;code&gt;configs/openapi&lt;/code&gt;。&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;&lt;code&gt;$ref&lt;/code&gt;&lt;/th&gt;
+					&lt;th&gt;结果&lt;/th&gt;
+					&lt;th&gt;原因&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;./schemas/user.yaml#/User&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;允许&lt;/td&gt;
+					&lt;td&gt;相对当前文件，真实路径仍在根目录内&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;common.yaml#/Error&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;允许&lt;/td&gt;
+					&lt;td&gt;同目录下的本地文件&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;https://example.com/schema.yaml#/User&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;拒绝&lt;/td&gt;
+					&lt;td&gt;不让启动过程发起远程读取&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;/etc/passwd#/User&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;拒绝&lt;/td&gt;
+					&lt;td&gt;绝对路径可能读取宿主机敏感文件&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;../../secret.yaml#/User&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;拒绝&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;..&lt;/code&gt; 试图越出 OpenAPI 目录&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;./schemas/current/user.yaml#/User&lt;/code&gt;，其中 &lt;code&gt;current -&amp;gt; /etc&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;拒绝&lt;/td&gt;
+					&lt;td&gt;字符串看似安全，真实路径已逃出根目录&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;code&gt;validateExternalRefs()&lt;/code&gt; 的关键调用如下（省略 &lt;code&gt;err&lt;/code&gt; 的返回处理）：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 8
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 9
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;10
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;11
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;12
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;13
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;spec, _ &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; os.&lt;span style=&#34;color:#50fa7b&#34;&gt;ReadFile&lt;/span&gt;(path)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;yaml.&lt;span style=&#34;color:#50fa7b&#34;&gt;Unmarshal&lt;/span&gt;(spec, &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;amp;&lt;/span&gt;raw)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;refs &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;collectExternalRefs&lt;/span&gt;(raw, &lt;span style=&#34;color:#ff79c6&#34;&gt;nil&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;for&lt;/span&gt; _, ref &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;range&lt;/span&gt; refs {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#50fa7b&#34;&gt;validateExternalRefPath&lt;/span&gt;(path, rootDir, ref)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    refPath, _, ok &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;splitRefTarget&lt;/span&gt;(ref)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; !ok {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#ff79c6&#34;&gt;continue&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    resolved &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;resolveSafeReferencePath&lt;/span&gt;(filepath.&lt;span style=&#34;color:#50fa7b&#34;&gt;Dir&lt;/span&gt;(path), refPath, rootDir)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#50fa7b&#34;&gt;validateExternalRefsInFile&lt;/span&gt;(resolved, rootDir, visited)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;可以按四步理解：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;collectExternalRefs()&lt;/code&gt; 递归遍历 YAML 的 map 和 list，找到所有 &lt;code&gt;$ref&lt;/code&gt;；只引用当前文件内部的 &lt;code&gt;#/components/...&lt;/code&gt; 不需要读新文件，所以跳过。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;validateExternalRefPath()&lt;/code&gt; 先拒绝带 scheme 或 host 的远程地址、绝对路径和 &lt;code&gt;..&lt;/code&gt;。例如 &lt;code&gt;https://...&lt;/code&gt; 的 scheme 是 &lt;code&gt;https&lt;/code&gt;，会直接报错。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;resolveSafeReferencePath()&lt;/code&gt; 用当前文件目录和相对路径拼出候选文件，再用 &lt;code&gt;filepath.EvalSymlinks()&lt;/code&gt; 得到真实位置；最后用 &lt;code&gt;filepath.Rel()&lt;/code&gt; 判断真实位置是否仍属于 &lt;code&gt;rootDir&lt;/code&gt;。这一步专门防 symlink 绕过。&lt;/li&gt;
+&lt;li&gt;校验通过后才递归读取被引用文件，继续检查它里面的 &lt;code&gt;$ref&lt;/code&gt;。&lt;code&gt;visited&lt;/code&gt; 记录已经检查过的文件：多个 schema 都引用 &lt;code&gt;common.yaml&lt;/code&gt; 时不重复扫描；A 引 B、B 又引 A 时也不会无限递归。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这部分是 reviewer 建议后逐步补强的。最初只限制主 OpenAPI 文件还不够，因为 SDK 随后会顺着外部 &lt;code&gt;$ref&lt;/code&gt; 继续读文件；安全边界必须覆盖这条完整读取链路。配置加载阶段只要发现一个不安全引用，就让 filter 启动失败（fail fast），而不是带着不确定的文件来源继续运行。&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2 id=&#34;6-apiconfig-迁移兼容怎么写&#34;&gt;6. apiconfig 迁移兼容怎么写
 &lt;/h2&gt;&lt;p&gt;旧配置可能长这样：&lt;/p&gt;

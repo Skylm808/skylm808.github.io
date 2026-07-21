@@ -365,7 +365,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 13 分钟
+                    阅读时长: 15 分钟
                 </time>
             </div>
         
@@ -885,6 +885,39 @@
 </span></span></code></pre></td></tr></table>
 </div>
 </div><p>这保证了 validator 可以读，后续链路也还能读。</p>
+<p>这里三个对象的分工很容易混淆：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>req.Body = io.<span style="color:#50fa7b">NopCloser</span>(bytes.<span style="color:#50fa7b">NewReader</span>(body))
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>部分</th>
+					<th>作用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>body []byte</code></td>
+					<td>真正保存已经读出的 JSON 字节</td>
+			</tr>
+			<tr>
+					<td><code>bytes.NewReader(body)</code></td>
+					<td>从这份内存字节的开头重新创建一个可读流</td>
+			</tr>
+			<tr>
+					<td><code>io.NopCloser(...)</code></td>
+					<td>给 reader 补一个什么都不做的 <code>Close()</code>，使其满足 <code>req.Body</code> 要求的 <code>io.ReadCloser</code> 接口</td>
+			</tr>
+	</tbody>
+</table></div>
+<p><code>io.NopCloser</code> 不保存 body，也不会重新读取网络；它只是适配类型。原始 HTTP body 通常关联网络资源，读完要关闭；现在的 body 已经在内存里，关闭时没有资源需要释放，所以 <code>Close()</code> 直接返回 <code>nil</code> 即可。</p>
+<p>例如请求体是 <code>{&quot;name&quot;:&quot;tom&quot;}</code>：filter 先读出字节到 <code>body</code>，原始 <code>req.Body</code> 此时已经 EOF；<code>bytes.NewReader(body)</code> 让下一位读取者又能从 <code>{</code> 开始读；<code>io.NopCloser</code> 让这个内存 reader 可以赋值给 <code>req.Body</code>。</p>
 <h3 id="48-为什么要限制-body-大小">4.8 为什么要限制 body 大小
 </h3><p>旧写法或 SDK 内部如果直接 <code>io.ReadAll(req.Body)</code>，遇到很大的 JSON 或 chunked body，会在网关热路径上放大内存和延迟风险。</p>
 <p>最终实现分两层：</p>
@@ -918,16 +951,90 @@
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ff79c6">$ref</span>: ./schemas/user.yaml#/User
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>这很常见，但也带来同样的文件读取边界问题。最终实现 <code>validateExternalRefs()</code> 会递归扫描 spec 中的外部 <code>$ref</code>：</p>
-<ul>
-<li>允许本地相对 <code>$ref</code>。</li>
-<li>拒绝远程 URL，例如 <code>https://example.com/schema.yaml</code>。</li>
-<li>拒绝绝对路径。</li>
-<li>拒绝 <code>..</code>。</li>
-<li>解析 symlink 后必须仍在 OpenAPI 根目录内。</li>
-<li>用 <code>visited</code> 防止重复递归。</li>
-</ul>
-<p>这部分是 review 后补强的，不只是功能问题，更是安全边界问题。</p>
+</div><p>这很常见，但也意味着：<strong>OpenAPI 文件里的一个字符串，会影响网关启动时读取哪个本地文件。</strong> 因此它不能只交给 SDK 随意解析，必须先划定读取边界。</p>
+<p>假设主文件是 <code>configs/openapi/api.yaml</code>，它所在目录就是本次允许读取的根目录 <code>configs/openapi</code>。</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th><code>$ref</code></th>
+					<th>结果</th>
+					<th>原因</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>./schemas/user.yaml#/User</code></td>
+					<td>允许</td>
+					<td>相对当前文件，真实路径仍在根目录内</td>
+			</tr>
+			<tr>
+					<td><code>common.yaml#/Error</code></td>
+					<td>允许</td>
+					<td>同目录下的本地文件</td>
+			</tr>
+			<tr>
+					<td><code>https://example.com/schema.yaml#/User</code></td>
+					<td>拒绝</td>
+					<td>不让启动过程发起远程读取</td>
+			</tr>
+			<tr>
+					<td><code>/etc/passwd#/User</code></td>
+					<td>拒绝</td>
+					<td>绝对路径可能读取宿主机敏感文件</td>
+			</tr>
+			<tr>
+					<td><code>../../secret.yaml#/User</code></td>
+					<td>拒绝</td>
+					<td><code>..</code> 试图越出 OpenAPI 目录</td>
+			</tr>
+			<tr>
+					<td><code>./schemas/current/user.yaml#/User</code>，其中 <code>current -&gt; /etc</code></td>
+					<td>拒绝</td>
+					<td>字符串看似安全，真实路径已逃出根目录</td>
+			</tr>
+	</tbody>
+</table></div>
+<p><code>validateExternalRefs()</code> 的关键调用如下（省略 <code>err</code> 的返回处理）：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>spec, _ <span style="color:#ff79c6">:=</span> os.<span style="color:#50fa7b">ReadFile</span>(path)
+</span></span><span style="display:flex;"><span>yaml.<span style="color:#50fa7b">Unmarshal</span>(spec, <span style="color:#ff79c6">&amp;</span>raw)
+</span></span><span style="display:flex;"><span>refs <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">collectExternalRefs</span>(raw, <span style="color:#ff79c6">nil</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">for</span> _, ref <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> refs {
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">validateExternalRefPath</span>(path, rootDir, ref)
+</span></span><span style="display:flex;"><span>    refPath, _, ok <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">splitRefTarget</span>(ref)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> !ok {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">continue</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    resolved <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">resolveSafeReferencePath</span>(filepath.<span style="color:#50fa7b">Dir</span>(path), refPath, rootDir)
+</span></span><span style="display:flex;"><span>    <span style="color:#50fa7b">validateExternalRefsInFile</span>(resolved, rootDir, visited)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>可以按四步理解：</p>
+<ol>
+<li><code>collectExternalRefs()</code> 递归遍历 YAML 的 map 和 list，找到所有 <code>$ref</code>；只引用当前文件内部的 <code>#/components/...</code> 不需要读新文件，所以跳过。</li>
+<li><code>validateExternalRefPath()</code> 先拒绝带 scheme 或 host 的远程地址、绝对路径和 <code>..</code>。例如 <code>https://...</code> 的 scheme 是 <code>https</code>，会直接报错。</li>
+<li><code>resolveSafeReferencePath()</code> 用当前文件目录和相对路径拼出候选文件，再用 <code>filepath.EvalSymlinks()</code> 得到真实位置；最后用 <code>filepath.Rel()</code> 判断真实位置是否仍属于 <code>rootDir</code>。这一步专门防 symlink 绕过。</li>
+<li>校验通过后才递归读取被引用文件，继续检查它里面的 <code>$ref</code>。<code>visited</code> 记录已经检查过的文件：多个 schema 都引用 <code>common.yaml</code> 时不重复扫描；A 引 B、B 又引 A 时也不会无限递归。</li>
+</ol>
+<p>这部分是 reviewer 建议后逐步补强的。最初只限制主 OpenAPI 文件还不够，因为 SDK 随后会顺着外部 <code>$ref</code> 继续读文件；安全边界必须覆盖这条完整读取链路。配置加载阶段只要发现一个不安全引用，就让 filter 启动失败（fail fast），而不是带着不确定的文件来源继续运行。</p>
 <hr>
 <h2 id="6-apiconfig-迁移兼容怎么写">6. apiconfig 迁移兼容怎么写
 </h2><p>旧配置可能长这样：</p>
