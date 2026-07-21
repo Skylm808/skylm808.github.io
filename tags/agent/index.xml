@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Agent on Skylm</title>
+        <link>https://skylm.top/tags/agent/</link>
+        <description>Recent content in Agent on Skylm</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>en-us</language>
+        <copyright>Skylm</copyright>
+        <lastBuildDate>Tue, 21 Jul 2026 21:00:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/agent/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Codex CLI 源码导读（一）：一个任务怎样进入代码库</title>
+        <link>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%80%E4%B8%80%E4%B8%AA%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E8%BF%9B%E5%85%A5%E4%BB%A3%E7%A0%81%E5%BA%93/</link>
+        <pubDate>Tue, 21 Jul 2026 21:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%80%E4%B8%80%E4%B8%AA%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E8%BF%9B%E5%85%A5%E4%BB%A3%E7%A0%81%E5%BA%93/</guid>
+        <description>&lt;h1 id=&#34;codex-cli-源码导读一一个任务怎样进入代码库&#34;&gt;Codex CLI 源码导读（一）：一个任务怎样进入代码库
+&lt;/h1&gt;&lt;p&gt;假设你正在维护一个 Go 服务。线上偶发空指针，测试还没有覆盖这个分支。你进入仓库根目录，输入：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;codex &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;找出订单接口的空指针来源，修复它，并补上回归测试&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这看上去像把一句话交给模型，但真正开始工作的，是一个运行在本机、知道自己身处哪个代码库的程序。它要先找到项目指令和当前会话，决定哪些文件可以读取，执行测试，再把测试输出带回下一轮。模型提出下一步；Codex 让这一步在仓库里发生。&lt;/p&gt;
+&lt;p&gt;这就是读 Codex 源码时最该抓住的主线：把 Codex 看成一套运行时更准确。它让模型在真实工程环境里观察、行动和校验。&lt;/p&gt;
+&lt;p&gt;本文不从 &lt;code&gt;core&lt;/code&gt; 目录或一堆 Rust crate 开始。先认识 Codex CLI，再看它和 App 的关系，最后沿着这条任务把整体结构走一遍。目录名会出现，但它们是路标，不是正文。&lt;/p&gt;
+&lt;h2 id=&#34;codex-cli任务发生在本地&#34;&gt;Codex CLI：任务发生在本地
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;openai/codex&lt;/code&gt; 的 README 将它定位为运行在本机的 Codex CLI。这个“本机”并不是一个无关紧要的部署细节。&lt;/p&gt;
+&lt;p&gt;在普通聊天窗口里，模型只能根据你贴进去的内容回答。CLI 则站在当前工作目录中。它可以查看 Git 状态、读取项目文件、运行已有测试，并在权限允许时写入修改。于是，“修一个空指针”不再是一段建议，而是一段可以被验证的工作。&lt;/p&gt;
+&lt;p&gt;不过，模型并不会天然看到整个仓库。一次任务通常是逐步展开的：先搜索 &lt;code&gt;OrderService&lt;/code&gt;，再读取相关实现与测试，然后运行目标测试。每次工具返回的内容，才会进入下一轮决策。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;sequenceDiagram
+    participant D as 开发者
+    participant C as Codex 本地运行时
+    participant M as 模型
+    participant R as 代码库与工具
+
+    D-&amp;gt;&amp;gt;C: 修复订单接口的空指针
+    C-&amp;gt;&amp;gt;M: 任务、项目指令和当前上下文
+    M-&amp;gt;&amp;gt;C: 搜索并读取相关代码
+    C-&amp;gt;&amp;gt;R: 搜索文件、读取实现和测试
+    R--&amp;gt;&amp;gt;C: 代码与命令输出
+    C-&amp;gt;&amp;gt;M: 新的观察结果
+    M-&amp;gt;&amp;gt;C: 修改代码并运行测试
+    C-&amp;gt;&amp;gt;R: 应用修改，执行测试
+    R--&amp;gt;&amp;gt;C: 测试结果
+    C--&amp;gt;&amp;gt;D: 修改与验证结果&lt;/pre&gt;
+&lt;p&gt;图中的 Codex 是关键。它夹在模型和工作区之间，既负责传递信息，也负责控制动作。没有这一层，模型只能给出建议；有了它，模型才可以参与一次完整的软件任务。&lt;/p&gt;
+&lt;h2 id=&#34;cli-和-codex-app两个入口各自分工&#34;&gt;CLI 和 Codex App：两个入口，各自分工
+&lt;/h2&gt;&lt;p&gt;第一次看到 &lt;code&gt;codex app&lt;/code&gt; 时，我也会产生一个疑问：既然仓库主要叫 Codex CLI，为什么又有 App？&lt;/p&gt;
+&lt;p&gt;答案不复杂。CLI 和 App 是使用 Codex 的两个入口。&lt;/p&gt;
+&lt;p&gt;CLI 以终端为中心。开发者在代码库里发起任务，直接看到命令、文件改动和测试输出。它的节奏和日常开发很接近。&lt;/p&gt;
+&lt;p&gt;App 以桌面界面为中心。它更适合查看任务、过程与结果。当前 README 也将 &lt;code&gt;codex app&lt;/code&gt; 列为桌面端体验的启动方式，仓库因此也包含通向桌面体验的入口。&lt;/p&gt;
+&lt;p&gt;两者真正共用的重点，是本地任务运行时：会话怎样建立，模型怎样获得上下文，工具怎样执行，哪些动作需要被限制。界面层决定人怎样发起和查看任务；运行时决定任务怎样进入代码库。&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;入口&lt;/th&gt;
+					&lt;th&gt;用户主要看到什么&lt;/th&gt;
+					&lt;th&gt;本文关心什么&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;CLI&lt;/td&gt;
+					&lt;td&gt;命令、终端对话、文件改动、测试输出&lt;/td&gt;
+					&lt;td&gt;任务如何在本地仓库中运行&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;App&lt;/td&gt;
+					&lt;td&gt;任务视图、执行过程、结果&lt;/td&gt;
+					&lt;td&gt;与本地运行时相连的部分&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;后面的文章会一直坚持这个边界。本文只研究 Codex 的本地 Agent 运行时；桌面产品和云端服务的内部实现不在讨论范围内。&lt;/p&gt;
+&lt;h2 id=&#34;一次任务经过哪些部分&#34;&gt;一次任务经过哪些部分
+&lt;/h2&gt;&lt;p&gt;回到开头的空指针问题。为了完成这件小事，Codex 不只需要一个模型接口。它至少要处理五类工作。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;flowchart TB
+    I[&amp;#34;入口\nCLI、终端界面、App 连接&amp;#34;] --&amp;gt; S[&amp;#34;会话与上下文\n任务、项目指令、历史、配置&amp;#34;]
+    S --&amp;gt; A[&amp;#34;Agent 核心\n组织模型响应与任务推进&amp;#34;]
+    A &amp;lt;--&amp;gt; M[&amp;#34;模型与后端\n发送上下文，接收响应&amp;#34;]
+    A &amp;lt;--&amp;gt; T[&amp;#34;工具运行时\n读文件、搜索、改代码、执行命令&amp;#34;]
+    T --&amp;gt; W[&amp;#34;本地工作区&amp;#34;]
+    G[&amp;#34;安全边界\nSandbox、执行策略、权限升级&amp;#34;] -.约束.-&amp;gt; T&lt;/pre&gt;
+&lt;h3 id=&#34;入口把人的意图变成一个任务&#34;&gt;入口：把人的意图变成一个任务
+&lt;/h3&gt;&lt;p&gt;在 &lt;code&gt;codex-rs&lt;/code&gt; 工作区里，&lt;code&gt;cli&lt;/code&gt;、&lt;code&gt;tui&lt;/code&gt; 和 &lt;code&gt;app-server&lt;/code&gt; 分别对应命令行、终端交互和面向其他客户端的服务入口。它们接住任务，并把执行过程呈现给用户。&lt;/p&gt;
+&lt;p&gt;这也是 CLI 与 App 的差异最容易落到源码里的地方：它们的交互可以不同，但都需要把一个明确的任务交给后面的运行时。&lt;/p&gt;
+&lt;h3 id=&#34;会话与上下文决定模型此刻知道什么&#34;&gt;会话与上下文：决定模型此刻知道什么
+&lt;/h3&gt;&lt;p&gt;项目理解必须由运行时逐步拼装。任务文本、当前目录、项目配置、&lt;code&gt;AGENTS.md&lt;/code&gt;、已读文件和前几轮工具输出，都会成为当前会话的一部分。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;core&lt;/code&gt; 周围的 &lt;code&gt;thread-store&lt;/code&gt;、&lt;code&gt;context-fragments&lt;/code&gt;、&lt;code&gt;prompts&lt;/code&gt;、&lt;code&gt;state&lt;/code&gt; 等模块都和这件事有关。阅读这里时，要先记住一个限制：上下文是有限的。把所有文档塞给模型通常不会带来更好的结果，运行时必须决定哪些信息现在相关。&lt;/p&gt;
+&lt;h3 id=&#34;agent-核心把下一步接进循环&#34;&gt;Agent 核心：把“下一步”接进循环
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;core&lt;/code&gt; 和 &lt;code&gt;rollout&lt;/code&gt; 一类模块负责推进任务。它们收到模型的回答后，要判断这是一段最终回复，还是一次读取文件、运行命令、应用补丁的请求；工具完成后，又把结果放回会话，继续下一轮。&lt;/p&gt;
+&lt;p&gt;这里的 Agent 是一条反馈回路：模型选择动作，运行时执行动作，执行结果改变模型下一轮能看到的内容。&lt;/p&gt;
+&lt;h3 id=&#34;模型与后端让上下文和响应来回流动&#34;&gt;模型与后端：让上下文和响应来回流动
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;codex-api&lt;/code&gt;、&lt;code&gt;backend-client&lt;/code&gt;、&lt;code&gt;model-provider&lt;/code&gt; 等模块处理模型或后端通信。它们把核心层准备好的请求发出去，也把流式文本、工具请求和失败信息带回来。&lt;/p&gt;
+&lt;p&gt;这一层能告诉我们请求怎样构造、响应怎样解析、失败怎样恢复。可分析的边界到此为止：任务循环可以观察，模型的私有推理无法从源码中还原。&lt;/p&gt;
+&lt;h3 id=&#34;工具与安全边界让动作发生也让它止步&#34;&gt;工具与安全边界：让动作发生，也让它止步
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;tools&lt;/code&gt;、&lt;code&gt;exec&lt;/code&gt;、&lt;code&gt;shell-command&lt;/code&gt;、&lt;code&gt;file-search&lt;/code&gt;、&lt;code&gt;apply-patch&lt;/code&gt;、&lt;code&gt;git-utils&lt;/code&gt; 负责对工作区做事。它们把“搜索 &lt;code&gt;OrderService&lt;/code&gt;”“读取测试”“运行 &lt;code&gt;go test&lt;/code&gt;”变成真正的本地操作。&lt;/p&gt;
+&lt;p&gt;同一条路径旁边，还有 &lt;code&gt;sandboxing&lt;/code&gt;、&lt;code&gt;execpolicy&lt;/code&gt;、&lt;code&gt;shell-escalation&lt;/code&gt;、&lt;code&gt;process-hardening&lt;/code&gt;。它们存在的理由很朴素：模型可以提出动作，不代表动作就应该直接执行。一个能修改仓库的 Agent，必须知道哪些目录可写、哪些命令要确认、失败时怎样把原因交回会话。&lt;/p&gt;
+&lt;p&gt;工具让模型获得行动能力；安全边界让这种能力不会越过工作区和权限范围。两部分应该一起读，拆开看会误以为 Agent 只是“会跑 Shell”。&lt;/p&gt;
+&lt;h2 id=&#34;为什么第一张架构图要这样画&#34;&gt;为什么第一张架构图要这样画
+&lt;/h2&gt;&lt;p&gt;仓库里还有 &lt;code&gt;skills&lt;/code&gt;、&lt;code&gt;plugin&lt;/code&gt;、&lt;code&gt;codex-mcp&lt;/code&gt;、&lt;code&gt;hooks&lt;/code&gt;、&lt;code&gt;memories&lt;/code&gt; 等模块。它们很重要，但不该在第一章抢走主线。&lt;/p&gt;
+&lt;p&gt;先看清任务怎样进入运行时、怎样调用模型、怎样使用工具，MCP 和 Skill 才有合适的位置。Skill 影响 Agent 如何做事，MCP 为它接入外部工具和数据；两者都建立在前面这条任务与工具链路之上。&lt;/p&gt;
+&lt;p&gt;后续读源码时，可以带着四个问题往下走：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;当前任务的上下文是从哪里组装出来的？&lt;/li&gt;
+&lt;li&gt;工具请求怎样从模型响应变成一次本地调用？&lt;/li&gt;
+&lt;li&gt;哪一层决定一条命令可以直接执行，还是需要确认？&lt;/li&gt;
+&lt;li&gt;工具结果怎样重新进入下一轮会话？&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这四个问题会比目录树更早把你带到关键代码。下一篇就从任务启动和会话创建开始。&lt;/p&gt;
+&lt;h2 id=&#34;参考资料&#34;&gt;参考资料
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/openai/codex&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;openai/codex&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://openai.com/zh-Hans-CN/index/harness-engineering/&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;工程技术：在智能体优先的世界中利用 Codex&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://developers.openai.com/codex/cli&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;Codex CLI 文档&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（一）：一个任务怎样进入代码库 假设你正在维护一个 Go 服务。线上偶发空指针，测试还没有覆盖这个分支。你进入仓库根目录，输入：\n1 codex &#34;找出订单接口的空指针来源，修复它，并补上回归测试&#34; 这看上去像把一句话交给模型，但真正开始工作的，是一个运行在本机、知道自己身处哪个代码库的程序。它要先找到项目指令和当前会话，决定哪些文件可以读取，执行测试，再把测试输出带回下一轮。模型提出下一步；Codex 让这一步在仓库里发生。\n">
+<title>Codex CLI 源码导读（一）：一个任务怎样进入代码库</title>
+
+<link rel='canonical' href='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%80%E4%B8%80%E4%B8%AA%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E8%BF%9B%E5%85%A5%E4%BB%A3%E7%A0%81%E5%BA%93/'>
+
+<link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="Codex CLI 源码导读（一）：一个任务怎样进入代码库">
+<meta property='og:description' content="Codex CLI 源码导读（一）：一个任务怎样进入代码库 假设你正在维护一个 Go 服务。线上偶发空指针，测试还没有覆盖这个分支。你进入仓库根目录，输入：\n1 codex &#34;找出订单接口的空指针来源，修复它，并补上回归测试&#34; 这看上去像把一句话交给模型，但真正开始工作的，是一个运行在本机、知道自己身处哪个代码库的程序。它要先找到项目指令和当前会话，决定哪些文件可以读取，执行测试，再把测试输出带回下一轮。模型提出下一步；Codex 让这一步在仓库里发生。\n">
+<meta property='og:url' content='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%80%E4%B8%80%E4%B8%AA%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E8%BF%9B%E5%85%A5%E4%BB%A3%E7%A0%81%E5%BA%93/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Codex' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='CLI' /><meta property='article:tag' content='源码导读' /><meta property='article:published_time' content='2026-07-21T21:00:00&#43;08:00'/><meta property='article:modified_time' content='2026-07-21T21:00:00&#43;08:00'/>
+<meta name="twitter:title" content="Codex CLI 源码导读（一）：一个任务怎样进入代码库">
+<meta name="twitter:description" content="Codex CLI 源码导读（一）：一个任务怎样进入代码库 假设你正在维护一个 Go 服务。线上偶发空指针，测试还没有覆盖这个分支。你进入仓库根目录，输入：\n1 codex &#34;找出订单接口的空指针来源，修复它，并补上回归测试&#34; 这看上去像把一句话交给模型，但真正开始工作的，是一个运行在本机、知道自己身处哪个代码库的程序。它要先找到项目指令和当前会话，决定哪些文件可以读取，执行测试，再把测试输出带回下一轮。模型提出下一步；Codex 让这一步在仓库里发生。\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友链</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#codex-cli任务发生在本地">Codex CLI：任务发生在本地</a></li>
+    <li><a href="#cli-和-codex-app两个入口各自分工">CLI 和 Codex App：两个入口，各自分工</a></li>
+    <li><a href="#一次任务经过哪些部分">一次任务经过哪些部分</a>
+      <ol>
+        <li><a href="#入口把人的意图变成一个任务">入口：把人的意图变成一个任务</a></li>
+        <li><a href="#会话与上下文决定模型此刻知道什么">会话与上下文：决定模型此刻知道什么</a></li>
+        <li><a href="#agent-核心把下一步接进循环">Agent 核心：把“下一步”接进循环</a></li>
+        <li><a href="#模型与后端让上下文和响应来回流动">模型与后端：让上下文和响应来回流动</a></li>
+        <li><a href="#工具与安全边界让动作发生也让它止步">工具与安全边界：让动作发生，也让它止步</a></li>
+      </ol>
+    </li>
+    <li><a href="#为什么第一张架构图要这样画">为什么第一张架构图要这样画</a></li>
+    <li><a href="#参考资料">参考资料</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/ai/" >
+                AI
+            </a>
+        
+            <a href="/categories/%E5%BC%80%E6%BA%90/" >
+                开源
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%80%E4%B8%80%E4%B8%AA%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E8%BF%9B%E5%85%A5%E4%BB%A3%E7%A0%81%E5%BA%93/">Codex CLI 源码导读（一）：一个任务怎样进入代码库</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Jul 21, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 6 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="codex-cli-源码导读一一个任务怎样进入代码库">Codex CLI 源码导读（一）：一个任务怎样进入代码库
+</h1><p>假设你正在维护一个 Go 服务。线上偶发空指针，测试还没有覆盖这个分支。你进入仓库根目录，输入：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>codex <span style="color:#f1fa8c">&#34;找出订单接口的空指针来源，修复它，并补上回归测试&#34;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这看上去像把一句话交给模型，但真正开始工作的，是一个运行在本机、知道自己身处哪个代码库的程序。它要先找到项目指令和当前会话，决定哪些文件可以读取，执行测试，再把测试输出带回下一轮。模型提出下一步；Codex 让这一步在仓库里发生。</p>
+<p>这就是读 Codex 源码时最该抓住的主线：把 Codex 看成一套运行时更准确。它让模型在真实工程环境里观察、行动和校验。</p>
+<p>本文不从 <code>core</code> 目录或一堆 Rust crate 开始。先认识 Codex CLI，再看它和 App 的关系，最后沿着这条任务把整体结构走一遍。目录名会出现，但它们是路标，不是正文。</p>
+<h2 id="codex-cli任务发生在本地">Codex CLI：任务发生在本地
+</h2><p><code>openai/codex</code> 的 README 将它定位为运行在本机的 Codex CLI。这个“本机”并不是一个无关紧要的部署细节。</p>
+<p>在普通聊天窗口里，模型只能根据你贴进去的内容回答。CLI 则站在当前工作目录中。它可以查看 Git 状态、读取项目文件、运行已有测试，并在权限允许时写入修改。于是，“修一个空指针”不再是一段建议，而是一段可以被验证的工作。</p>
+<p>不过，模型并不会天然看到整个仓库。一次任务通常是逐步展开的：先搜索 <code>OrderService</code>，再读取相关实现与测试，然后运行目标测试。每次工具返回的内容，才会进入下一轮决策。</p>
+<pre class="mermaid">sequenceDiagram
+    participant D as 开发者
+    participant C as Codex 本地运行时
+    participant M as 模型
+    participant R as 代码库与工具
+
+    D-&gt;&gt;C: 修复订单接口的空指针
+    C-&gt;&gt;M: 任务、项目指令和当前上下文
+    M-&gt;&gt;C: 搜索并读取相关代码
+    C-&gt;&gt;R: 搜索文件、读取实现和测试
+    R--&gt;&gt;C: 代码与命令输出
+    C-&gt;&gt;M: 新的观察结果
+    M-&gt;&gt;C: 修改代码并运行测试
+    C-&gt;&gt;R: 应用修改，执行测试
+    R--&gt;&gt;C: 测试结果
+    C--&gt;&gt;D: 修改与验证结果</pre>
+<p>图中的 Codex 是关键。它夹在模型和工作区之间，既负责传递信息，也负责控制动作。没有这一层，模型只能给出建议；有了它，模型才可以参与一次完整的软件任务。</p>
+<h2 id="cli-和-codex-app两个入口各自分工">CLI 和 Codex App：两个入口，各自分工
+</h2><p>第一次看到 <code>codex app</code> 时，我也会产生一个疑问：既然仓库主要叫 Codex CLI，为什么又有 App？</p>
+<p>答案不复杂。CLI 和 App 是使用 Codex 的两个入口。</p>
+<p>CLI 以终端为中心。开发者在代码库里发起任务，直接看到命令、文件改动和测试输出。它的节奏和日常开发很接近。</p>
+<p>App 以桌面界面为中心。它更适合查看任务、过程与结果。当前 README 也将 <code>codex app</code> 列为桌面端体验的启动方式，仓库因此也包含通向桌面体验的入口。</p>
+<p>两者真正共用的重点，是本地任务运行时：会话怎样建立，模型怎样获得上下文，工具怎样执行，哪些动作需要被限制。界面层决定人怎样发起和查看任务；运行时决定任务怎样进入代码库。</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>入口</th>
+					<th>用户主要看到什么</th>
+					<th>本文关心什么</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>CLI</td>
+					<td>命令、终端对话、文件改动、测试输出</td>
+					<td>任务如何在本地仓库中运行</td>
+			</tr>
+			<tr>
+					<td>App</td>
+					<td>任务视图、执行过程、结果</td>
+					<td>与本地运行时相连的部分</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>后面的文章会一直坚持这个边界。本文只研究 Codex 的本地 Agent 运行时；桌面产品和云端服务的内部实现不在讨论范围内。</p>
+<h2 id="一次任务经过哪些部分">一次任务经过哪些部分
+</h2><p>回到开头的空指针问题。为了完成这件小事，Codex 不只需要一个模型接口。它至少要处理五类工作。</p>
+<pre class="mermaid">flowchart TB
+    I[&#34;入口\nCLI、终端界面、App 连接&#34;] --&gt; S[&#34;会话与上下文\n任务、项目指令、历史、配置&#34;]
+    S --&gt; A[&#34;Agent 核心\n组织模型响应与任务推进&#34;]
+    A &lt;--&gt; M[&#34;模型与后端\n发送上下文，接收响应&#34;]
+    A &lt;--&gt; T[&#34;工具运行时\n读文件、搜索、改代码、执行命令&#34;]
+    T --&gt; W[&#34;本地工作区&#34;]
+    G[&#34;安全边界\nSandbox、执行策略、权限升级&#34;] -.约束.-&gt; T</pre>
+<h3 id="入口把人的意图变成一个任务">入口：把人的意图变成一个任务
+</h3><p>在 <code>codex-rs</code> 工作区里，<code>cli</code>、<code>tui</code> 和 <code>app-server</code> 分别对应命令行、终端交互和面向其他客户端的服务入口。它们接住任务，并把执行过程呈现给用户。</p>
+<p>这也是 CLI 与 App 的差异最容易落到源码里的地方：它们的交互可以不同，但都需要把一个明确的任务交给后面的运行时。</p>
+<h3 id="会话与上下文决定模型此刻知道什么">会话与上下文：决定模型此刻知道什么
+</h3><p>项目理解必须由运行时逐步拼装。任务文本、当前目录、项目配置、<code>AGENTS.md</code>、已读文件和前几轮工具输出，都会成为当前会话的一部分。</p>
+<p><code>core</code> 周围的 <code>thread-store</code>、<code>context-fragments</code>、<code>prompts</code>、<code>state</code> 等模块都和这件事有关。阅读这里时，要先记住一个限制：上下文是有限的。把所有文档塞给模型通常不会带来更好的结果，运行时必须决定哪些信息现在相关。</p>
+<h3 id="agent-核心把下一步接进循环">Agent 核心：把“下一步”接进循环
+</h3><p><code>core</code> 和 <code>rollout</code> 一类模块负责推进任务。它们收到模型的回答后，要判断这是一段最终回复，还是一次读取文件、运行命令、应用补丁的请求；工具完成后，又把结果放回会话，继续下一轮。</p>
+<p>这里的 Agent 是一条反馈回路：模型选择动作，运行时执行动作，执行结果改变模型下一轮能看到的内容。</p>
+<h3 id="模型与后端让上下文和响应来回流动">模型与后端：让上下文和响应来回流动
+</h3><p><code>codex-api</code>、<code>backend-client</code>、<code>model-provider</code> 等模块处理模型或后端通信。它们把核心层准备好的请求发出去，也把流式文本、工具请求和失败信息带回来。</p>
+<p>这一层能告诉我们请求怎样构造、响应怎样解析、失败怎样恢复。可分析的边界到此为止：任务循环可以观察，模型的私有推理无法从源码中还原。</p>
+<h3 id="工具与安全边界让动作发生也让它止步">工具与安全边界：让动作发生，也让它止步
+</h3><p><code>tools</code>、<code>exec</code>、<code>shell-command</code>、<code>file-search</code>、<code>apply-patch</code>、<code>git-utils</code> 负责对工作区做事。它们把“搜索 <code>OrderService</code>”“读取测试”“运行 <code>go test</code>”变成真正的本地操作。</p>
+<p>同一条路径旁边，还有 <code>sandboxing</code>、<code>execpolicy</code>、<code>shell-escalation</code>、<code>process-hardening</code>。它们存在的理由很朴素：模型可以提出动作，不代表动作就应该直接执行。一个能修改仓库的 Agent，必须知道哪些目录可写、哪些命令要确认、失败时怎样把原因交回会话。</p>
+<p>工具让模型获得行动能力；安全边界让这种能力不会越过工作区和权限范围。两部分应该一起读，拆开看会误以为 Agent 只是“会跑 Shell”。</p>
+<h2 id="为什么第一张架构图要这样画">为什么第一张架构图要这样画
+</h2><p>仓库里还有 <code>skills</code>、<code>plugin</code>、<code>codex-mcp</code>、<code>hooks</code>、<code>memories</code> 等模块。它们很重要，但不该在第一章抢走主线。</p>
+<p>先看清任务怎样进入运行时、怎样调用模型、怎样使用工具，MCP 和 Skill 才有合适的位置。Skill 影响 Agent 如何做事，MCP 为它接入外部工具和数据；两者都建立在前面这条任务与工具链路之上。</p>
+<p>后续读源码时，可以带着四个问题往下走：</p>
+<ul>
+<li>当前任务的上下文是从哪里组装出来的？</li>
+<li>工具请求怎样从模型响应变成一次本地调用？</li>
+<li>哪一层决定一条命令可以直接执行，还是需要确认？</li>
+<li>工具结果怎样重新进入下一轮会话？</li>
+</ul>
+<p>这四个问题会比目录树更早把你带到关键代码。下一篇就从任务启动和会话创建开始。</p>
+<h2 id="参考资料">参考资料
+</h2><ul>
+<li><a class="link" href="https://github.com/openai/codex"  target="_blank" rel="noopener"
+    >openai/codex</a></li>
+<li><a class="link" href="https://openai.com/zh-Hans-CN/index/harness-engineering/"  target="_blank" rel="noopener"
+    >工程技术：在智能体优先的世界中利用 Codex</a></li>
+<li><a class="link" href="https://developers.openai.com/codex/cli"  target="_blank" rel="noopener"
+    >Codex CLI 文档</a></li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/codex/">Codex</a>
+        
+            <a href="/tags/agent/">Agent</a>
+        
+            <a href="/tags/cli/">CLI</a>
+        
+            <a href="/tags/%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB/">源码导读</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-openapi-%E8%AF%B7%E6%B1%82%E6%A0%A1%E9%AA%8C%E8%AF%A6%E8%A7%A3%E4%BB%8E%E6%8E%A5%E5%8F%A3%E5%A5%91%E7%BA%A6%E5%88%B0%E7%BD%91%E5%85%B3%E6%BA%90%E7%A0%81/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">dubbo-go-pixiu 添加 OpenAPI 请求校验详解：从接口契约到网关源码</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA%E5%8F%82%E4%B8%8E%E7%9A%84%E8%A7%84%E8%8C%83-git-%E6%B5%81%E7%A8%8B/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">开源社区参与的规范 Git 流程</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-saml-%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3%E4%BB%8E%E4%BC%81%E4%B8%9A-sso-%E5%88%B0-pixiu-%E6%BA%90%E7%A0%81/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+		<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+		<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+	
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm.top\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+<style>
+    .article-content .mermaid {
+        display: block;
+        overflow-x: auto;
+        padding: 1rem;
+        text-align: center;
+    }
+</style>
+<script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+    });
+    mermaid.run({ nodes: document.querySelectorAll(".article-content .mermaid") });
+</script>
+
+    </body>
+</html>
