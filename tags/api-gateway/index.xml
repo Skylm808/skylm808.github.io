@@ -729,16 +729,8 @@
 &lt;hr&gt;
 &lt;h2 id=&#34;7-reviewer-评论暴露出的坑&#34;&gt;7. Reviewer 评论暴露出的坑
 &lt;/h2&gt;&lt;h3 id=&#34;71-p0buildv3model-error-不能丢&#34;&gt;7.1 P0：&lt;code&gt;BuildV3Model()&lt;/code&gt; error 不能丢
-&lt;/h3&gt;&lt;p&gt;Reviewer: AlexStocks&lt;br&gt;
-讨论: &lt;a class=&#34;link&#34; href=&#34;https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3308060049&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
-    &gt;https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3308060049&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;问题：&lt;code&gt;doc.BuildV3Model()&lt;/code&gt; 可能同时返回部分 model 和非 nil error。如果只拿 model、不处理 error，就会让残缺 OpenAPI model 进入 validator。&lt;/p&gt;
-&lt;p&gt;风险：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;本该拒绝的请求被放行。&lt;/li&gt;
-&lt;li&gt;本该放行的请求被误拦。&lt;/li&gt;
-&lt;li&gt;启动看起来成功，实际 validator 状态不可信。&lt;/li&gt;
-&lt;/ul&gt;
+&lt;/h3&gt;&lt;p&gt;问题：&lt;code&gt;doc.BuildV3Model()&lt;/code&gt; 可能同时返回部分 model 和非 nil error。如果只拿 model、不处理 error，就会让残缺 OpenAPI model 进入 validator。&lt;/p&gt;
+&lt;p&gt;例如 &lt;code&gt;schemas/user.yaml&lt;/code&gt; 中某个 &lt;code&gt;$ref&lt;/code&gt; 写错，模型构建已经报告错误；若仍用返回的部分 model 启动，&lt;code&gt;POST /users&lt;/code&gt; 的 &lt;code&gt;name&lt;/code&gt; 字段约束可能没有加载完整。网关表面启动成功，实际却无法确定该拦截还是放行请求。&lt;/p&gt;
 &lt;p&gt;最终修法：只要 &lt;code&gt;BuildV3Model()&lt;/code&gt; 返回 error，&lt;code&gt;Apply()&lt;/code&gt; 阶段直接失败：&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
@@ -756,22 +748,29 @@
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;经验：初始化阶段拿到“不完整但可用”的对象时要非常谨慎。网关校验类功能最好 fail fast，不要带病运行。&lt;/p&gt;
 &lt;h3 id=&#34;72-path-存在不等于-operation-存在&#34;&gt;7.2 path 存在不等于 operation 存在
-&lt;/h3&gt;&lt;p&gt;Reviewer: Copilot&lt;br&gt;
-讨论: &lt;a class=&#34;link&#34; href=&#34;https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3307899137&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
-    &gt;https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3307899137&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;问题：只检查 &lt;code&gt;/users&lt;/code&gt; 这个 path 是否存在，不检查 &lt;code&gt;POST /users&lt;/code&gt; 是否存在，会让“未声明 method 应跳过”的文档行为失效。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;问题：只检查 &lt;code&gt;/users&lt;/code&gt; 这个 path 是否存在，不检查 &lt;code&gt;POST /users&lt;/code&gt; 是否存在，会让“未声明 method 应跳过”的文档行为失效。&lt;/p&gt;
+&lt;p&gt;例如 spec 只写了：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-yaml&#34; data-lang=&#34;yaml&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;/users&lt;/span&gt;:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#ff79c6&#34;&gt;get&lt;/span&gt;: {}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;code&gt;GET /users&lt;/code&gt; 有对应 operation；&lt;code&gt;POST /users&lt;/code&gt; 没有。只看 path 会误把 POST 当成已声明接口，随后可能得到错误的校验结果。最终必须以 &lt;code&gt;path + method&lt;/code&gt; 为单位判断。&lt;/p&gt;
 &lt;p&gt;最终修法：&lt;code&gt;findRequestOperation()&lt;/code&gt; 找到 &lt;code&gt;PathItem&lt;/code&gt; 后再调用 &lt;code&gt;hasRequestOperation()&lt;/code&gt;，确认 method-specific operation 存在。&lt;/p&gt;
 &lt;p&gt;经验：OpenAPI 的最小校验单位不是 path，而是 path + method，也就是 operation。&lt;/p&gt;
 &lt;h3 id=&#34;73-findpath-错误和未声明路径不能混在一起&#34;&gt;7.3 &lt;code&gt;FindPath&lt;/code&gt; 错误和“未声明路径”不能混在一起
-&lt;/h3&gt;&lt;p&gt;Reviewer: AlexStocks&lt;br&gt;
-问题：&lt;code&gt;FindPath&lt;/code&gt; 返回的 &lt;code&gt;validationErrs&lt;/code&gt; 如果直接当成“不匹配”吞掉，会让排查困难。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;问题：&lt;code&gt;FindPath&lt;/code&gt; 返回的 &lt;code&gt;validationErrs&lt;/code&gt; 如果直接当成“不匹配”吞掉，会让排查困难。&lt;/p&gt;
+&lt;p&gt;例如请求 &lt;code&gt;/users/%ZZ&lt;/code&gt;，路径解析可能报格式错误；它和普通的 &lt;code&gt;GET /not-declared&lt;/code&gt; 都会走“本次不校验”的分支，但前者是异常信号，应该留下 method、path 和错误详情的 Debug 日志，方便排查。&lt;/p&gt;
 &lt;p&gt;最终修法：如果 &lt;code&gt;validationErrs&lt;/code&gt; 非空，记录 Debug 日志，包含 method、path 和错误详情；业务上仍按未匹配跳过，避免把 lookup 异常暴露给客户端。&lt;/p&gt;
 &lt;p&gt;经验：客户端响应要克制，但内部日志要能定位问题。&lt;/p&gt;
 &lt;h3 id=&#34;74-osreadfilepath-前必须有路径边界&#34;&gt;7.4 &lt;code&gt;os.ReadFile(path)&lt;/code&gt; 前必须有路径边界
-&lt;/h3&gt;&lt;p&gt;Reviewer: AlexStocks / Similarityoung&lt;br&gt;
-相关后续回复: &lt;a class=&#34;link&#34; href=&#34;https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369027070&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
-    &gt;https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369027070&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;问题：OpenAPI path 来自配置，直接读文件可能让配置注入变成本地文件读取。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;问题：OpenAPI path 来自配置，直接读文件可能让配置注入变成本地文件读取。&lt;/p&gt;
+&lt;p&gt;例如有人把 filter 配置中的 &lt;code&gt;path&lt;/code&gt; 改为 &lt;code&gt;/etc/passwd&lt;/code&gt;，或者写成 &lt;code&gt;specs/current/api.yaml&lt;/code&gt;，而 &lt;code&gt;current&lt;/code&gt; 是一个指向敏感目录的 symlink。若直接 &lt;code&gt;os.ReadFile(path)&lt;/code&gt;，网关启动时就会越过项目配置目录读取不该读取的文件。&lt;/p&gt;
 &lt;p&gt;最终修法：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;主 OpenAPI path 必须相对。&lt;/li&gt;
@@ -781,50 +780,25 @@
 &lt;/ul&gt;
 &lt;p&gt;经验：配置文件路径也是输入。只要输入能影响 &lt;code&gt;ReadFile&lt;/code&gt;，就需要边界。&lt;/p&gt;
 &lt;h3 id=&#34;75-body-读取不能无限制&#34;&gt;7.5 body 读取不能无限制
-&lt;/h3&gt;&lt;p&gt;Reviewer: Similarityoung&lt;br&gt;
-问题：请求校验前读取 body，如果没有大小限制，会导致大 body 或 chunked body 消耗过多内存。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;问题：请求校验前读取 body，如果没有大小限制，会导致大 body 或 chunked body 消耗过多内存。&lt;/p&gt;
+&lt;p&gt;例如攻击者持续上传一个没有 &lt;code&gt;Content-Length&lt;/code&gt; 的 2GB chunked JSON；无界 &lt;code&gt;io.ReadAll(req.Body)&lt;/code&gt; 会让网关为单个请求持续分配内存，拖慢甚至影响其他正常请求。&lt;/p&gt;
 &lt;p&gt;最终修法：新增 &lt;code&gt;max_request_body_bytes&lt;/code&gt;，默认 1MB；已知 &lt;code&gt;Content-Length&lt;/code&gt; 超限直接 413，未知长度用 &lt;code&gt;LimitReader(limit+1)&lt;/code&gt;。&lt;/p&gt;
 &lt;p&gt;经验：网关热路径不要无界 &lt;code&gt;io.ReadAll&lt;/code&gt;。&lt;/p&gt;
 &lt;h3 id=&#34;76-findpathnil-options-会绕过-pathtree-优化&#34;&gt;7.6 &lt;code&gt;FindPath(nil options)&lt;/code&gt; 会绕过 PathTree 优化
-&lt;/h3&gt;&lt;p&gt;Reviewer: Similarityoung&lt;br&gt;
-问题：每次请求都传 nil options，SDK 可能走全量 path 扫描和正则匹配。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;问题：每次请求都传 nil options，SDK 可能走全量 path 扫描和正则匹配。&lt;/p&gt;
+&lt;p&gt;例如 spec 有数百条 &lt;code&gt;/users/{id}&lt;/code&gt;、&lt;code&gt;/orders/{id}&lt;/code&gt; 这类模板路径。每个请求临时扫描全部 path，比启动时构建一次 &lt;code&gt;PathTree&lt;/code&gt; 后反复复用更浪费 CPU。&lt;/p&gt;
 &lt;p&gt;最终修法：&lt;code&gt;Apply()&lt;/code&gt; 阶段构造 &lt;code&gt;ValidationOptions&lt;/code&gt;，并显式构建 &lt;code&gt;PathTree&lt;/code&gt;，请求阶段复用。&lt;/p&gt;
 &lt;p&gt;经验：能在启动时做的索引构建，不要放到每个请求里做。&lt;/p&gt;
 &lt;h3 id=&#34;77-旧配置不能静默失效&#34;&gt;7.7 旧配置不能静默失效
-&lt;/h3&gt;&lt;p&gt;Reviewer: Alanxtl / Similarityoung&lt;br&gt;
-问题：删除 &lt;code&gt;apiconfig&lt;/code&gt; 中旧字段会导致老配置被忽略。用户以为 OpenAPI 校验还在，实际已经没开。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;问题：删除 &lt;code&gt;apiconfig&lt;/code&gt; 中旧字段会导致老配置被忽略。用户以为 OpenAPI 校验还在，实际已经没开。&lt;/p&gt;
+&lt;p&gt;例如升级后仍保留旧的 &lt;code&gt;enable_openapi_validation: true&lt;/code&gt;，而新版本只读取独立 OpenAPI filter。若没有提示，服务能正常启动，但 &lt;code&gt;POST /users&lt;/code&gt; 缺少必填字段也会被转发，这比启动失败更危险。&lt;/p&gt;
 &lt;p&gt;最终修法：保留旧字段，并检测 key 是否出现；只要出现就启动失败，提示迁移。&lt;/p&gt;
 &lt;p&gt;经验：配置迁移时，最危险的不是报错，而是静默降级。&lt;/p&gt;
-&lt;h3 id=&#34;78-文档不能夸大能力边界&#34;&gt;7.8 文档不能夸大能力边界
-&lt;/h3&gt;&lt;p&gt;Reviewer: Similarityoung&lt;br&gt;
-相关后续回复: &lt;a class=&#34;link&#34; href=&#34;https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369028350&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
-    &gt;https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369028350&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;问题：OpenAPI 3.2 有 additional operations，但当前 filter 只接入标准 HTTP operation。如果文档写成“完整支持 OpenAPI 3.2”，就和实际能力不一致。&lt;/p&gt;
-&lt;p&gt;最终修法：文档收窄为“OpenAPI 3.2 文档中使用标准 HTTP operation 的部分可被当前 filter 覆盖”。&lt;/p&gt;
-&lt;p&gt;经验：文档是契约。实现没有覆盖的行为，不要提前承诺。&lt;/p&gt;
 &lt;h3 id=&#34;79-head-行为要明确&#34;&gt;7.9 HEAD 行为要明确
-&lt;/h3&gt;&lt;p&gt;Reviewer: Similarityoung&lt;br&gt;
-相关后续回复: &lt;a class=&#34;link&#34; href=&#34;https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369027921&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
-    &gt;https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369027921&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;问题：HEAD 是否可以 fallback 到 GET 容易产生歧义。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;问题：HEAD 是否可以 fallback 到 GET 容易产生歧义。&lt;/p&gt;
+&lt;p&gt;例如 spec 只声明 &lt;code&gt;GET /reports/{id}&lt;/code&gt;，浏览器或探活程序发来 &lt;code&gt;HEAD /reports/42&lt;/code&gt;。虽然两个请求常被后端视作相近操作，但 OpenAPI 中它们是不同 method；当前规则选择 HEAD 必须显式声明 &lt;code&gt;head&lt;/code&gt;，否则跳过校验。&lt;/p&gt;
 &lt;p&gt;最终修法：HEAD 必须显式声明 &lt;code&gt;head&lt;/code&gt; operation 才校验；只声明 GET 时，HEAD 跳过校验。&lt;/p&gt;
 &lt;p&gt;经验：遇到协议习惯和 OpenAPI 契约语义冲突时，要选一个清晰、可测试的规则，并写入文档。&lt;/p&gt;
-&lt;h3 id=&#34;710-ci-和-import-分组&#34;&gt;7.10 CI 和 import 分组
-&lt;/h3&gt;&lt;p&gt;Reviewer: Copilot / Similarityoung&lt;br&gt;
-Issue comment: &lt;a class=&#34;link&#34; href=&#34;https://github.com/apache/dubbo-go-pixiu/pull/948#issuecomment-4608535037&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
-    &gt;https://github.com/apache/dubbo-go-pixiu/pull/948#issuecomment-4608535037&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;问题：新增 import 分组不符合仓库风格，CI 要求格式化。&lt;/p&gt;
-&lt;p&gt;最终处理：使用仓库匹配的 import formatting 修复。&lt;/p&gt;
-&lt;p&gt;经验：Go 代码不只是 &lt;code&gt;gofmt&lt;/code&gt;，有些仓库还依赖 &lt;code&gt;imports-formatter&lt;/code&gt; 或自定义 import 分组规则。&lt;/p&gt;
-&lt;h3 id=&#34;711-一个未在本-pr-修的系统性问题&#34;&gt;7.11 一个未在本 PR 修的系统性问题
-&lt;/h3&gt;&lt;p&gt;讨论: &lt;a class=&#34;link&#34; href=&#34;https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369035830&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
-    &gt;https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369035830&lt;/a&gt;&lt;br&gt;
-补充: &lt;a class=&#34;link&#34; href=&#34;https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369354582&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
-    &gt;https://github.com/apache/dubbo-go-pixiu/pull/948#discussion_r3369354582&lt;/a&gt;&lt;/p&gt;
-&lt;p&gt;问题：&lt;code&gt;FilterManager.ReLoad()&lt;/code&gt; 中如果某个 filter 的 &lt;code&gt;Apply()&lt;/code&gt; 失败，错误传播和失败 factory 安装逻辑存在系统性风险，可能影响所有会在 &lt;code&gt;Apply()&lt;/code&gt; 失败的 filter，不只是 OpenAPI。&lt;/p&gt;
-&lt;p&gt;本 PR 的边界：OpenAPI filter 已经正确返回 error；FilterManager 的 reload 行为建议单独 follow-up 修。&lt;/p&gt;
-&lt;p&gt;经验：review 中发现的问题要分清“本 PR 内的职责”和“系统性 follow-up”。不要把一个功能 PR 扩成无边界重构，但要把风险记录清楚。&lt;/p&gt;
-&lt;hr&gt;
 &lt;h2 id=&#34;8-如果从-0-写这个功能推荐顺序&#34;&gt;8. 如果从 0 写这个功能，推荐顺序
 &lt;/h2&gt;&lt;ol&gt;
 &lt;li&gt;先把 filter 边界想清楚：只做请求校验，不做路由、不做鉴权、不做响应校验。&lt;/li&gt;
