@@ -251,6 +251,7 @@
   <ol>
     <li><a href="#codex-cli任务发生在本地">Codex CLI：任务发生在本地</a></li>
     <li><a href="#cli-和-codex-app两个入口各自分工">CLI 和 Codex App：两个入口，各自分工</a></li>
+    <li><a href="#先读懂几个目录名">先读懂几个目录名</a></li>
     <li><a href="#一次任务经过哪些部分">一次任务经过哪些部分</a>
       <ol>
         <li><a href="#入口把人的意图变成一个任务">入口：把人的意图变成一个任务</a></li>
@@ -330,7 +331,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 6 分钟
+                    阅读时长: 7 分钟
                 </time>
             </div>
         
@@ -399,6 +400,43 @@
 	</tbody>
 </table></div>
 <p>后面的文章会一直坚持这个边界。本文只研究 Codex 的本地 Agent 运行时；桌面产品和云端服务的内部实现不在讨论范围内。</p>
+<h2 id="先读懂几个目录名">先读懂几个目录名
+</h2><p>开始看仓库前，先区分两件事。源码目录反映的是实现怎么拆分；架构图描述的是一项任务由哪些职责共同完成。两者有关，但不能把一个目录名直接当成一个完整的架构层。</p>
+<p><code>codex-rs</code> 是 Codex 的主要 Rust 工作区。Rust 的 workspace 可以理解为一个大工程下面放着许多可以独立编译、测试的子包，Rust 里把这些子包叫作 crate。Codex 把本地运行时的大部分实现放在这里。</p>
+<p>第一次读时，下面几个名字最常出现：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>名字</th>
+					<th>先这样理解</th>
+					<th>它回答的问题</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>cli</code></td>
+					<td>命令行入口</td>
+					<td>用户输入 <code>codex</code> 后，程序从哪里开始？</td>
+			</tr>
+			<tr>
+					<td><code>tui</code></td>
+					<td>Terminal User Interface，终端里的交互界面</td>
+					<td>终端中的消息、工具调用和进度怎样显示？</td>
+			</tr>
+			<tr>
+					<td><code>app-server</code></td>
+					<td>供 App 或其他本地客户端连接的服务接口</td>
+					<td>桌面端怎样把任务交给本地运行时？</td>
+			</tr>
+			<tr>
+					<td><code>core</code></td>
+					<td>任务运行时的核心逻辑</td>
+					<td>会话、上下文和工具调用怎样串成一条任务？</td>
+			</tr>
+	</tbody>
+</table></div>
+<p><code>tui</code> 容易被误解成 App。它仍然运行在终端里，只是比一行行打印日志更像一个交互界面。App 则是桌面图形界面。两者可以连接到相近的本地运行时能力，但界面形态不同。</p>
+<p>接下来出现的 <code>tools</code>、<code>exec</code>、<code>sandboxing</code>、<code>config</code> 等目录，也可以用同样的方式看：先问它解决哪类问题，再追具体代码。这样不会刚进 <code>codex-rs</code> 就被几十个 crate 淹没。</p>
 <h2 id="一次任务经过哪些部分">一次任务经过哪些部分
 </h2><p>回到开头的空指针问题。为了完成这件小事，Codex 不只需要一个模型接口。它至少要处理五类工作。</p>
 <pre class="mermaid">flowchart TB

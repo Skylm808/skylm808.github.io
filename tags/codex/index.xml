@@ -67,6 +67,43 @@
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;p&gt;后面的文章会一直坚持这个边界。本文只研究 Codex 的本地 Agent 运行时；桌面产品和云端服务的内部实现不在讨论范围内。&lt;/p&gt;
+&lt;h2 id=&#34;先读懂几个目录名&#34;&gt;先读懂几个目录名
+&lt;/h2&gt;&lt;p&gt;开始看仓库前，先区分两件事。源码目录反映的是实现怎么拆分；架构图描述的是一项任务由哪些职责共同完成。两者有关，但不能把一个目录名直接当成一个完整的架构层。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;codex-rs&lt;/code&gt; 是 Codex 的主要 Rust 工作区。Rust 的 workspace 可以理解为一个大工程下面放着许多可以独立编译、测试的子包，Rust 里把这些子包叫作 crate。Codex 把本地运行时的大部分实现放在这里。&lt;/p&gt;
+&lt;p&gt;第一次读时，下面几个名字最常出现：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;名字&lt;/th&gt;
+					&lt;th&gt;先这样理解&lt;/th&gt;
+					&lt;th&gt;它回答的问题&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;cli&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;命令行入口&lt;/td&gt;
+					&lt;td&gt;用户输入 &lt;code&gt;codex&lt;/code&gt; 后，程序从哪里开始？&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;tui&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;Terminal User Interface，终端里的交互界面&lt;/td&gt;
+					&lt;td&gt;终端中的消息、工具调用和进度怎样显示？&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;app-server&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;供 App 或其他本地客户端连接的服务接口&lt;/td&gt;
+					&lt;td&gt;桌面端怎样把任务交给本地运行时？&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;core&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;任务运行时的核心逻辑&lt;/td&gt;
+					&lt;td&gt;会话、上下文和工具调用怎样串成一条任务？&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;code&gt;tui&lt;/code&gt; 容易被误解成 App。它仍然运行在终端里，只是比一行行打印日志更像一个交互界面。App 则是桌面图形界面。两者可以连接到相近的本地运行时能力，但界面形态不同。&lt;/p&gt;
+&lt;p&gt;接下来出现的 &lt;code&gt;tools&lt;/code&gt;、&lt;code&gt;exec&lt;/code&gt;、&lt;code&gt;sandboxing&lt;/code&gt;、&lt;code&gt;config&lt;/code&gt; 等目录，也可以用同样的方式看：先问它解决哪类问题，再追具体代码。这样不会刚进 &lt;code&gt;codex-rs&lt;/code&gt; 就被几十个 crate 淹没。&lt;/p&gt;
 &lt;h2 id=&#34;一次任务经过哪些部分&#34;&gt;一次任务经过哪些部分
 &lt;/h2&gt;&lt;p&gt;回到开头的空指针问题。为了完成这件小事，Codex 不只需要一个模型接口。它至少要处理五类工作。&lt;/p&gt;
 &lt;pre class=&#34;mermaid&#34;&gt;flowchart TB
