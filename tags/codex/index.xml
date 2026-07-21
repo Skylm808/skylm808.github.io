@@ -92,8 +92,8 @@
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;app-server&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;供 App 或其他本地客户端连接的服务接口&lt;/td&gt;
-					&lt;td&gt;桌面端怎样把任务交给本地运行时？&lt;/td&gt;
+					&lt;td&gt;面向富客户端的本地服务接口&lt;/td&gt;
+					&lt;td&gt;VS Code 扩展这类客户端怎样启动任务并接收进度？&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;core&lt;/code&gt;&lt;/td&gt;
@@ -114,7 +114,7 @@
     T --&amp;gt; W[&amp;#34;本地工作区&amp;#34;]
     G[&amp;#34;安全边界\nSandbox、执行策略、权限升级&amp;#34;] -.约束.-&amp;gt; T&lt;/pre&gt;
 &lt;h3 id=&#34;入口把人的意图变成一个任务&#34;&gt;入口：把人的意图变成一个任务
-&lt;/h3&gt;&lt;p&gt;在 &lt;code&gt;codex-rs&lt;/code&gt; 工作区里，&lt;code&gt;cli&lt;/code&gt;、&lt;code&gt;tui&lt;/code&gt; 和 &lt;code&gt;app-server&lt;/code&gt; 分别对应命令行、终端交互和面向其他客户端的服务入口。它们接住任务，并把执行过程呈现给用户。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;在 &lt;code&gt;codex-rs&lt;/code&gt; 工作区里，&lt;code&gt;cli&lt;/code&gt;、&lt;code&gt;tui&lt;/code&gt; 和 &lt;code&gt;app-server&lt;/code&gt; 分别对应命令行、终端交互和面向富客户端的服务入口。它们接住任务，并把执行过程呈现给用户。&lt;/p&gt;
 &lt;p&gt;这也是 CLI 与 App 的差异最容易落到源码里的地方：它们的交互可以不同，但都需要把一个明确的任务交给后面的运行时。&lt;/p&gt;
 &lt;h3 id=&#34;会话与上下文决定模型此刻知道什么&#34;&gt;会话与上下文：决定模型此刻知道什么
 &lt;/h3&gt;&lt;p&gt;项目理解必须由运行时逐步拼装。任务文本、当前目录、项目配置、&lt;code&gt;AGENTS.md&lt;/code&gt;、已读文件和前几轮工具输出，都会成为当前会话的一部分。&lt;/p&gt;
