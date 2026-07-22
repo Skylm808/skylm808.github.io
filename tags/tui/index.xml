@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>TUI on Skylm</title>
+        <link>https://skylm.top/tags/tui/</link>
+        <description>Recent content in TUI on Skylm</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>en-us</language>
+        <copyright>Skylm</copyright>
+        <lastBuildDate>Wed, 22 Jul 2026 10:04:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/tui/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端</title>
+        <link>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B9%9D%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E6%80%8E%E6%A0%B7%E9%80%81%E5%88%B0%E7%BB%88%E7%AB%AF%E5%92%8C%E5%AF%8C%E5%AE%A2%E6%88%B7%E7%AB%AF/</link>
+        <pubDate>Wed, 22 Jul 2026 10:04:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B9%9D%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E6%80%8E%E6%A0%B7%E9%80%81%E5%88%B0%E7%BB%88%E7%AB%AF%E5%92%8C%E5%AF%8C%E5%AE%A2%E6%88%B7%E7%AB%AF/</guid>
+        <description>&lt;h1 id=&#34;codex-cli-源码导读九任务进度怎样送到终端和富客户端&#34;&gt;Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端
+&lt;/h1&gt;&lt;p&gt;让 Codex 在仓库里找一个调用点、改一处文件、再跑一条测试时，界面不会等到任务结束才给出一整段结果。你会先看到任务开始，接着看到命令、文件改动和文字回复，最后看到完成或中断。支撑这个体验的是一串带有任务标识和状态的结构化事件。&lt;/p&gt;
+&lt;p&gt;本文的判断很简单：运行时负责产生事实，界面负责呈现事实；两者之间由 &lt;code&gt;app-server&lt;/code&gt; 的本地协议连接。&lt;code&gt;app-server&lt;/code&gt; 不是桌面版 Codex App 本身。它是公开 CLI 中的本地服务，供 TUI 和 VS Code 扩展这类富客户端使用。桌面 App 可以使用类似能力，但其完整实现不在这份公开仓库中。&lt;/p&gt;
+&lt;p&gt;本文固定使用 &lt;code&gt;openai/codex&lt;/code&gt; 的 &lt;code&gt;268288a&lt;/code&gt;。第九篇只讨论公开源码里事件如何流动，不把某个界面的具体设计当作协议承诺。&lt;/p&gt;
+&lt;h2 id=&#34;先把进度看成状态不是日志&#34;&gt;先把“进度”看成状态，不是日志
+&lt;/h2&gt;&lt;p&gt;日志是给人或诊断工具看的文本，常常只说明“发生过什么”。结构化事件则会明确说明：哪一个 Thread、哪一轮 Turn、哪一个 Item 发生了什么变化。&lt;/p&gt;
+&lt;p&gt;这里的三个名词来自第二、三篇：Thread 是一段持续的任务会话；Turn 是用户提交一次请求后的一轮执行；Item 是这一轮里一项可记录的输入或输出，例如用户消息、模型回复、命令执行和文件改动。&lt;/p&gt;
+&lt;p&gt;假设客户端提交“运行 &lt;code&gt;go test ./...&lt;/code&gt;，修复第一个失败的测试”。它关心的不只是终端里出现了哪些字符，还需要知道下面几件事：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;看到的变化&lt;/th&gt;
+					&lt;th&gt;对应的状态含义&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;任务开始转圈&lt;/td&gt;
+					&lt;td&gt;某个 Turn 已进入执行中状态&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;命令卡片出现&lt;/td&gt;
+					&lt;td&gt;一个命令执行 Item 已开始&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;终端内容逐步增加&lt;/td&gt;
+					&lt;td&gt;这个 Item 正在产生输出增量&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;补丁或文件卡片完成&lt;/td&gt;
+					&lt;td&gt;一个文件改动 Item 已有最终结果&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;任务结束&lt;/td&gt;
+					&lt;td&gt;Turn 已完成、失败或被中断&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;“增量”是一次消息中新增的一小段内容。例如命令输出可以一行一行到达，模型回复也可以逐段出现。界面将这些增量追加到已有 Item 上，最终再以 &lt;code&gt;item/completed&lt;/code&gt; 收束它。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;sequenceDiagram
+    participant C as TUI 或富客户端
+    participant A as app-server
+    participant R as Core 运行时
+
+    C-&amp;gt;&amp;gt;A: turn/start（用户输入）
+    A--&amp;gt;&amp;gt;C: 响应：Turn 已创建
+    A-&amp;gt;&amp;gt;R: 提交本轮任务
+    R--&amp;gt;&amp;gt;A: TurnStarted、ItemStarted、输出增量、ItemCompleted
+    A--&amp;gt;&amp;gt;C: turn/started、item/*、各类增量通知
+    R--&amp;gt;&amp;gt;A: TurnComplete 或 TurnAborted
+    A--&amp;gt;&amp;gt;C: turn/completed&lt;/pre&gt;
+&lt;p&gt;图里的“响应”和“通知”不同。响应是客户端发起请求后得到的回答；通知是服务端主动推送的一条单向消息，不需要客户端逐条回复。这样，&lt;code&gt;turn/start&lt;/code&gt; 可以很快返回一个 Turn，而耗时的工作继续通过通知发送给界面。&lt;/p&gt;
+&lt;h2 id=&#34;app-server本地协议服务不是另一个-agent&#34;&gt;App Server：本地协议服务，不是另一个 Agent
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;codex app-server&lt;/code&gt; 在 &lt;code&gt;codex-rs/app-server&lt;/code&gt; 中实现。它用 JSON-RPC 2.0 组织请求、响应和通知。JSON-RPC 是一种以 JSON 表达消息的协议约定：方法名决定要做什么，参数描述输入，请求标识把响应对应回原始请求。&lt;/p&gt;
+&lt;p&gt;默认连接方式是标准输入输出上的 JSONL。JSONL 指每行一个 JSON 对象，因此一边可以连续写入请求，另一边也可以连续读到通知。公开源码还提供 WebSocket 和 Unix socket 等连接方式；其中 WebSocket 被标注为实验性接口，不能把它当作稳定集成边界。&lt;/p&gt;
+&lt;p&gt;客户端先发送 &lt;code&gt;initialize&lt;/code&gt;，再发 &lt;code&gt;initialized&lt;/code&gt;，随后才能操作 Thread。创建会话用 &lt;code&gt;thread/start&lt;/code&gt;，继续已有会话用 &lt;code&gt;thread/resume&lt;/code&gt;；提交用户输入用 &lt;code&gt;turn/start&lt;/code&gt;。&lt;code&gt;turn/start&lt;/code&gt; 的响应只表示这轮任务已经建立，真正开始执行时会再收到 &lt;code&gt;turn/started&lt;/code&gt;，随后才是 Item 和增量通知。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 8
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 9
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;10
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;客户端                     app-server
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  initialize       ---&amp;gt;    校验连接并返回运行环境信息
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  initialized      ---&amp;gt;    连接可以开始工作
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  thread/start     ---&amp;gt;    创建 Thread，并订阅该 Thread 的进度
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  turn/start       ---&amp;gt;    创建 Turn
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                  &amp;lt;---     turn/started
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                  &amp;lt;---     item/started
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                  &amp;lt;---     item/agentMessage/delta
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                  &amp;lt;---     item/completed
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;                  &amp;lt;---     turn/completed
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;code&gt;app-server&lt;/code&gt; 的职责不是替模型决定下一步。它把运行时已经产生的状态变成客户端能稳定消费的消息，并维护客户端对哪些 Thread 订阅了进度。&lt;code&gt;thread/start&lt;/code&gt;、&lt;code&gt;thread/resume&lt;/code&gt; 和 &lt;code&gt;thread/fork&lt;/code&gt; 会让当前连接订阅相应 Thread；客户端也能通过 &lt;code&gt;thread/unsubscribe&lt;/code&gt; 停止接收该 Thread 的 Turn 和 Item 事件。&lt;/p&gt;
+&lt;h2 id=&#34;从-core-事件到协议通知&#34;&gt;从 Core 事件到协议通知
+&lt;/h2&gt;&lt;p&gt;第三篇中的 Core 运行时使用 &lt;code&gt;EventMsg&lt;/code&gt; 表示任务内部发生的事情。&lt;code&gt;codex-rs/app-server/src/bespoke_event_handling.rs&lt;/code&gt; 是一次重要的转换点：它接收带有 Turn 标识的 Core 事件，补上 Thread 信息，再发出 &lt;code&gt;ServerNotification&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;最常见的映射可以这样理解：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Core 中发生的事&lt;/th&gt;
+					&lt;th&gt;客户端收到的消息&lt;/th&gt;
+					&lt;th&gt;界面通常怎么用&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Turn 开始&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;turn/started&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;设置运行中状态&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;一个 Item 开始&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;item/started&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;新建命令、文件改动或消息区域&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;模型文字到达&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;item/agentMessage/delta&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;追加模型回复&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;命令输出到达&lt;/td&gt;
+					&lt;td&gt;命令输出增量通知&lt;/td&gt;
+					&lt;td&gt;追加终端输出&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;一个 Item 结束&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;item/completed&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;固化结果和最终状态&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Turn 完成或中断&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;turn/completed&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;结束加载，显示最终结果&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;code&gt;codex-rs/app-server-protocol/src/protocol/v2/item.rs&lt;/code&gt; 为 &lt;code&gt;item/started&lt;/code&gt; 和 &lt;code&gt;item/completed&lt;/code&gt; 定义了相同的定位骨架：&lt;code&gt;thread_id&lt;/code&gt;、&lt;code&gt;turn_id&lt;/code&gt;、&lt;code&gt;item&lt;/code&gt;，再加上开始或完成的时间。客户端因此不必从一行文本猜测“这是谁的输出”。&lt;/p&gt;
+&lt;p&gt;这里还有一个容易读错源码的地方。Core 中仍保留了较早的 &lt;code&gt;ExecCommandBegin&lt;/code&gt;、&lt;code&gt;ExecCommandEnd&lt;/code&gt;、&lt;code&gt;PatchApplyBegin&lt;/code&gt;、&lt;code&gt;PatchApplyEnd&lt;/code&gt; 事件，用于兼容原始事件和历史记录。app-server 的 v2 客户端不依赖它们来构建界面，而是使用统一的命令执行 Item 和文件改动 Item 的开始、完成生命周期。这样客户端面对命令和补丁时遵循同一套数据形状。&lt;/p&gt;
+&lt;p&gt;权限请求也不是普通的进度通知。需要用户决定时，app-server 会发送一个 Server Request，客户端必须给出允许、拒绝或其他响应。第六篇里的审批边界因此仍然保留在协议上：界面不能只把确认框当成一条可忽略的日志。&lt;/p&gt;
+&lt;h2 id=&#34;tui-怎样消费这些事件&#34;&gt;TUI 怎样消费这些事件
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;tui&lt;/code&gt; 是终端里的交互界面。它并不直接观察 Core 的所有内部事件，而是作为 app-server 客户端消费 &lt;code&gt;AppServerEvent&lt;/code&gt;。&lt;code&gt;codex-rs/tui/src/app/app_server_events.rs&lt;/code&gt; 先处理应用范围的通知，再按照 &lt;code&gt;thread_id&lt;/code&gt; 把其余消息送到正确的 Thread。&lt;/p&gt;
+&lt;p&gt;这一步很实际。一个 TUI 可能同时显示主任务、子任务和旁路会话。若一个子任务的 &lt;code&gt;item/completed&lt;/code&gt; 被误送到主任务，命令输出和改动记录就会混在一起。&lt;code&gt;codex-rs/tui/src/app/app_server_event_targets.rs&lt;/code&gt; 把通知中的 Thread 标识取出来，&lt;code&gt;thread_routing.rs&lt;/code&gt; 再决定是立刻交给当前会话，还是先保存起来。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;flowchart LR
+    A[&amp;#34;app-server 通知&amp;#34;] --&amp;gt; B{&amp;#34;带有哪个 thread_id？&amp;#34;}
+    B --&amp;gt; C[&amp;#34;当前正在看的 Thread\n立刻更新 ChatWidget&amp;#34;]
+    B --&amp;gt; D[&amp;#34;未激活的 Thread\n放入事件缓冲区&amp;#34;]
+    D --&amp;gt; E[&amp;#34;用户切换回来\n重放仍有意义的事件&amp;#34;]&lt;/pre&gt;
+&lt;p&gt;&lt;code&gt;codex-rs/tui/src/app/thread_events.rs&lt;/code&gt; 中的 &lt;code&gt;ThreadEventStore&lt;/code&gt; 保存每个 Thread 的会话快照、Turn、缓冲事件和当前输入状态。它会在 &lt;code&gt;turn/started&lt;/code&gt; 记下活动 Turn，在对应的 &lt;code&gt;turn/completed&lt;/code&gt; 清除活动状态。体积较大、不会用于重放的消息，例如原始响应内容或实时音频增量，不会复制进每个 Thread 的缓冲区。&lt;/p&gt;
+&lt;p&gt;这也说明“实时”并不等于“绝不丢失每一条展示消息”。当 TUI 消费事件落后时，源码会记录延迟并丢弃明确不影响后续状态的事件，同时刷新必要的状态。客户端要以 Thread、Turn 和 Item 的最终状态为准，不能把每个增量都当成唯一可靠的历史来源。&lt;/p&gt;
+&lt;h2 id=&#34;再回到-cli扩展和-app&#34;&gt;再回到 CLI、扩展和 App
+&lt;/h2&gt;&lt;p&gt;终端交互模式下，TUI 是一个 app-server 客户端；VS Code 扩展等富客户端也可以通过同一协议驱动 Thread 和 Turn。它们可以有不同的布局、快捷键和展示方式，却不必各自实现 Agent 循环、工具执行和审批流程。&lt;/p&gt;
+&lt;p&gt;这正是 &lt;code&gt;app-server&lt;/code&gt; 的位置：它把“如何执行任务”和“怎样看见任务”隔开。公开仓库能让我们观察到 TUI 与本地服务的边界，也能看到该服务面向富客户端的协议。至于 Codex App 自身的全部界面和产品逻辑，不能从这些 CLI 源码中推导出来。&lt;/p&gt;
+&lt;h2 id=&#34;接下来可以继续想&#34;&gt;接下来可以继续想
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;客户端若漏掉一次输出增量，怎样靠 Item 的最终状态恢复正确界面？&lt;/li&gt;
+&lt;li&gt;为什么权限请求需要请求-响应通道，而不是一条单向通知？&lt;/li&gt;
+&lt;li&gt;协议中的 &lt;code&gt;thread_id&lt;/code&gt;、&lt;code&gt;turn_id&lt;/code&gt; 和 &lt;code&gt;item&lt;/code&gt; 标识分别解决了什么混淆？&lt;/li&gt;
+&lt;li&gt;当协议增加一种新的 Item 类型时，旧客户端应该如何退化处理？&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;参考资料&#34;&gt;参考资料
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://developers.openai.com/codex/cli/reference&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;Codex CLI 参考文档&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

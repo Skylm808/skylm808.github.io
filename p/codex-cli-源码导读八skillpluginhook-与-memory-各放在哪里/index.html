@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里 给 Codex 加一条团队约定时，很容易把几种扩展面混在一起。有人把测试步骤写成 Hook，结果每次工具调用都被打断；有人把一个可复用的审查流程做成 MCP 服务，却没有外部系统可连；还有人把一次会话里的临时事实当成长期 Memory。\n">
+<title>Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里</title>
+
+<link rel='canonical' href='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%ABskillpluginhook-%E4%B8%8E-memory-%E5%90%84%E6%94%BE%E5%9C%A8%E5%93%AA%E9%87%8C/'>
+
+<link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里">
+<meta property='og:description' content="Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里 给 Codex 加一条团队约定时，很容易把几种扩展面混在一起。有人把测试步骤写成 Hook，结果每次工具调用都被打断；有人把一个可复用的审查流程做成 MCP 服务，却没有外部系统可连；还有人把一次会话里的临时事实当成长期 Memory。\n">
+<meta property='og:url' content='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%ABskillpluginhook-%E4%B8%8E-memory-%E5%90%84%E6%94%BE%E5%9C%A8%E5%93%AA%E9%87%8C/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Codex' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='CLI' /><meta property='article:tag' content='源码导读' /><meta property='article:tag' content='Skill' /><meta property='article:tag' content='Plugin' /><meta property='article:published_time' content='2026-07-22T10:03:00&#43;08:00'/><meta property='article:modified_time' content='2026-07-22T10:03:00&#43;08:00'/>
+<meta name="twitter:title" content="Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里">
+<meta name="twitter:description" content="Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里 给 Codex 加一条团队约定时，很容易把几种扩展面混在一起。有人把测试步骤写成 Hook，结果每次工具调用都被打断；有人把一个可复用的审查流程做成 MCP 服务，却没有外部系统可连；还有人把一次会话里的临时事实当成长期 Memory。\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友链</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#先从一个选择题开始">先从一个选择题开始</a></li>
+    <li><a href="#skill让模型知道一套工作方法">Skill：让模型知道一套工作方法</a></li>
+    <li><a href="#plugin把一组组件变成可安装包">Plugin：把一组组件变成可安装包</a></li>
+    <li><a href="#hook在动作发生的节点执行规则">Hook：在动作发生的节点执行规则</a></li>
+    <li><a href="#memory跨任务复用的信息但有条件">Memory：跨任务复用的信息，但有条件</a></li>
+    <li><a href="#回到选择先按生命周期切开">回到选择：先按生命周期切开</a></li>
+    <li><a href="#接下来可以继续想">接下来可以继续想</a></li>
+    <li><a href="#参考资料">参考资料</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/ai/" >
+                AI
+            </a>
+        
+            <a href="/categories/%E5%BC%80%E6%BA%90/" >
+                开源
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%ABskillpluginhook-%E4%B8%8E-memory-%E5%90%84%E6%94%BE%E5%9C%A8%E5%93%AA%E9%87%8C/">Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Jul 22, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 7 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="codex-cli-源码导读八skillpluginhook-与-memory-各放在哪里">Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里
+</h1><p>给 Codex 加一条团队约定时，很容易把几种扩展面混在一起。有人把测试步骤写成 Hook，结果每次工具调用都被打断；有人把一个可复用的审查流程做成 MCP 服务，却没有外部系统可连；还有人把一次会话里的临时事实当成长期 Memory。</p>
+<p>这几种东西解决的问题不同。Skill 是一份可复用的工作方法；Plugin 是把若干能力装在一起的分发包；Hook 在特定生命周期节点执行规则；Memory 是为跨任务复用而保存的信息。MCP 已在第七篇讨论过，它负责连接外部工具和数据。</p>
+<p>本文固定使用 <code>openai/codex</code> 的 <code>268288a</code>。重点是公开 CLI 源码中各机制的职责和连接点，不把它们的产品界面或任何私有服务实现混进来。</p>
+<h2 id="先从一个选择题开始">先从一个选择题开始
+</h2><p>假设支付仓库希望每次修改接口时都遵循同一套约定：先阅读目录里的项目指令，查找受影响调用方，运行目标测试，最后检查不应改动的 API 定义。团队还想把这套方法分享给其他仓库。</p>
+<p>这时应先问“要改变什么”，而不是先问“该写哪个配置文件”。</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>需求</th>
+					<th>更合适的扩展面</th>
+					<th>原因</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>给 Agent 一份按步骤工作的审查方法</td>
+					<td>Skill</td>
+					<td>内容是方法、检查清单和参考资料</td>
+			</tr>
+			<tr>
+					<td>将该 Skill、一个 MCP 服务和 Hook 一起安装</td>
+					<td>Plugin</td>
+					<td>内容需要作为一个版本化包分发</td>
+			</tr>
+			<tr>
+					<td>每次写文件前都检查路径或补充固定上下文</td>
+					<td>Hook</td>
+					<td>规则必须卡在工具调用的生命周期节点</td>
+			</tr>
+			<tr>
+					<td>让未来任务复用已沉淀的经验或摘要</td>
+					<td>Memory</td>
+					<td>内容的生命周期跨越当前 Thread</td>
+			</tr>
+			<tr>
+					<td>查询缺陷系统或内部文档</td>
+					<td>MCP</td>
+					<td>能力和数据位于外部系统</td>
+			</tr>
+	</tbody>
+</table></div>
+<pre class="mermaid">flowchart TD
+    A[&#34;想扩展 Codex 的工作方式&#34;] --&gt; B{&#34;问题属于哪一类？&#34;}
+    B --&gt;|&#34;方法和步骤&#34;| C[&#34;Skill\nSKILL.md&#34;]
+    B --&gt;|&#34;安装和分发多个组件&#34;| D[&#34;Plugin\nplugin.json&#34;]
+    B --&gt;|&#34;固定时点必须执行&#34;| E[&#34;Hook\n生命周期规则&#34;]
+    B --&gt;|&#34;跨任务保留信息&#34;| F[&#34;Memory\n读写管线&#34;]
+    B --&gt;|&#34;外部数据或动作&#34;| G[&#34;MCP\n协议连接&#34;]
+    D --&gt; C
+    D --&gt; E
+    D --&gt; G</pre>
+<p>Plugin 可以包含 Skill、Hook 和 MCP 服务，所以它容易让人误以为自己也是一种任务方法。图里那条箭头说明了关系：Plugin 管的是打包与安装，组件本身仍按各自的机制运行。</p>
+<h2 id="skill让模型知道一套工作方法">Skill：让模型知道一套工作方法
+</h2><p>一个 Skill 的主体是 <code>SKILL.md</code>。<code>codex-rs/core-skills/src/loader.rs</code> 会扫描配置、用户目录、项目目录和已启用 Plugin 提供的 Skill 根目录，读取前置元数据，例如名称和描述。这里的根目录是发现范围，不是把目录里所有文本一次性塞进模型上下文。</p>
+<p>运行时先把可用 Skill 的名称、描述和位置整理成目录。这份目录会受上下文预算限制：描述过多时会缩短，极端情况下只保留足以发现它们的信息。任务中明确提到某个 Skill 后，<code>build_skill_injections</code> 才读取对应 <code>SKILL.md</code> 的正文，并把它注入当前任务。</p>
+<pre class="mermaid">sequenceDiagram
+    participant L as Skill Loader
+    participant M as 模型
+    participant I as Skill Injection
+    participant S as SKILL.md
+
+    L-&gt;&gt;L: 扫描根目录，读取名称和描述
+    L--&gt;&gt;M: 可用 Skill 目录
+    M-&gt;&gt;I: 明确提到某个 Skill
+    I-&gt;&gt;S: 读取正文和相关资源
+    S--&gt;&gt;I: 工作步骤与局部知识
+    I--&gt;&gt;M: 当前任务的 Skill 指令</pre>
+<p>这解释了 Skill 的两个特点。它不是另一种模型，也不是自动执行的脚本。它先让模型知道“这里有一套支付接口审查流程”，在被选中后再提供具体步骤、参考文档或脚本位置。模型仍要在正常的 Agent 循环里选择工具，并接受第六篇的权限和审批约束。</p>
+<p>Skill 也可以声明依赖，例如需要某种工具或 MCP 服务。<code>core/src/mcp_skill_dependencies.rs</code> 负责在被明确提及的 Skill 需要外部能力时检查依赖。这并没有改变 Skill 的本质：依赖让工作方法可以使用能力，能力本身仍由 MCP 或内置工具系统提供。</p>
+<h2 id="plugin把一组组件变成可安装包">Plugin：把一组组件变成可安装包
+</h2><p>Plugin 的入口是包内的 <code>.codex-plugin/plugin.json</code>。<code>codex-rs/plugin/src/manifest.rs</code> 解析清单中的名称、版本、描述和组件路径。清单可以列出 Skill 根目录、MCP 服务定义、App 声明和 Hook 声明，也可以附带界面元数据。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>review-bundle/
+</span></span><span style="display:flex;"><span>├── .codex-plugin/plugin.json   # 包名与组件入口
+</span></span><span style="display:flex;"><span>├── skills/                     # 可复用工作方法
+</span></span><span style="display:flex;"><span>├── hooks/                      # 生命周期规则
+</span></span><span style="display:flex;"><span>└── .mcp.json                   # 可选的 MCP 服务定义
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>上面的目录只是说明组件如何归属，不是每个 Plugin 都必须包含四项。一个 Plugin 可以只提供 Skill，也可以只提供某个 MCP 服务。加载结果会分别保存有效的 Skill 根目录、MCP 服务、App 和 Hook 来源；只有 Plugin 已启用且没有加载错误时，这些组件才会进入后续运行时。</p>
+<p>因此，Plugin 的价值在于分发边界。团队若要把“支付接口审查 Skill”和“查询发布状态的 MCP 服务”交给多个仓库使用，做成一个 Plugin 比让每个人手工复制几个文件更合适。若只想为当前仓库写一份审查方法，直接放一个 Skill 通常更清楚。</p>
+<h2 id="hook在动作发生的节点执行规则">Hook：在动作发生的节点执行规则
+</h2><p>Hook 不等待模型主动提到它。它由运行时在特定事件上调用。公开配置支持 <code>SessionStart</code>、<code>PreToolUse</code>、<code>PermissionRequest</code>、<code>PostToolUse</code>、<code>Stop</code> 等事件，每个事件可以按工具名匹配一个或多个处理器。</p>
+<p><code>PreToolUse</code> 很能说明 Hook 和 Skill 的差别。Skill 可以建议“改文件前检查路径”；PreToolUse Hook 则在工具准备执行时收到结构化输入，能够阻止调用、补充模型上下文，或在未阻止时改写工具参数。<code>PostToolUse</code> 则能查看工具输入和输出，添加反馈或停止后续处理。</p>
+<pre class="mermaid">sequenceDiagram
+    participant M as 模型
+    participant R as 工具运行时
+    participant H as PreToolUse Hook
+    participant T as 工具
+    participant P as PostToolUse Hook
+
+    M-&gt;&gt;R: 请求工具调用
+    R-&gt;&gt;H: 工具名和结构化参数
+    alt Hook 阻止
+        H--&gt;&gt;R: 拒绝原因
+        R--&gt;&gt;M: 工具结果
+    else Hook 放行或改写参数
+        H--&gt;&gt;R: 继续执行
+        R-&gt;&gt;T: 调用工具
+        T--&gt;&gt;R: 工具输出
+        R-&gt;&gt;P: 输入和输出
+        P--&gt;&gt;R: 反馈或停止信号
+        R--&gt;&gt;M: 最终工具结果
+    end</pre>
+<p>源码中的 <code>core/src/hook_runtime.rs</code> 负责把 Session、Turn、工具名和参数交给 Hook 引擎；<code>hooks/src/events/pre_tool_use.rs</code> 则处理选择匹配项、执行处理器和解析返回结果。Hook 的适用对象是可机械判断的规则，例如禁止向某个路径写入、在特定命令前要求说明、或在工具运行后收集固定反馈。</p>
+<p>把模糊的工程判断硬塞进 Hook 往往会带来麻烦。比如“这个重构是否值得做”需要理解任务目标和代码上下文，适合让模型在 Skill 的方法指引下判断；“不得修改公开 API 目录”可以由 Hook 稳定拦截。</p>
+<h2 id="memory跨任务复用的信息但有条件">Memory：跨任务复用的信息，但有条件
+</h2><p>Memory 不等于当前 Thread 的消息历史。历史记录的是这次任务已经说过什么、调用过什么；Memory 的读写模块面向更长的复用周期。公开源码把内存目录放在 <code>CODEX_HOME/memories</code> 下，并提供读取、引用和写入管线。</p>
+<p><code>config.toml</code> 中的 <code>memories</code> 配置至少区分三件事：是否生成新的 Memory、是否在任务中使用 Memory、外部上下文出现时是否停止让该 Thread 产生可复用 Memory。最后一项很实际：当任务大量依赖 MCP、网络或其他外部上下文时，运行时可以把 Thread 标记为 <code>polluted</code>，避免把来源和稳定性不明的内容直接沉淀到后续任务。</p>
+<p>Memory 写入也不是每完成一个命令就立刻发生。<code>codex-rs/memories/write/src/start.rs</code> 显示，写入管线受功能开关、配置、是否为根任务、状态数据库和速率限制等条件控制，并在后台分阶段执行。读路径和写路径刻意分在不同 Rust 模块（crate）中。这个设计提醒我们：Memory 是受控的长期信息管理，不是把所有对话自动永久保存。</p>
+<p>对支付仓库而言，适合进入 Memory 的是已经反复验证过的通用经验，例如某类测试的稳定运行方式。一次临时排查的日志、带有外部系统内容的回复，或尚未确认的猜测都不适合直接当作长期依据。</p>
+<h2 id="回到选择先按生命周期切开">回到选择：先按生命周期切开
+</h2><p>如果内容只在当前任务中指导模型怎么做，选 Skill。需要把几种组件一起发布和启用，选 Plugin。动作发生前后必须机械执行的规则，选 Hook。信息需要跨 Thread 留存，并且来源与质量允许沉淀时，才考虑 Memory。需要连外部系统时，选 MCP。</p>
+<p>这些边界让扩展之间可以组合，而不必彼此冒充。一个 Plugin 可以带来审查 Skill 和路径保护 Hook；审查 Skill 可以依赖一个查询发布状态的 MCP 服务；Memory 可以记录经过验证的工作习惯。它们围绕同一次任务协作，分别负责方法、分发、强制、沉淀和连接。</p>
+<h2 id="接下来可以继续想">接下来可以继续想
+</h2><ul>
+<li>为什么 Skill 的目录先进入模型，而正文通常按需读取？</li>
+<li>一个 Hook 能改写工具参数时，审计与调试应记录原参数还是改写后的参数？</li>
+<li>Plugin 带来的 MCP 服务应该沿用谁的权限与认证配置？</li>
+<li>哪些信息满足跨任务复用的条件，哪些信息只该留在当前 Thread？</li>
+</ul>
+<h2 id="参考资料">参考资料
+</h2><ul>
+<li><a class="link" href="https://developers.openai.com/codex/concepts/customization#skills"  target="_blank" rel="noopener"
+    >Codex 关于 Skills 的说明</a></li>
+<li><a class="link" href="https://developers.openai.com/codex/plugins/build#plugin-structure"  target="_blank" rel="noopener"
+    >Codex Plugin 结构说明</a></li>
+<li><a class="link" href="https://developers.openai.com/codex/config-advanced#hooks"  target="_blank" rel="noopener"
+    >Codex Hook 配置说明</a></li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/codex/">Codex</a>
+        
+            <a href="/tags/agent/">Agent</a>
+        
+            <a href="/tags/cli/">CLI</a>
+        
+            <a href="/tags/%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB/">源码导读</a>
+        
+            <a href="/tags/skill/">Skill</a>
+        
+            <a href="/tags/plugin/">Plugin</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%8D%81%E4%BB%8E%E4%B8%80%E5%8F%A5%E4%BB%BB%E5%8A%A1%E5%88%B0%E4%B8%80%E6%AC%A1%E5%8F%AF%E9%AA%8C%E8%AF%81%E7%9A%84%E6%94%B9%E5%8A%A8/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（十）：从一句任务到一次可验证的改动</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B9%9D%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E6%80%8E%E6%A0%B7%E9%80%81%E5%88%B0%E7%BB%88%E7%AB%AF%E5%92%8C%E5%AF%8C%E5%AE%A2%E6%88%B7%E7%AB%AF/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%83mcp-%E6%80%8E%E6%A0%B7%E6%8A%8A%E5%A4%96%E9%83%A8%E7%B3%BB%E7%BB%9F%E6%8E%A5%E8%BF%9B%E4%BB%BB%E5%8A%A1/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%AD%E5%B7%A5%E5%85%B7%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E8%83%BD%E7%9B%B4%E6%8E%A5%E8%B7%91%E5%91%BD%E4%BB%A4/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（六）：工具为什么不能直接跑命令</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%BA%94%E6%A8%A1%E5%9E%8B%E6%80%8E%E6%A0%B7%E8%B0%83%E7%94%A8%E5%B7%A5%E5%85%B7/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（五）：模型怎样调用工具</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+		<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+		<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+	
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm.top\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+<style>
+    .article-content .mermaid {
+        display: block;
+        overflow-x: auto;
+        padding: 1rem;
+        text-align: center;
+    }
+</style>
+<script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+    });
+    mermaid.run({ nodes: document.querySelectorAll(".article-content .mermaid") });
+</script>
+
+    </body>
+</html>

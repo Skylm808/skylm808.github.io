@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（五）：模型怎样调用工具 模型说“我来看看这个测试”，不会让文件凭空出现在上下文里。它必须先选择一个工具，带上参数；运行时执行工具；结果再以机器可识别的形式回到模型。这条闭环才让“找代码、改代码、跑测试”成为实际操作。\n">
+<title>Codex CLI 源码导读（五）：模型怎样调用工具</title>
+
+<link rel='canonical' href='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%BA%94%E6%A8%A1%E5%9E%8B%E6%80%8E%E6%A0%B7%E8%B0%83%E7%94%A8%E5%B7%A5%E5%85%B7/'>
+
+<link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="Codex CLI 源码导读（五）：模型怎样调用工具">
+<meta property='og:description' content="Codex CLI 源码导读（五）：模型怎样调用工具 模型说“我来看看这个测试”，不会让文件凭空出现在上下文里。它必须先选择一个工具，带上参数；运行时执行工具；结果再以机器可识别的形式回到模型。这条闭环才让“找代码、改代码、跑测试”成为实际操作。\n">
+<meta property='og:url' content='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%BA%94%E6%A8%A1%E5%9E%8B%E6%80%8E%E6%A0%B7%E8%B0%83%E7%94%A8%E5%B7%A5%E5%85%B7/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Codex' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='CLI' /><meta property='article:tag' content='源码导读' /><meta property='article:published_time' content='2026-07-22T10:00:00&#43;08:00'/><meta property='article:modified_time' content='2026-07-22T10:00:00&#43;08:00'/>
+<meta name="twitter:title" content="Codex CLI 源码导读（五）：模型怎样调用工具">
+<meta name="twitter:description" content="Codex CLI 源码导读（五）：模型怎样调用工具 模型说“我来看看这个测试”，不会让文件凭空出现在上下文里。它必须先选择一个工具，带上参数；运行时执行工具；结果再以机器可识别的形式回到模型。这条闭环才让“找代码、改代码、跑测试”成为实际操作。\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友链</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#工具先以规格进入模型请求">工具先以“规格”进入模型请求</a></li>
+    <li><a href="#从模型输出到-toolcall">从模型输出到 <code>ToolCall</code></a></li>
+    <li><a href="#读改跑工具不是同一件事">读、改、跑：工具不是同一件事</a></li>
+    <li><a href="#调度器做了什么">调度器做了什么</a></li>
+    <li><a href="#结果为什么必须回到模型">结果为什么必须回到模型</a></li>
+    <li><a href="#工具能力与安全能力要一起读">工具能力与安全能力要一起读</a></li>
+    <li><a href="#读源码时的路线">读源码时的路线</a></li>
+    <li><a href="#接下来可以继续想">接下来可以继续想</a></li>
+    <li><a href="#参考资料">参考资料</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/ai/" >
+                AI
+            </a>
+        
+            <a href="/categories/%E5%BC%80%E6%BA%90/" >
+                开源
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%BA%94%E6%A8%A1%E5%9E%8B%E6%80%8E%E6%A0%B7%E8%B0%83%E7%94%A8%E5%B7%A5%E5%85%B7/">Codex CLI 源码导读（五）：模型怎样调用工具</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Jul 22, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 6 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="codex-cli-源码导读五模型怎样调用工具">Codex CLI 源码导读（五）：模型怎样调用工具
+</h1><p>模型说“我来看看这个测试”，不会让文件凭空出现在上下文里。它必须先选择一个工具，带上参数；运行时执行工具；结果再以机器可识别的形式回到模型。这条闭环才让“找代码、改代码、跑测试”成为实际操作。</p>
+<p>Codex 的工具系统不只是把 Shell 命令拼成字符串。它要决定本轮有哪些工具可见，解析模型返回的调用，交给正确的处理器，还要把成功、失败和取消都变成下一轮可以使用的输入。本文从 <code>ToolRouter</code> 开始，追一条工具调用完整走完的路径。</p>
+<p>源码仍固定为 <code>openai/codex</code> 的 <code>268288a</code>。</p>
+<h2 id="工具先以规格进入模型请求">工具先以“规格”进入模型请求
+</h2><p>第四篇讲到，每次采样请求都有一份 Step Context。工具也从这份快照开始。<code>run_turn</code> 在向模型请求输出前构建 <code>ToolRouter</code>，再把其中“模型可见的工具规格”放进 Prompt。</p>
+<p>工具规格由工具名、参数结构和描述组成。它告诉模型这轮可以请求什么，却不直接执行任何动作。<code>ToolRouter</code> 同时保存另一份注册表，供运行时在模型真正请求调用时查找处理器。</p>
+<pre class="mermaid">flowchart LR
+    S[&#34;Step Context&#34;] --&gt; R[&#34;ToolRouter&#34;]
+    R --&gt; P[&#34;模型可见的工具规格&#34;]
+    R --&gt; G[&#34;运行时工具注册表&#34;]
+    P --&gt; M[&#34;模型选择调用&#34;]
+    M --&gt; G</pre>
+<p>这个分离很重要。模型看到的是受控的能力清单，不是运行时内部全部函数。某些工具只在内部调度中使用，某些能力需要先通过工具搜索发现，还有些扩展工具只在满足配置和环境条件时出现。工具列表本身就是本轮任务边界的一部分。</p>
+<p><code>ToolCallRuntime</code> 会保留创建它的 Step Context。工具调用即使稍后才执行，也仍对应模型当时看到的那份工具和环境，而不会悄悄切到另一份配置。</p>
+<h2 id="从模型输出到-toolcall">从模型输出到 <code>ToolCall</code>
+</h2><p>模型流式输出时，<code>run_turn</code> 会收到不同种类的响应项。遇到函数调用、客户端执行的工具搜索或自定义工具调用时，<code>codex-rs/core/src/tools/router.rs</code> 中的 <code>ToolRouter::build_tool_call</code> 会把它们转成统一的 <code>ToolCall</code>。</p>
+<p>一条 <code>ToolCall</code> 至少包含三样东西：工具名、调用 ID 和参数载荷。调用 ID 看似只是字符串，实际上承担了配对责任。工具执行完后，结果会带着相同 ID 回到模型，模型才能知道“这是刚才那次搜索的结果”，而不是把它错当成另一条命令的输出。</p>
+<pre class="mermaid">sequenceDiagram
+    participant M as 模型
+    participant R as ToolRouter
+    participant T as ToolCallRuntime
+    participant H as 工具处理器
+
+    M-&gt;&gt;R: FunctionCall(name, arguments, call_id)
+    R-&gt;&gt;T: ToolCall(name, payload, call_id)
+    T-&gt;&gt;H: 依名称和参数调度
+    H--&gt;&gt;T: 工具输出或错误
+    T--&gt;&gt;M: FunctionCallOutput(call_id, output)</pre>
+<p>模型不需要知道 Rust 里的 handler 类型，handler 也不需要知道模型如何生成参数。<code>ToolCall</code> 是二者之间的协议对象。</p>
+<h2 id="读改跑工具不是同一件事">读、改、跑：工具不是同一件事
+</h2><p>在编码任务中，最常见的动作看上去都像“执行命令”，但运行时仍会区分它们。</p>
+<p><code>exec_command</code> 和 <code>write_stdin</code> 处理可持续的命令执行与输入。模型可以借此运行 <code>rg</code>、读取文件、执行目标测试，必要时继续向已有进程写入内容。很多“搜索文件”或“查看测试输出”的体验，底层走的就是这类执行能力。</p>
+<p><code>apply_patch</code> 则处理结构化补丁。它会解析模型生成的 diff、计算受影响路径，再进入后续的权限与写入路径。Git 相关信息、图像查看、等待环境、工具搜索等能力也各自有处理器和规格。</p>
+<p>不要把目录名和用户动作硬绑在一起。例如，<code>file-search</code> crate 提供独立能力，<code>git-utils</code> 提供 Git 操作支撑；一次任务真正暴露给模型的工具集合仍取决于这轮的 Tool Plan、模型模式、环境和配置。读源码时，先看 <code>spec_plan.rs</code> 如何组装工具，再追具体 handler，会少绕很多弯路。</p>
+<h2 id="调度器做了什么">调度器做了什么
+</h2><p><code>ToolCallRuntime</code> 接过 <code>ToolCall</code> 后，会询问注册表：这个工具是否允许并行，应该由哪个运行时处理，取消时是否需要等待处理器收尾。随后，它把 Session、Turn、Step Context、取消令牌、调用 ID 和参数一起封装成 <code>ToolInvocation</code>，交给注册表分派。</p>
+<p>这一步把工具调用放回任务现场。处理器不只拿到一段参数，还能知道它属于哪个 Thread、哪一轮 Turn、哪个工作目录，以及当前的权限和环境快照。</p>
+<p>有些调用可以并发，例如互不依赖的读取；有些则必须按顺序等待。源码把这个决定收在工具注册表和 <code>ToolCallRuntime</code> 中，而不是让模型自己猜“这两条命令能不能同时跑”。并发不是额外炫技，它避免了工具结果的顺序和状态失控。</p>
+<h2 id="结果为什么必须回到模型">结果为什么必须回到模型
+</h2><p>工具处理器完成后，输出会转换成 <code>ResponseInputItem</code>。成功结果会回到历史，错误通常也会以可报告给模型的形式返回。下一次采样请求会带上这些新输入项，模型据此决定继续搜索、修改代码、换一种命令，或结束任务。</p>
+<pre class="mermaid">flowchart TD
+    A[&#34;模型请求执行目标测试&#34;] --&gt; B[&#34;exec_command&#34;]
+    B --&gt; C{&#34;测试结果&#34;}
+    C --&gt;|&#34;失败&#34;| D[&#34;失败输出进入历史&#34;]
+    C --&gt;|&#34;通过&#34;| E[&#34;结果进入历史&#34;]
+    D --&gt; F[&#34;模型决定继续定位或修改&#34;]
+    E --&gt; G[&#34;模型汇报验证结果&#34;]
+    F --&gt; A</pre>
+<p>这也是为什么工具输出不能只显示给用户。假如测试失败文本不回到模型，下一轮模型只能继续猜；假如补丁应用失败不回到模型，它也不知道应该修正路径还是调整上下文。Agent 的反馈回路靠的正是这份结果。</p>
+<p>工具失败不一定意味着整项任务失败。一个命令返回非零退出码，可能只是排查过程中的证据；一个补丁解析失败，可能提示模型改用更小的修改。真正需要中止的致命错误由运行时向上报告。把这几种结果区分开，Agent 才能在失败后继续工作，而不是把每次命令报错都当成最终结论。</p>
+<h2 id="工具能力与安全能力要一起读">工具能力与安全能力要一起读
+</h2><p>到这里，工具已经能让模型读、改、跑。但“能调度”不等于“可以直接执行”。<code>ToolInvocation</code> 携带的权限、审批和环境信息，会在命令或写文件真正发生前参与判断。<code>apply_patch</code> 也会根据目标路径计算额外写入权限。</p>
+<p>因此，工具系统有两半：前半负责把模型意图变成具体调用，后半负责决定调用是否可以跨过本地边界。把它们拆开读容易产生一种错觉，好像模型拿到 <code>exec_command</code> 就拥有机器上的全部权限。下一篇专门沿着这条安全路径继续追。</p>
+<h2 id="读源码时的路线">读源码时的路线
+</h2><div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>问题</th>
+					<th>起点</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>本轮哪些工具对模型可见</td>
+					<td><code>core/src/tools/spec_plan.rs</code></td>
+			</tr>
+			<tr>
+					<td>模型的函数调用怎样统一表示</td>
+					<td><code>core/src/tools/router.rs</code></td>
+			</tr>
+			<tr>
+					<td>并发、取消和分派怎样处理</td>
+					<td><code>core/src/tools/parallel.rs</code></td>
+			</tr>
+			<tr>
+					<td>命令和补丁怎样实现</td>
+					<td><code>core/src/tools/handlers/</code></td>
+			</tr>
+			<tr>
+					<td>具体的 Shell 与补丁运行时</td>
+					<td><code>core/src/tools/runtimes/</code></td>
+			</tr>
+	</tbody>
+</table></div>
+<h2 id="接下来可以继续想">接下来可以继续想
+</h2><ul>
+<li>为什么 ToolRouter 要同时维护“模型可见规格”和“运行时注册表”？</li>
+<li>哪些工具结果应该直接进入历史，哪些内容需要截断或结构化？</li>
+<li>同一个 <code>call_id</code> 在事件流、历史和 UI 中怎样保持一致？</li>
+<li>当模型请求向工作区外写文件或联网执行时，系统在哪一层提出确认？</li>
+</ul>
+<p>下一篇从最后一个问题开始，读沙箱、权限配置、审批策略和命令升级路径。</p>
+<h2 id="参考资料">参考资料
+</h2><ul>
+<li><a class="link" href="https://developers.openai.com/codex/cli"  target="_blank" rel="noopener"
+    >Codex CLI 文档</a></li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/codex/">Codex</a>
+        
+            <a href="/tags/agent/">Agent</a>
+        
+            <a href="/tags/cli/">CLI</a>
+        
+            <a href="/tags/%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB/">源码导读</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%8D%81%E4%BB%8E%E4%B8%80%E5%8F%A5%E4%BB%BB%E5%8A%A1%E5%88%B0%E4%B8%80%E6%AC%A1%E5%8F%AF%E9%AA%8C%E8%AF%81%E7%9A%84%E6%94%B9%E5%8A%A8/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（十）：从一句任务到一次可验证的改动</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B9%9D%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E6%80%8E%E6%A0%B7%E9%80%81%E5%88%B0%E7%BB%88%E7%AB%AF%E5%92%8C%E5%AF%8C%E5%AE%A2%E6%88%B7%E7%AB%AF/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%ABskillpluginhook-%E4%B8%8E-memory-%E5%90%84%E6%94%BE%E5%9C%A8%E5%93%AA%E9%87%8C/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%83mcp-%E6%80%8E%E6%A0%B7%E6%8A%8A%E5%A4%96%E9%83%A8%E7%B3%BB%E7%BB%9F%E6%8E%A5%E8%BF%9B%E4%BB%BB%E5%8A%A1/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%AD%E5%B7%A5%E5%85%B7%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E8%83%BD%E7%9B%B4%E6%8E%A5%E8%B7%91%E5%91%BD%E4%BB%A4/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（六）：工具为什么不能直接跑命令</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+		<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+		<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+	
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm.top\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+<style>
+    .article-content .mermaid {
+        display: block;
+        overflow-x: auto;
+        padding: 1rem;
+        text-align: center;
+    }
+</style>
+<script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+    });
+    mermaid.run({ nodes: document.querySelectorAll(".article-content .mermaid") });
+</script>
+
+    </body>
+</html>

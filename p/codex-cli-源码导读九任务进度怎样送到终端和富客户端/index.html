@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端 让 Codex 在仓库里找一个调用点、改一处文件、再跑一条测试时，界面不会等到任务结束才给出一整段结果。你会先看到任务开始，接着看到命令、文件改动和文字回复，最后看到完成或中断。支撑这个体验的是一串带有任务标识和状态的结构化事件。\n">
+<title>Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端</title>
+
+<link rel='canonical' href='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B9%9D%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E6%80%8E%E6%A0%B7%E9%80%81%E5%88%B0%E7%BB%88%E7%AB%AF%E5%92%8C%E5%AF%8C%E5%AE%A2%E6%88%B7%E7%AB%AF/'>
+
+<link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端">
+<meta property='og:description' content="Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端 让 Codex 在仓库里找一个调用点、改一处文件、再跑一条测试时，界面不会等到任务结束才给出一整段结果。你会先看到任务开始，接着看到命令、文件改动和文字回复，最后看到完成或中断。支撑这个体验的是一串带有任务标识和状态的结构化事件。\n">
+<meta property='og:url' content='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B9%9D%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E6%80%8E%E6%A0%B7%E9%80%81%E5%88%B0%E7%BB%88%E7%AB%AF%E5%92%8C%E5%AF%8C%E5%AE%A2%E6%88%B7%E7%AB%AF/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Codex' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='CLI' /><meta property='article:tag' content='源码导读' /><meta property='article:tag' content='TUI' /><meta property='article:tag' content='App Server' /><meta property='article:published_time' content='2026-07-22T10:04:00&#43;08:00'/><meta property='article:modified_time' content='2026-07-22T10:04:00&#43;08:00'/>
+<meta name="twitter:title" content="Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端">
+<meta name="twitter:description" content="Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端 让 Codex 在仓库里找一个调用点、改一处文件、再跑一条测试时，界面不会等到任务结束才给出一整段结果。你会先看到任务开始，接着看到命令、文件改动和文字回复，最后看到完成或中断。支撑这个体验的是一串带有任务标识和状态的结构化事件。\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友链</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#先把进度看成状态不是日志">先把“进度”看成状态，不是日志</a></li>
+    <li><a href="#app-server本地协议服务不是另一个-agent">App Server：本地协议服务，不是另一个 Agent</a></li>
+    <li><a href="#从-core-事件到协议通知">从 Core 事件到协议通知</a></li>
+    <li><a href="#tui-怎样消费这些事件">TUI 怎样消费这些事件</a></li>
+    <li><a href="#再回到-cli扩展和-app">再回到 CLI、扩展和 App</a></li>
+    <li><a href="#接下来可以继续想">接下来可以继续想</a></li>
+    <li><a href="#参考资料">参考资料</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/ai/" >
+                AI
+            </a>
+        
+            <a href="/categories/%E5%BC%80%E6%BA%90/" >
+                开源
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B9%9D%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E6%80%8E%E6%A0%B7%E9%80%81%E5%88%B0%E7%BB%88%E7%AB%AF%E5%92%8C%E5%AF%8C%E5%AE%A2%E6%88%B7%E7%AB%AF/">Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Jul 22, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 7 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="codex-cli-源码导读九任务进度怎样送到终端和富客户端">Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端
+</h1><p>让 Codex 在仓库里找一个调用点、改一处文件、再跑一条测试时，界面不会等到任务结束才给出一整段结果。你会先看到任务开始，接着看到命令、文件改动和文字回复，最后看到完成或中断。支撑这个体验的是一串带有任务标识和状态的结构化事件。</p>
+<p>本文的判断很简单：运行时负责产生事实，界面负责呈现事实；两者之间由 <code>app-server</code> 的本地协议连接。<code>app-server</code> 不是桌面版 Codex App 本身。它是公开 CLI 中的本地服务，供 TUI 和 VS Code 扩展这类富客户端使用。桌面 App 可以使用类似能力，但其完整实现不在这份公开仓库中。</p>
+<p>本文固定使用 <code>openai/codex</code> 的 <code>268288a</code>。第九篇只讨论公开源码里事件如何流动，不把某个界面的具体设计当作协议承诺。</p>
+<h2 id="先把进度看成状态不是日志">先把“进度”看成状态，不是日志
+</h2><p>日志是给人或诊断工具看的文本，常常只说明“发生过什么”。结构化事件则会明确说明：哪一个 Thread、哪一轮 Turn、哪一个 Item 发生了什么变化。</p>
+<p>这里的三个名词来自第二、三篇：Thread 是一段持续的任务会话；Turn 是用户提交一次请求后的一轮执行；Item 是这一轮里一项可记录的输入或输出，例如用户消息、模型回复、命令执行和文件改动。</p>
+<p>假设客户端提交“运行 <code>go test ./...</code>，修复第一个失败的测试”。它关心的不只是终端里出现了哪些字符，还需要知道下面几件事：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>看到的变化</th>
+					<th>对应的状态含义</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>任务开始转圈</td>
+					<td>某个 Turn 已进入执行中状态</td>
+			</tr>
+			<tr>
+					<td>命令卡片出现</td>
+					<td>一个命令执行 Item 已开始</td>
+			</tr>
+			<tr>
+					<td>终端内容逐步增加</td>
+					<td>这个 Item 正在产生输出增量</td>
+			</tr>
+			<tr>
+					<td>补丁或文件卡片完成</td>
+					<td>一个文件改动 Item 已有最终结果</td>
+			</tr>
+			<tr>
+					<td>任务结束</td>
+					<td>Turn 已完成、失败或被中断</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>“增量”是一次消息中新增的一小段内容。例如命令输出可以一行一行到达，模型回复也可以逐段出现。界面将这些增量追加到已有 Item 上，最终再以 <code>item/completed</code> 收束它。</p>
+<pre class="mermaid">sequenceDiagram
+    participant C as TUI 或富客户端
+    participant A as app-server
+    participant R as Core 运行时
+
+    C-&gt;&gt;A: turn/start（用户输入）
+    A--&gt;&gt;C: 响应：Turn 已创建
+    A-&gt;&gt;R: 提交本轮任务
+    R--&gt;&gt;A: TurnStarted、ItemStarted、输出增量、ItemCompleted
+    A--&gt;&gt;C: turn/started、item/*、各类增量通知
+    R--&gt;&gt;A: TurnComplete 或 TurnAborted
+    A--&gt;&gt;C: turn/completed</pre>
+<p>图里的“响应”和“通知”不同。响应是客户端发起请求后得到的回答；通知是服务端主动推送的一条单向消息，不需要客户端逐条回复。这样，<code>turn/start</code> 可以很快返回一个 Turn，而耗时的工作继续通过通知发送给界面。</p>
+<h2 id="app-server本地协议服务不是另一个-agent">App Server：本地协议服务，不是另一个 Agent
+</h2><p><code>codex app-server</code> 在 <code>codex-rs/app-server</code> 中实现。它用 JSON-RPC 2.0 组织请求、响应和通知。JSON-RPC 是一种以 JSON 表达消息的协议约定：方法名决定要做什么，参数描述输入，请求标识把响应对应回原始请求。</p>
+<p>默认连接方式是标准输入输出上的 JSONL。JSONL 指每行一个 JSON 对象，因此一边可以连续写入请求，另一边也可以连续读到通知。公开源码还提供 WebSocket 和 Unix socket 等连接方式；其中 WebSocket 被标注为实验性接口，不能把它当作稳定集成边界。</p>
+<p>客户端先发送 <code>initialize</code>，再发 <code>initialized</code>，随后才能操作 Thread。创建会话用 <code>thread/start</code>，继续已有会话用 <code>thread/resume</code>；提交用户输入用 <code>turn/start</code>。<code>turn/start</code> 的响应只表示这轮任务已经建立，真正开始执行时会再收到 <code>turn/started</code>，随后才是 Item 和增量通知。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>客户端                     app-server
+</span></span><span style="display:flex;"><span>  initialize       ---&gt;    校验连接并返回运行环境信息
+</span></span><span style="display:flex;"><span>  initialized      ---&gt;    连接可以开始工作
+</span></span><span style="display:flex;"><span>  thread/start     ---&gt;    创建 Thread，并订阅该 Thread 的进度
+</span></span><span style="display:flex;"><span>  turn/start       ---&gt;    创建 Turn
+</span></span><span style="display:flex;"><span>                  &lt;---     turn/started
+</span></span><span style="display:flex;"><span>                  &lt;---     item/started
+</span></span><span style="display:flex;"><span>                  &lt;---     item/agentMessage/delta
+</span></span><span style="display:flex;"><span>                  &lt;---     item/completed
+</span></span><span style="display:flex;"><span>                  &lt;---     turn/completed
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>app-server</code> 的职责不是替模型决定下一步。它把运行时已经产生的状态变成客户端能稳定消费的消息，并维护客户端对哪些 Thread 订阅了进度。<code>thread/start</code>、<code>thread/resume</code> 和 <code>thread/fork</code> 会让当前连接订阅相应 Thread；客户端也能通过 <code>thread/unsubscribe</code> 停止接收该 Thread 的 Turn 和 Item 事件。</p>
+<h2 id="从-core-事件到协议通知">从 Core 事件到协议通知
+</h2><p>第三篇中的 Core 运行时使用 <code>EventMsg</code> 表示任务内部发生的事情。<code>codex-rs/app-server/src/bespoke_event_handling.rs</code> 是一次重要的转换点：它接收带有 Turn 标识的 Core 事件，补上 Thread 信息，再发出 <code>ServerNotification</code>。</p>
+<p>最常见的映射可以这样理解：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>Core 中发生的事</th>
+					<th>客户端收到的消息</th>
+					<th>界面通常怎么用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Turn 开始</td>
+					<td><code>turn/started</code></td>
+					<td>设置运行中状态</td>
+			</tr>
+			<tr>
+					<td>一个 Item 开始</td>
+					<td><code>item/started</code></td>
+					<td>新建命令、文件改动或消息区域</td>
+			</tr>
+			<tr>
+					<td>模型文字到达</td>
+					<td><code>item/agentMessage/delta</code></td>
+					<td>追加模型回复</td>
+			</tr>
+			<tr>
+					<td>命令输出到达</td>
+					<td>命令输出增量通知</td>
+					<td>追加终端输出</td>
+			</tr>
+			<tr>
+					<td>一个 Item 结束</td>
+					<td><code>item/completed</code></td>
+					<td>固化结果和最终状态</td>
+			</tr>
+			<tr>
+					<td>Turn 完成或中断</td>
+					<td><code>turn/completed</code></td>
+					<td>结束加载，显示最终结果</td>
+			</tr>
+	</tbody>
+</table></div>
+<p><code>codex-rs/app-server-protocol/src/protocol/v2/item.rs</code> 为 <code>item/started</code> 和 <code>item/completed</code> 定义了相同的定位骨架：<code>thread_id</code>、<code>turn_id</code>、<code>item</code>，再加上开始或完成的时间。客户端因此不必从一行文本猜测“这是谁的输出”。</p>
+<p>这里还有一个容易读错源码的地方。Core 中仍保留了较早的 <code>ExecCommandBegin</code>、<code>ExecCommandEnd</code>、<code>PatchApplyBegin</code>、<code>PatchApplyEnd</code> 事件，用于兼容原始事件和历史记录。app-server 的 v2 客户端不依赖它们来构建界面，而是使用统一的命令执行 Item 和文件改动 Item 的开始、完成生命周期。这样客户端面对命令和补丁时遵循同一套数据形状。</p>
+<p>权限请求也不是普通的进度通知。需要用户决定时，app-server 会发送一个 Server Request，客户端必须给出允许、拒绝或其他响应。第六篇里的审批边界因此仍然保留在协议上：界面不能只把确认框当成一条可忽略的日志。</p>
+<h2 id="tui-怎样消费这些事件">TUI 怎样消费这些事件
+</h2><p><code>tui</code> 是终端里的交互界面。它并不直接观察 Core 的所有内部事件，而是作为 app-server 客户端消费 <code>AppServerEvent</code>。<code>codex-rs/tui/src/app/app_server_events.rs</code> 先处理应用范围的通知，再按照 <code>thread_id</code> 把其余消息送到正确的 Thread。</p>
+<p>这一步很实际。一个 TUI 可能同时显示主任务、子任务和旁路会话。若一个子任务的 <code>item/completed</code> 被误送到主任务，命令输出和改动记录就会混在一起。<code>codex-rs/tui/src/app/app_server_event_targets.rs</code> 把通知中的 Thread 标识取出来，<code>thread_routing.rs</code> 再决定是立刻交给当前会话，还是先保存起来。</p>
+<pre class="mermaid">flowchart LR
+    A[&#34;app-server 通知&#34;] --&gt; B{&#34;带有哪个 thread_id？&#34;}
+    B --&gt; C[&#34;当前正在看的 Thread\n立刻更新 ChatWidget&#34;]
+    B --&gt; D[&#34;未激活的 Thread\n放入事件缓冲区&#34;]
+    D --&gt; E[&#34;用户切换回来\n重放仍有意义的事件&#34;]</pre>
+<p><code>codex-rs/tui/src/app/thread_events.rs</code> 中的 <code>ThreadEventStore</code> 保存每个 Thread 的会话快照、Turn、缓冲事件和当前输入状态。它会在 <code>turn/started</code> 记下活动 Turn，在对应的 <code>turn/completed</code> 清除活动状态。体积较大、不会用于重放的消息，例如原始响应内容或实时音频增量，不会复制进每个 Thread 的缓冲区。</p>
+<p>这也说明“实时”并不等于“绝不丢失每一条展示消息”。当 TUI 消费事件落后时，源码会记录延迟并丢弃明确不影响后续状态的事件，同时刷新必要的状态。客户端要以 Thread、Turn 和 Item 的最终状态为准，不能把每个增量都当成唯一可靠的历史来源。</p>
+<h2 id="再回到-cli扩展和-app">再回到 CLI、扩展和 App
+</h2><p>终端交互模式下，TUI 是一个 app-server 客户端；VS Code 扩展等富客户端也可以通过同一协议驱动 Thread 和 Turn。它们可以有不同的布局、快捷键和展示方式，却不必各自实现 Agent 循环、工具执行和审批流程。</p>
+<p>这正是 <code>app-server</code> 的位置：它把“如何执行任务”和“怎样看见任务”隔开。公开仓库能让我们观察到 TUI 与本地服务的边界，也能看到该服务面向富客户端的协议。至于 Codex App 自身的全部界面和产品逻辑，不能从这些 CLI 源码中推导出来。</p>
+<h2 id="接下来可以继续想">接下来可以继续想
+</h2><ul>
+<li>客户端若漏掉一次输出增量，怎样靠 Item 的最终状态恢复正确界面？</li>
+<li>为什么权限请求需要请求-响应通道，而不是一条单向通知？</li>
+<li>协议中的 <code>thread_id</code>、<code>turn_id</code> 和 <code>item</code> 标识分别解决了什么混淆？</li>
+<li>当协议增加一种新的 Item 类型时，旧客户端应该如何退化处理？</li>
+</ul>
+<h2 id="参考资料">参考资料
+</h2><ul>
+<li><a class="link" href="https://developers.openai.com/codex/cli/reference"  target="_blank" rel="noopener"
+    >Codex CLI 参考文档</a></li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/codex/">Codex</a>
+        
+            <a href="/tags/agent/">Agent</a>
+        
+            <a href="/tags/cli/">CLI</a>
+        
+            <a href="/tags/%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB/">源码导读</a>
+        
+            <a href="/tags/tui/">TUI</a>
+        
+            <a href="/tags/app-server/">App Server</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%8D%81%E4%BB%8E%E4%B8%80%E5%8F%A5%E4%BB%BB%E5%8A%A1%E5%88%B0%E4%B8%80%E6%AC%A1%E5%8F%AF%E9%AA%8C%E8%AF%81%E7%9A%84%E6%94%B9%E5%8A%A8/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（十）：从一句任务到一次可验证的改动</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%ABskillpluginhook-%E4%B8%8E-memory-%E5%90%84%E6%94%BE%E5%9C%A8%E5%93%AA%E9%87%8C/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%83mcp-%E6%80%8E%E6%A0%B7%E6%8A%8A%E5%A4%96%E9%83%A8%E7%B3%BB%E7%BB%9F%E6%8E%A5%E8%BF%9B%E4%BB%BB%E5%8A%A1/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%AD%E5%B7%A5%E5%85%B7%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E8%83%BD%E7%9B%B4%E6%8E%A5%E8%B7%91%E5%91%BD%E4%BB%A4/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（六）：工具为什么不能直接跑命令</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%BA%94%E6%A8%A1%E5%9E%8B%E6%80%8E%E6%A0%B7%E8%B0%83%E7%94%A8%E5%B7%A5%E5%85%B7/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（五）：模型怎样调用工具</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+		<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+		<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+	
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm.top\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+<style>
+    .article-content .mermaid {
+        display: block;
+        overflow-x: auto;
+        padding: 1rem;
+        text-align: center;
+    }
+</style>
+<script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+    });
+    mermaid.run({ nodes: document.querySelectorAll(".article-content .mermaid") });
+</script>
+
+    </body>
+</html>

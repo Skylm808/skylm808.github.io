@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>MCP on Skylm</title>
+        <link>https://skylm.top/tags/mcp/</link>
+        <description>Recent content in MCP on Skylm</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>en-us</language>
+        <copyright>Skylm</copyright>
+        <lastBuildDate>Wed, 22 Jul 2026 10:02:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/mcp/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务</title>
+        <link>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%83mcp-%E6%80%8E%E6%A0%B7%E6%8A%8A%E5%A4%96%E9%83%A8%E7%B3%BB%E7%BB%9F%E6%8E%A5%E8%BF%9B%E4%BB%BB%E5%8A%A1/</link>
+        <pubDate>Wed, 22 Jul 2026 10:02:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%83mcp-%E6%80%8E%E6%A0%B7%E6%8A%8A%E5%A4%96%E9%83%A8%E7%B3%BB%E7%BB%9F%E6%8E%A5%E8%BF%9B%E4%BB%BB%E5%8A%A1/</guid>
+        <description>&lt;h1 id=&#34;codex-cli-源码导读七mcp-怎样把外部系统接进任务&#34;&gt;Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务
+&lt;/h1&gt;&lt;p&gt;前六篇里的工具都围绕本地仓库：搜索文件、改补丁、运行测试。可是在真实工作里，完成一次修改常常还需要仓库之外的信息，例如缺陷系统里的复现步骤、内部文档中的接口约定，或某个服务的当前状态。复制内容进对话适合一次性补充；长期使用时，更新、访问范围和调用记录都会散掉。&lt;/p&gt;
+&lt;p&gt;MCP，也就是 Model Context Protocol，是 Codex 与外部能力对话的一套协议。Codex 作为客户端连接一个 MCP 服务；服务声明自己有哪些工具和资源；模型选择其中一个工具时，Codex 代为发起协议调用，再把结果放回当前任务。MCP 解决的是“怎么接上外部系统”，不负责替模型判断任务，也不自动授予外部系统的全部权限。&lt;/p&gt;
+&lt;p&gt;本文固定使用 &lt;code&gt;openai/codex&lt;/code&gt; 的 &lt;code&gt;268288a&lt;/code&gt;。阅读范围是公开 CLI 源码中的 MCP 客户端路径，不讨论某个具体公司的 MCP 服务实现或其中保存的数据。&lt;/p&gt;
+&lt;h2 id=&#34;先看它解决的缺口&#34;&gt;先看它解决的缺口
+&lt;/h2&gt;&lt;p&gt;假设团队已经把缺陷系统接成一个 MCP 服务，提供 &lt;code&gt;search_issues&lt;/code&gt; 工具。用户要求：“根据支付模块当前的阻塞问题，修复仓库里的失败测试。”&lt;/p&gt;
+&lt;p&gt;这里有两类动作：在本地仓库运行测试，和到缺陷系统查询问题。前者适合内置的 Shell、文件和补丁工具；后者的账号、数据模型和访问方式属于外部系统。让 Codex 自己为每一种系统编写一套集成，既难维护，也无法复用。&lt;/p&gt;
+&lt;p&gt;MCP 把外部能力收敛成同一种问答形式：先列出工具，再以工具名和 JSON 参数调用。Codex 从协议返回的工具说明中取得名称、用途和参数结构，无须为每个缺陷系统、文档系统或内部服务单独接入 API。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;flowchart LR
+    U[&amp;#34;用户任务&amp;#34;] --&amp;gt; C[&amp;#34;Codex 本地运行时&amp;#34;]
+    C --&amp;gt; L[&amp;#34;内置工具\n读文件、Shell、补丁&amp;#34;]
+    C --&amp;gt; M[&amp;#34;MCP 客户端&amp;#34;]
+    M --&amp;gt; S[&amp;#34;MCP 服务\n外部系统的适配层&amp;#34;]
+    S --&amp;gt; X[&amp;#34;缺陷系统、文档或业务服务&amp;#34;]
+    L --&amp;gt; R[&amp;#34;本地结果&amp;#34;]
+    S --&amp;gt; Q[&amp;#34;外部工具结果&amp;#34;]
+    R --&amp;gt; C
+    Q --&amp;gt; C&lt;/pre&gt;
+&lt;p&gt;图中的 MCP 服务是适配层，不是模型本身。它可以是 Codex 在本机启动的一个进程，也可以是通过网络连接的服务。模型不会直接拿着数据库凭证或 HTTP 客户端绕过 Codex；它看到的是 Codex 最终暴露给它的工具规格。&lt;/p&gt;
+&lt;h2 id=&#34;配置先描述要连谁&#34;&gt;配置先描述“要连谁”
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;codex-rs/config/src/config_toml.rs&lt;/code&gt; 的 &lt;code&gt;mcp_servers&lt;/code&gt; 保存 MCP 服务定义。每个服务至少有名字、是否启用和一种传输方式。当前源码支持两类常见传输：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;传输&lt;/th&gt;
+					&lt;th&gt;适合的服务形态&lt;/th&gt;
+					&lt;th&gt;Codex 需要的信息&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;stdio&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;本机启动的服务进程&lt;/td&gt;
+					&lt;td&gt;命令、参数、环境变量和可选工作目录&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;streamable_http&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;已部署的远程服务&lt;/td&gt;
+					&lt;td&gt;URL、可选 Bearer Token 环境变量和 HTTP 头&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;&lt;code&gt;stdio&lt;/code&gt; 的意思是 Codex 启动子进程，并通过标准输入输出交换协议消息；&lt;code&gt;streamable_http&lt;/code&gt; 则是在 HTTP 连接上交换协议消息。两者都不是“模型直接访问网络”的别名，它们只是 Codex 与服务建立连接的两种传输方式。&lt;/p&gt;
+&lt;p&gt;命令行里的 &lt;code&gt;codex mcp add&lt;/code&gt; 会把服务定义写入 Codex 的全局配置。&lt;code&gt;codex-rs/cli/src/mcp_cmd.rs&lt;/code&gt; 在创建配置时还记录了服务是否必需、启动和调用超时、默认审批方式，以及每个工具的覆盖配置。MCP 服务由运行时配置管理，而不是靠一段临时提示词维持。&lt;/p&gt;
+&lt;p&gt;有两个设置值得在读源码时先记住。&lt;code&gt;enabled = false&lt;/code&gt; 会让 Codex 跳过该服务的初始化；&lt;code&gt;required = true&lt;/code&gt; 则会让 &lt;code&gt;codex exec&lt;/code&gt; 在该服务启动失败时返回错误。前者适合暂时关闭一个集成，后者适合任务离开某个外部系统就无法继续的场景。&lt;/p&gt;
+&lt;h2 id=&#34;连接成功后先发现工具&#34;&gt;连接成功后，先发现工具
+&lt;/h2&gt;&lt;p&gt;每个 Thread 都有自己的 MCP 运行时快照。这里的 Thread 是一条持续任务的会话容器，第三篇已经解释过。每轮任务还会取得一份 Step Context，也就是这轮环境、权限和可用能力的快照。&lt;code&gt;McpRuntime&lt;/code&gt; 保存当前的连接集合；配置或可用环境变化时，运行时可以原子地替换这组连接，让正在使用旧快照的工作继续完成。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;McpConnectionManager&lt;/code&gt; 负责管理一组服务客户端。启动后，它通过 MCP 的初始化握手建立连接，并用 &lt;code&gt;tools/list&lt;/code&gt; 读取每个可用服务提供的工具。&lt;code&gt;list_all_tools&lt;/code&gt; 会汇总这些工具，跳过当前不可用的服务，再把工具名整理成模型可见的形式。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;sequenceDiagram
+    participant S as Step Context
+    participant R as MCP Runtime
+    participant M as Connection Manager
+    participant P as MCP 服务
+    participant T as ToolRouter
+
+    S-&amp;gt;&amp;gt;R: 取得本轮连接快照
+    R-&amp;gt;&amp;gt;M: 获取全部 MCP 工具
+    M-&amp;gt;&amp;gt;P: initialize &amp;#43; tools/list
+    P--&amp;gt;&amp;gt;M: 工具名、说明、参数 schema
+    M-&amp;gt;&amp;gt;M: 过滤、规范化名称
+    M--&amp;gt;&amp;gt;T: ToolInfo 列表
+    T--&amp;gt;&amp;gt;S: 本轮模型可见的工具&lt;/pre&gt;
+&lt;p&gt;这里的 schema 是参数结构说明。例如 &lt;code&gt;search_issues&lt;/code&gt; 可以声明 &lt;code&gt;project&lt;/code&gt;、&lt;code&gt;status&lt;/code&gt; 和 &lt;code&gt;query&lt;/code&gt; 三个字段。模型据此生成参数；服务据此验证参数。模型只需要看到稳定的名称、说明和结构，不需要了解服务背后是 SQL、REST API 还是另一套 RPC。&lt;/p&gt;
+&lt;p&gt;源码刻意区分“给协议路由用的原始名称”和“给模型看的名称”。&lt;code&gt;codex-rs/codex-mcp/src/tools.rs&lt;/code&gt; 的 &lt;code&gt;ToolInfo&lt;/code&gt; 同时保存服务名、原始工具名和规范化后的可调用名称。这样，模型侧的名称可以清理非法字符、解决重名；真正调用时仍会准确回到原服务的原工具名。&lt;/p&gt;
+&lt;h2 id=&#34;发现不等于全部暴露&#34;&gt;发现不等于全部暴露
+&lt;/h2&gt;&lt;p&gt;外部服务报出十几个工具，不代表模型这一轮必然能看到十几个。Codex 还要过三道筛选。&lt;/p&gt;
+&lt;p&gt;第一道是服务配置。&lt;code&gt;enabled_tools&lt;/code&gt; 可以成为显式允许列表，&lt;code&gt;disabled_tools&lt;/code&gt; 可以明确屏蔽工具。&lt;code&gt;ToolFilter&lt;/code&gt; 在列工具和真正调用时都会检查这两项，所以不能只靠“模型没看到”来防止调用。&lt;/p&gt;
+&lt;p&gt;第二道是模型可见性。&lt;code&gt;tool_is_model_visible&lt;/code&gt; 会检查工具的协议元数据；&lt;code&gt;build_mcp_tool_runtimes&lt;/code&gt; 只为可见工具创建处理器。若开启工具搜索，一部分 MCP 工具还会以延迟加载方式出现，模型先搜索能力，再取得具体工具规格。这和第五篇的 Tool Plan 是同一层机制。&lt;/p&gt;
+&lt;p&gt;第三道是当前 Thread 的环境与配置。&lt;code&gt;Session::mcp_runtime_for_step&lt;/code&gt; 会根据本轮可用环境、插件贡献和服务配置生成运行时投影。服务写在配置文件里，并不保证它此刻已经成功连接，也不保证它的工具会出现在本轮的列表中。&lt;/p&gt;
+&lt;p&gt;因此，MCP 工具的可见性是一份运行时结果，不是一张静态清单。&lt;/p&gt;
+&lt;h2 id=&#34;模型调用-mcp-工具时codex-做了什么&#34;&gt;模型调用 MCP 工具时，Codex 做了什么
+&lt;/h2&gt;&lt;p&gt;当模型选中一个 MCP 工具，&lt;code&gt;McpHandler&lt;/code&gt; 先把模型参数交给 &lt;code&gt;handle_mcp_tool_call&lt;/code&gt;。后者解析 JSON，检查该服务和工具仍可用，发出“工具调用开始”的 Turn 事件，然后决定是否需要审批。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;flowchart TD
+    A[&amp;#34;模型请求 MCP 工具&amp;#34;] --&amp;gt; B[&amp;#34;McpHandler&amp;#34;]
+    B --&amp;gt; C[&amp;#34;解析 JSON 参数\n检查工具元数据&amp;#34;]
+    C --&amp;gt; D{&amp;#34;需要审批？&amp;#34;}
+    D --&amp;gt;|&amp;#34;拒绝或取消&amp;#34;| E[&amp;#34;完成事件和拒绝结果&amp;#34;]
+    D --&amp;gt;|&amp;#34;通过或无需审批&amp;#34;| F[&amp;#34;McpConnectionManager.call_tool&amp;#34;]
+    F --&amp;gt; G[&amp;#34;MCP tools/call&amp;#34;]
+    G --&amp;gt; H[&amp;#34;CallToolResult&amp;#34;]
+    H --&amp;gt; I[&amp;#34;完成事件与下一轮模型输入&amp;#34;]&lt;/pre&gt;
+&lt;p&gt;&lt;code&gt;McpConnectionManager::call_tool&lt;/code&gt; 仍会检查配置的工具过滤规则，然后调用客户端的 &lt;code&gt;tools/call&lt;/code&gt;。返回值被转换成 &lt;code&gt;CallToolResult&lt;/code&gt;，其中可以有文本内容、结构化内容、错误标记和元数据。Codex 还会按模型支持的输入类型清理结果，并对发往事件流的内容施加长度限制。&lt;/p&gt;
+&lt;p&gt;对前面的缺陷系统例子而言，模型拿到的是一条绑定了调用 ID 的工具结果。它可以据此继续读本地测试、修改代码，或者提出需要用户确认的下一步。MCP 调用仍在第三篇的 Turn 循环里，并进入这条任务的历史记录。&lt;/p&gt;
+&lt;h2 id=&#34;外部能力仍要经过边界&#34;&gt;外部能力仍要经过边界
+&lt;/h2&gt;&lt;p&gt;MCP 把能力接进来，同时也把新的信任边界接进来。外部工具的参数可能触发写操作、发消息或读取私有数据；即便工具名称叫 &lt;code&gt;search&lt;/code&gt;，也不该只根据名字判断安全性。&lt;/p&gt;
+&lt;p&gt;Codex 在 MCP 调用前沿用权限 Hook 和审批流程。&lt;code&gt;mcp_tool_call.rs&lt;/code&gt; 处理一次性允许、会话内允许、记住允许、拒绝和取消等结果。对于服务配置，管理员或用户还可以规定默认审批方式，并按工具覆盖。这个流程和第六篇中的 Shell 审批相似，但它保护的是“让外部服务执行某个协议动作”，不是替外部服务实施它自己的权限模型。&lt;/p&gt;
+&lt;p&gt;这里要留一条清晰边界：对于 &lt;code&gt;stdio&lt;/code&gt; 服务，Codex 负责启动并连接本地进程；对于远程 HTTP 服务，Codex 负责协议连接与本地侧的配置、认证和审批。服务最终能读什么、写什么、如何保存凭证，仍由服务和它连接的系统决定。接入 MCP 前，要分别审查 Codex 的配置范围和该服务本身的权限范围。&lt;/p&gt;
+&lt;h2 id=&#34;读源码时从这五处开始&#34;&gt;读源码时从这五处开始
+&lt;/h2&gt;&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;想确认的问题&lt;/th&gt;
+					&lt;th&gt;源码起点&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;服务怎样写入配置&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;codex-rs/config/src/mcp_types.rs&lt;/code&gt;、&lt;code&gt;cli/src/mcp_cmd.rs&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;一条任务怎样持有 MCP 运行时&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;codex-rs/codex-mcp/src/runtime.rs&lt;/code&gt;、&lt;code&gt;core/src/session/mcp.rs&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;怎样列出并规范化工具&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;codex-rs/codex-mcp/src/connection_manager/tool_catalog.rs&lt;/code&gt;、&lt;code&gt;tools.rs&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;模型调用怎样变成 &lt;code&gt;tools/call&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;core/src/tools/handlers/mcp.rs&lt;/code&gt;、&lt;code&gt;core/src/mcp_tool_call.rs&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;调用结果怎样返回&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;codex-rs/codex-mcp/src/connection_manager.rs&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;先按这个顺序读，会比从 &lt;code&gt;codex-mcp&lt;/code&gt; 的目录顶层一路向下更容易建立因果关系。尤其不要先把 Connector、Plugin 和 MCP 当成同义词。MCP 是协议接入面；第八篇会再解释什么是可复用的 Skill，什么是安装与分发用的 Plugin，Hook 和 Memory 又各自放在哪里。&lt;/p&gt;
+&lt;h2 id=&#34;接下来可以继续想&#34;&gt;接下来可以继续想
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;为什么模型可见的工具名需要和协议里的原始工具名分开保存？&lt;/li&gt;
+&lt;li&gt;一个 MCP 服务启动失败时，任务应该继续、降级，还是直接失败？&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;enabled_tools&lt;/code&gt; 和审批各解决什么问题，为什么两者都需要？&lt;/li&gt;
+&lt;li&gt;当一个 Plugin 同时带来 MCP 服务和 Skill 时，用户应怎样区分“安装包”和“任务方法”？&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;参考资料&#34;&gt;参考资料
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://developers.openai.com/codex/concepts/customization#mcp&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;Codex 关于 MCP 的配置说明&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

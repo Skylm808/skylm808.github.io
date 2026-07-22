@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>Hugo on Skylm</title>
+        <link>https://skylm.top/tags/hugo/</link>
+        <description>Recent content in Hugo on Skylm</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>en-us</language>
+        <copyright>Skylm</copyright>
+        <lastBuildDate>Wed, 22 Jul 2026 10:05:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/hugo/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Codex CLI 源码导读（十）：从一句任务到一次可验证的改动</title>
+        <link>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%8D%81%E4%BB%8E%E4%B8%80%E5%8F%A5%E4%BB%BB%E5%8A%A1%E5%88%B0%E4%B8%80%E6%AC%A1%E5%8F%AF%E9%AA%8C%E8%AF%81%E7%9A%84%E6%94%B9%E5%8A%A8/</link>
+        <pubDate>Wed, 22 Jul 2026 10:05:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%8D%81%E4%BB%8E%E4%B8%80%E5%8F%A5%E4%BB%BB%E5%8A%A1%E5%88%B0%E4%B8%80%E6%AC%A1%E5%8F%AF%E9%AA%8C%E8%AF%81%E7%9A%84%E6%94%B9%E5%8A%A8/</guid>
+        <description>&lt;h1 id=&#34;codex-cli-源码导读十从一句任务到一次可验证的改动&#34;&gt;Codex CLI 源码导读（十）：从一句任务到一次可验证的改动
+&lt;/h1&gt;&lt;p&gt;前九篇把 Codex 拆成了运行时、上下文、工具、权限和事件。最后把它们放回一项小任务里看，事情会具体许多：模型给出下一步的选择，Codex 让选择落到工作区；改动是否成立，还要靠构建和差异检查来回答。&lt;/p&gt;
+&lt;p&gt;本文使用本系列所在的 Hugo 站点仓库作为实例。这个仓库的部署工作流会运行 Hugo 构建，因此“新增一篇文章并让站点仍可构建”是一个真实、范围也足够小的任务。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;在 content/post/ai/ 新增一篇 Codex CLI 源码导读文章。
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;保持同系列的 Hugo front matter，保留已有改动，
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;并验证站点可以渲染。
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;Hugo front matter 是文章开头由 &lt;code&gt;+++&lt;/code&gt; 包住的一段元数据，用来声明标题、日期、分类和标签。这个任务改的是内容文件，不涉及发布、推送或远程服务。本文固定对照 &lt;code&gt;openai/codex&lt;/code&gt; 的 &lt;code&gt;268288a&lt;/code&gt;，并以当前工作区可观察到的文件和构建结果为证据。&lt;/p&gt;
+&lt;h2 id=&#34;一条任务的完成条件&#34;&gt;一条任务的完成条件
+&lt;/h2&gt;&lt;p&gt;“写完文章”太模糊。对这个仓库而言，完成至少意味着：新文件位置正确，front matter 与同系列一致，Hugo 构建成功，改动没有引入空白格式错误，并且既有的未提交文件没有被覆盖。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;flowchart LR
+    A[&amp;#34;用户任务&amp;#34;] --&amp;gt; B[&amp;#34;Thread 与 Turn&amp;#34;]
+    B --&amp;gt; C[&amp;#34;收集工作区上下文&amp;#34;]
+    C --&amp;gt; D[&amp;#34;读取相邻文章和配置&amp;#34;]
+    D --&amp;gt; E[&amp;#34;应用补丁写入新文章&amp;#34;]
+    E --&amp;gt; F[&amp;#34;运行 Hugo 构建&amp;#34;]
+    F --&amp;gt; G[&amp;#34;检查 diff 与结果&amp;#34;]
+    G --&amp;gt; H[&amp;#34;最终汇报&amp;#34;]
+
+    P[&amp;#34;权限与审批&amp;#34;] -.约束.-&amp;gt; D
+    P -.约束.-&amp;gt; E
+    P -.约束.-&amp;gt; F&lt;/pre&gt;
+&lt;p&gt;这张图没有画出模型的内部思路。公开源码可以证明 Codex 如何管理 Turn、工具和事件，却不能把模型的隐含推理逐字还原出来。阅读 Agent 架构时，这条边界很重要：我们分析的是可执行、可审计的流程，而不是猜测模型脑中的完整过程。&lt;/p&gt;
+&lt;h2 id=&#34;1-任务先成为一次-turn&#34;&gt;1. 任务先成为一次 Turn
+&lt;/h2&gt;&lt;p&gt;无论用户从 &lt;code&gt;codex&lt;/code&gt; 命令、TUI 还是富客户端提交这段话，运行时都会把它放进一个 Thread，并发起一个 Turn。Thread 保存持续的会话，Turn 表示这一轮由用户输入驱动的工作。&lt;/p&gt;
+&lt;p&gt;在 &lt;code&gt;codex-rs/core/src/tasks/regular.rs&lt;/code&gt; 中，常规 Turn 先发出 &lt;code&gt;TurnStarted&lt;/code&gt; 事件，再进入 &lt;code&gt;run_turn&lt;/code&gt;。&lt;code&gt;codex-rs/core/src/session/turn.rs&lt;/code&gt; 中的循环负责把模型响应、工具结果和后续输入串起来。若用户在任务中途补充限制，运行时会检查输入队列，再决定是否继续下一轮。&lt;/p&gt;
+&lt;p&gt;对这项任务，第一轮不需要调用 MCP，也不需要连接外部系统。工作区已经给出了足够多的本地证据：站点配置、文章目录、同系列文章和 Git 状态。&lt;/p&gt;
+&lt;h2 id=&#34;2-上下文不是把整个仓库塞进提示词&#34;&gt;2. 上下文不是把整个仓库塞进提示词
+&lt;/h2&gt;&lt;p&gt;一个稳妥的执行顺序会先观察，再修改。这里需要看的内容很有限：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;要确认的事实&lt;/th&gt;
+					&lt;th&gt;可读取的本地对象&lt;/th&gt;
+					&lt;th&gt;它影响的决定&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;站点的文章类型和链接规则&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;hugo.yaml&lt;/code&gt;，以及现有 &lt;code&gt;content/post/&lt;/code&gt; 结构&lt;/td&gt;
+					&lt;td&gt;新文件应放在 &lt;code&gt;content/post/&lt;/code&gt; 下&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;同系列怎样命名和标记&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;content/post/ai/codex-cli-agent-architecture-01.md&lt;/code&gt; 至 &lt;code&gt;09.md&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;文件名和 front matter 保持连续&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;哪些改动已经存在&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;git status --short&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;只新增第十篇，不覆盖前九篇或其他文件&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;发布时实际运行什么&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;.github/workflows/hugo_main.yaml&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;本地检查至少应覆盖 Hugo 渲染&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;这正对应第四篇的内容。运行时会从当前目录、项目指令、配置和已读文件构造当前步骤的上下文；文件正文通常在工具读取后才加入。&lt;code&gt;codex-rs/core/src/session/step_context.rs&lt;/code&gt; 保存每一步的环境快照，工具在 &lt;code&gt;codex-rs/core/src/tools/context.rs&lt;/code&gt; 中取得这份信息。&lt;/p&gt;
+&lt;p&gt;Git 状态尤其不能跳过。当前工作区已经有前九篇导读的改动。它们可能来自同一项写作，也可能来自用户的其他安排。Agent 的正确动作是把它们当成既有状态，而不是为了获得“干净工作区”去还原文件。&lt;/p&gt;
+&lt;h2 id=&#34;3-模型选择工具codex-检查工具能否执行&#34;&gt;3. 模型选择工具，Codex 检查工具能否执行
+&lt;/h2&gt;&lt;p&gt;在这项任务里，模型可能依次选择搜索、读取、写入和执行命令。选择本身来自模型；每一步实际如何落地，由工具系统决定。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rg --files content/post/ai/          # 找到相邻文章
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;sed -n ...                           # 读取 front matter 与写法
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;apply_patch                          # 新增第十篇文章
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;hugo --renderToMemory                # 在内存中构建站点
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;git diff --check                     # 检查已跟踪改动的空白错误
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;code&gt;apply_patch&lt;/code&gt; 是按补丁格式描述文件新增、删除或替换的工具。它比把整份文件交给 Shell 覆盖更容易验证目标和改动范围。&lt;code&gt;codex-rs/core/src/tools/handlers/apply_patch.rs&lt;/code&gt; 会先解析补丁，再针对选定环境的文件系统核验路径与内容，之后才把改动交给运行时。&lt;/p&gt;
+&lt;p&gt;这里的权限判断也很具体。文章目录在工作区内时，写入是否需要确认取决于当前权限配置和审批策略；跑 Hugo 则属于执行命令，也会经过命令策略与沙箱判断。&lt;code&gt;codex-rs/core/src/tools/sandboxing.rs&lt;/code&gt; 将命令分为可直接执行、需要审批和禁止三类。它不因为命令看上去“只是构建”就跳过边界。&lt;/p&gt;
+&lt;p&gt;本例没有申请更宽的目录权限，也没有运行发布或推送命令。任务只需要写当前工作区里的内容文件，并在本地验证。这个范围足以完成目标，也让副作用清楚可见。&lt;/p&gt;
+&lt;h2 id=&#34;4-工具结果会改变下一步&#34;&gt;4. 工具结果会改变下一步
+&lt;/h2&gt;&lt;p&gt;工具不是一次性流水线。每个工具结果都会回到当前 Turn，成为下一轮可用的信息。&lt;/p&gt;
+&lt;p&gt;例如，读取 &lt;code&gt;hugo.yaml&lt;/code&gt; 后可以知道文章的 permalink 由 &lt;code&gt;post&lt;/code&gt; 规则生成；读取相邻文章后可以知道 front matter 使用 TOML 语法；&lt;code&gt;git status --short&lt;/code&gt; 会提醒执行者不要碰已有文件。写入完成后，Hugo 构建的退出状态决定下一步：成功则检查差异，失败则读取报错并回到相关文件修正。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;sequenceDiagram
+    participant M as 模型
+    participant T as 工具运行时
+    participant W as Hugo 工作区
+
+    M-&amp;gt;&amp;gt;T: 读取配置和相邻文章
+    T-&amp;gt;&amp;gt;W: 只读访问
+    W--&amp;gt;&amp;gt;T: 文件内容与 Git 状态
+    T--&amp;gt;&amp;gt;M: 上下文中的新证据
+    M-&amp;gt;&amp;gt;T: apply_patch 新增文章
+    T-&amp;gt;&amp;gt;W: 校验后写入工作区
+    W--&amp;gt;&amp;gt;T: 补丁结果
+    T--&amp;gt;&amp;gt;M: 文件已变更
+    M-&amp;gt;&amp;gt;T: hugo --renderToMemory
+    T-&amp;gt;&amp;gt;W: 执行本地构建
+    W--&amp;gt;&amp;gt;T: 退出状态与构建输出
+    T--&amp;gt;&amp;gt;M: 验证结果&lt;/pre&gt;
+&lt;p&gt;第五篇里的 ToolRouter 和处理器就在这条链上。模型只看到“读取文件”“执行命令”“应用补丁”这类能力；处理器负责将请求转换为真实的文件系统或进程操作，并把结果写回任务历史。&lt;/p&gt;
+&lt;h2 id=&#34;5-这次任务有哪些可验证证据&#34;&gt;5. 这次任务有哪些可验证证据
+&lt;/h2&gt;&lt;p&gt;本次写作完成后，&lt;code&gt;hugo --renderToMemory&lt;/code&gt; 退出状态为 &lt;code&gt;0&lt;/code&gt;。这个参数会把渲染结果保留在内存中，适合检查模板、front matter 和内容能否被 Hugo 解析，同时不会把生成目录当成一次内容改动。&lt;/p&gt;
+&lt;p&gt;还应运行两种差异检查。&lt;code&gt;git diff --check&lt;/code&gt; 检查已跟踪文件的空白错误；新建但尚未跟踪的文件不在普通 Git diff 中，因此还要对它运行 &lt;code&gt;git diff --no-index --check /dev/null &amp;lt;文件路径&amp;gt;&lt;/code&gt;。后者返回状态 &lt;code&gt;1&lt;/code&gt; 表示两份文件不同，在这个用法里只要没有输出格式错误，就说明检查通过，不能把这个 &lt;code&gt;1&lt;/code&gt; 当成构建失败。&lt;/p&gt;
+&lt;p&gt;仓库的 GitHub Actions 工作流在推送到 &lt;code&gt;main&lt;/code&gt; 后运行 &lt;code&gt;hugo -D&lt;/code&gt; 并发布静态文件。本地的内存构建没有替代发布环境，也没有替代真正的部署；它验证的是当前文章在本地 Hugo 配置下能够渲染。最终汇报应把这两层证据分开写。&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;证据&lt;/th&gt;
+					&lt;th&gt;能证明什么&lt;/th&gt;
+					&lt;th&gt;不能证明什么&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;hugo --renderToMemory&lt;/code&gt; 成功&lt;/td&gt;
+					&lt;td&gt;当前内容可被本地 Hugo 渲染&lt;/td&gt;
+					&lt;td&gt;远程发布是否成功&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;git diff --check&lt;/code&gt; 无输出&lt;/td&gt;
+					&lt;td&gt;已跟踪改动没有 Git 能识别的空白错误&lt;/td&gt;
+					&lt;td&gt;新文件是否也被覆盖&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;新文件的 &lt;code&gt;--no-index --check&lt;/code&gt; 无输出&lt;/td&gt;
+					&lt;td&gt;新文章没有同类格式错误&lt;/td&gt;
+					&lt;td&gt;文章技术事实一定正确&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Git 状态仍保留既有改动&lt;/td&gt;
+					&lt;td&gt;执行没有擅自清理工作区&lt;/td&gt;
+					&lt;td&gt;改动已经提交或发布&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;最后一点常被忽略。测试通过只说明某个完成条件成立，不会自动替执行者决定是否提交、推送或部署。它们是额外的外部动作，需要用户明确要求。&lt;/p&gt;
+&lt;h2 id=&#34;6-回看整条链路&#34;&gt;6. 回看整条链路
+&lt;/h2&gt;&lt;p&gt;从一句“新增文章并验证站点”到最终结果，模型做的是不断选择下一步：先读什么、是否修改、该跑哪条验证命令。Codex CLI 提供的是任务容器、上下文记录、工具调度、权限判断和事件反馈。两者合在一起，才形成一个能在本地仓库中完成工作的 Agent。&lt;/p&gt;
+&lt;p&gt;以后遇到陌生版本或陌生模块，可以沿着这条路线读源码：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;先找入口和 Thread、Turn 的创建位置。&lt;/li&gt;
+&lt;li&gt;再找上下文快照怎样进入一次步骤。&lt;/li&gt;
+&lt;li&gt;跟进某个工具从模型调用到处理器、权限判断和结果事件的路径。&lt;/li&gt;
+&lt;li&gt;最后看 TUI 或 app-server 如何把结果交还给用户。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;不需要从所有 Rust 模块开始。选一条你能在工作区里验证的小任务，把每个抽象名词落到一次文件读取、一次补丁或一次测试上，源码的结构就会慢慢连起来。&lt;/p&gt;
+&lt;h2 id=&#34;接下来可以继续想&#34;&gt;接下来可以继续想
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;哪些验证应该由 Agent 自动完成，哪些动作必须留给用户确认？&lt;/li&gt;
+&lt;li&gt;如果 Hugo 构建成功但 &lt;code&gt;git diff&lt;/code&gt; 显示改了意外文件，最终汇报应如何处理？&lt;/li&gt;
+&lt;li&gt;一个任务需要外部缺陷系统数据时，MCP 放在这条链路的哪个位置？&lt;/li&gt;
+&lt;li&gt;当任务跨越多个仓库或远程环境时，工作区边界应怎样重新定义？&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;参考资料&#34;&gt;参考资料
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://developers.openai.com/codex/cli/reference&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;Codex CLI 参考文档&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

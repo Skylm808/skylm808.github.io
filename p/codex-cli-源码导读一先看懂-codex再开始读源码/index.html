@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="en-us" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（一）：先看懂 Codex，再开始读源码 在一个代码仓库里，真正棘手的地方常常不在某一行代码。约定散在 AGENTS.md、脚本、测试和 Git 历史里；有些修改能直接验证，有些命令却不该随便执行。一个编码 Agent 若想参与这类工作，光会生成代码远远不够。\n">
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（一）：先看懂 Codex，再开始读源码 假设你在一个仓库里看到失败测试，想让 Codex 帮忙处理。你给出的要求可能只有一句：读一读这个失败，找到原因，修改后运行相关测试。\n">
 <title>Codex CLI 源码导读（一）：先看懂 Codex，再开始读源码</title>
 
 <link rel='canonical' href='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%80%E5%85%88%E7%9C%8B%E6%87%82-codex%E5%86%8D%E5%BC%80%E5%A7%8B%E8%AF%BB%E6%BA%90%E7%A0%81/'>
 
 <link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="Codex CLI 源码导读（一）：先看懂 Codex，再开始读源码">
-<meta property='og:description' content="Codex CLI 源码导读（一）：先看懂 Codex，再开始读源码 在一个代码仓库里，真正棘手的地方常常不在某一行代码。约定散在 AGENTS.md、脚本、测试和 Git 历史里；有些修改能直接验证，有些命令却不该随便执行。一个编码 Agent 若想参与这类工作，光会生成代码远远不够。\n">
+<meta property='og:description' content="Codex CLI 源码导读（一）：先看懂 Codex，再开始读源码 假设你在一个仓库里看到失败测试，想让 Codex 帮忙处理。你给出的要求可能只有一句：读一读这个失败，找到原因，修改后运行相关测试。\n">
 <meta property='og:url' content='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%80%E5%85%88%E7%9C%8B%E6%87%82-codex%E5%86%8D%E5%BC%80%E5%A7%8B%E8%AF%BB%E6%BA%90%E7%A0%81/'>
 <meta property='og:site_name' content='Skylm'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Codex' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='CLI' /><meta property='article:tag' content='源码导读' /><meta property='article:published_time' content='2026-07-21T21:00:00&#43;08:00'/><meta property='article:modified_time' content='2026-07-21T21:00:00&#43;08:00'/>
 <meta name="twitter:title" content="Codex CLI 源码导读（一）：先看懂 Codex，再开始读源码">
-<meta name="twitter:description" content="Codex CLI 源码导读（一）：先看懂 Codex，再开始读源码 在一个代码仓库里，真正棘手的地方常常不在某一行代码。约定散在 AGENTS.md、脚本、测试和 Git 历史里；有些修改能直接验证，有些命令却不该随便执行。一个编码 Agent 若想参与这类工作，光会生成代码远远不够。\n">
+<meta name="twitter:description" content="Codex CLI 源码导读（一）：先看懂 Codex，再开始读源码 假设你在一个仓库里看到失败测试，想让 Codex 帮忙处理。你给出的要求可能只有一句：读一读这个失败，找到原因，修改后运行相关测试。\n">
     <link rel="shortcut icon" href="/favicon.ico" />
 
     </head>
@@ -249,21 +249,12 @@
         <div class="widget--toc">
             <nav id="TableOfContents">
   <ol>
-    <li><a href="#codex-到底是什么">Codex 到底是什么</a></li>
-    <li><a href="#一项任务需要六部分">一项任务需要六部分</a>
-      <ol>
-        <li><a href="#1-入口人从哪里发起任务">1. 入口：人从哪里发起任务</a></li>
-        <li><a href="#2-任务与上下文模型眼前有什么">2. 任务与上下文：模型眼前有什么</a></li>
-        <li><a href="#3-agent-循环怎样从一句话走到下一步">3. Agent 循环：怎样从一句话走到下一步</a></li>
-        <li><a href="#4-模型连接请求怎样出去结果怎样回来">4. 模型连接：请求怎样出去，结果怎样回来</a></li>
-        <li><a href="#5-工具让去做成为事实">5. 工具：让“去做”成为事实</a></li>
-        <li><a href="#6-权限与沙箱哪些动作现在可以发生">6. 权限与沙箱：哪些动作现在可以发生</a></li>
-      </ol>
-    </li>
-    <li><a href="#用一次测试修复把它们串起来">用一次测试修复把它们串起来</a></li>
-    <li><a href="#cliappide先分清入口再谈源码">CLI、App、IDE：先分清入口，再谈源码</a></li>
+    <li><a href="#codex-是什么">Codex 是什么</a></li>
+    <li><a href="#一项任务怎样走完">一项任务怎样走完</a></li>
+    <li><a href="#六个部分六个问题">六个部分，六个问题</a></li>
+    <li><a href="#cliapp-和-ide-是什么关系">CLI、App 和 IDE 是什么关系</a></li>
     <li><a href="#现在再看目录名">现在再看目录名</a></li>
-    <li><a href="#带着这些问题进入下一篇">带着这些问题进入下一篇</a></li>
+    <li><a href="#接下来可以继续想">接下来可以继续想</a></li>
     <li><a href="#参考资料">参考资料</a></li>
   </ol>
 </nav>
@@ -333,7 +324,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 7 分钟
+                    阅读时长: 4 分钟
                 </time>
             </div>
         
@@ -349,161 +340,170 @@
     
     
     <h1 id="codex-cli-源码导读一先看懂-codex再开始读源码">Codex CLI 源码导读（一）：先看懂 Codex，再开始读源码
-</h1><p>在一个代码仓库里，真正棘手的地方常常不在某一行代码。约定散在 <code>AGENTS.md</code>、脚本、测试和 Git 历史里；有些修改能直接验证，有些命令却不该随便执行。一个编码 Agent 若想参与这类工作，光会生成代码远远不够。</p>
-<p><code>codex</code> 出现在终端里时，看上去像一段对话。它实际接住的是一处本地工作环境：当前目录、项目指令、可调用的工具，以及一套权限边界。模型决定下一步值得查什么、做什么；Codex CLI 负责把这个决定变成一次受控的本地操作，再把结果带回下一轮。</p>
-<p>这是理解 Codex 的起点。本文不从某个 crate 开始，也不试图猜模型如何思考。先把任务怎样跑起来讲清楚。后面的源码阅读才有地图。</p>
-<h2 id="codex-到底是什么">Codex 到底是什么
-</h2><p><code>openai/codex</code> 的 README 将 Codex CLI 描述为运行在本机上的编码 Agent。这里的“本机”决定了它和普通聊天窗口的区别。</p>
-<p>在聊天窗口里，模型只能根据对话中已有的材料回答。它看不到你没有贴出的测试，也不能自己运行项目里的命令。CLI 工作在你启动它的目录中。它可以在授权范围内读取文件、搜索代码、运行测试，必要时写入修改。任务因此不止是一条建议，而是一个可以检查结果的过程。</p>
-<p>把这件事拆开，只有三个角色：</p>
-<ul>
-<li>模型提出下一步，例如“读取这个测试”“搜索这个函数”“运行这个命令”。</li>
-<li>工具完成实际操作，并返回文件内容、命令输出或修改结果。</li>
-<li>Codex 运行时管理两者之间的信息与边界：给模型哪些上下文，允许哪些工具动作，怎样保存任务进度。</li>
-</ul>
-<p>“运行时”听起来有点抽象。这里可以把它理解成任务现场的协调者。它不替模型写结论，也不替 Shell 执行命令；它负责让模型的请求有机会落地，同时不越过项目和机器的边界。</p>
-<h2 id="一项任务需要六部分">一项任务需要六部分
-</h2><p>如果把 Codex 看成“模型加一个终端”，很多源码位置都会显得莫名其妙。它实际要同时处理六类事情。</p>
+</h1><p>假设你在一个仓库里看到失败测试，想让 Codex 帮忙处理。你给出的要求可能只有一句：读一读这个失败，找到原因，修改后运行相关测试。</p>
+<p>这句话不会直接变成一段代码。Codex 要先看见仓库里的文件和项目约定，再决定读什么、搜什么、是否修改，最后还要用测试确认结果。理解 Codex 的第一步，不是记住 Rust 目录，而是看清这条任务链上每个人和每个组件各做什么。</p>
+<p>本文固定使用 <code>openai/codex</code> 的 <code>268288a</code> 版本。公开源码能说明任务如何流动、工具如何执行；它不能还原模型内部的思考过程。</p>
+<h2 id="codex-是什么">Codex 是什么
+</h2><p>Codex CLI 是运行在本机代码仓库中的编码 Agent。这里的“本机”很重要：它工作的材料不只有聊天记录，还包括当前目录、项目文件、测试命令和可用权限。</p>
+<p>先把四个角色分开：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>角色</th>
+					<th>它负责什么</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>开发者</td>
+					<td>给出目标，决定是否接受改动</td>
+			</tr>
+			<tr>
+					<td>模型</td>
+					<td>根据已经拿到的材料，选择下一步该做什么</td>
+			</tr>
+			<tr>
+					<td>Codex 运行时</td>
+					<td>组织任务、调用模型、执行工具，并检查边界</td>
+			</tr>
+			<tr>
+					<td>本地工作区</td>
+					<td>提供文件、命令、测试结果和最终改动</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>模型可以提出“读取这个测试”或“运行这个命令”。真正读取文件和启动命令的是 Codex 的工具。运行时夹在中间，负责把结果带回模型，也负责决定这项操作在当前权限下能不能发生。</p>
+<p>一句话概括：<strong>模型决定下一步，Codex 负责让这一步在本地可控地发生。</strong></p>
+<h2 id="一项任务怎样走完">一项任务怎样走完
+</h2><p>先不看任何源码名，只看一次普通任务的过程。</p>
 <pre class="mermaid">flowchart LR
-    U[&#34;开发者&#34;] --&gt; E[&#34;入口\nCLI、IDE 或富客户端&#34;]
-    E --&gt; C[&#34;任务与上下文\n问题、目录、指令、历史&#34;]
-    C --&gt; A[&#34;Agent 循环\n决定下一步&#34;]
-    A &lt;--&gt; M[&#34;模型连接\n请求与响应&#34;]
-    A &lt;--&gt; T[&#34;工具\n读、搜、改、执行&#34;]
+    U[&#34;开发者提出目标&#34;] --&gt; C[&#34;Codex 记录任务和已知信息&#34;]
+    C --&gt; M[&#34;模型选择下一步&#34;]
+    M --&gt; T[&#34;工具读取、搜索、修改或执行命令&#34;]
     T --&gt; W[&#34;本地工作区&#34;]
-    P[&#34;权限与沙箱&#34;] -.约束.-&gt; T</pre>
-<p>图里没有画一个叫“智能”的方框，因为智能不是单独的模块。任务的效果来自这六部分不断配合。先逐个认识它们。</p>
-<h3 id="1-入口人从哪里发起任务">1. 入口：人从哪里发起任务
-</h3><p>CLI 是终端优先的入口。你在仓库目录中输入 <code>codex</code>，它把输入、配置和当前目录交给后面的运行时。</p>
-<p>Codex 还有其他入口。README 把 <code>codex app</code> 列为桌面端体验，也提供 IDE 使用方式。它们改变的是人如何提交任务、如何观看过程，不会改变一个编码任务仍要面对上下文、工具和权限的事实。</p>
-<p>本系列聚焦公开源码里的 CLI 本地执行路径。<code>app-server</code> 会在后文单独出现：它是面向富客户端的本地服务接口，公开 README 以 Codex VS Code 扩展为例。它不等于 Codex App 的全部实现，也不应被简单叫成“桌面端功能”。</p>
-<h3 id="2-任务与上下文模型眼前有什么">2. 任务与上下文：模型眼前有什么
-</h3><p>“修复登录测试”这句话太短。模型还需要知道自己在哪个目录，项目有哪些约定，前一轮刚读到了什么，命令执行后发生了什么。</p>
-<p>因此，一次任务的上下文会逐步增长：用户的要求、当前工作区、项目指令、已读取的文件、工具输出和会话历史都会加入。与此同时，运行时还得控制上下文的体积。把整个仓库一次性塞进去既不可行，也不一定有用。</p>
-<p>这一部分决定了模型此刻能据什么作判断。它不会替模型保证结论正确，但会决定模型能看到多少相关证据。</p>
-<h3 id="3-agent-循环怎样从一句话走到下一步">3. Agent 循环：怎样从一句话走到下一步
-</h3><p>模型的回答不总是最终答复。它也可能请求一次搜索、一次文件读取，或者一次命令执行。运行时收到请求后调用工具，把结果写回当前任务，再让模型继续。</p>
-<p>这个循环就是这里所说的 Agent。它没有神秘之处：选择动作，执行动作，把观察结果带回下一轮。一次小任务可能只转两三轮；排查问题时，循环会持续到证据足够、改动完成，或用户要求停止。</p>
-<h3 id="4-模型连接请求怎样出去结果怎样回来">4. 模型连接：请求怎样出去，结果怎样回来
-</h3><p>在 Agent 循环里，运行时要把任务和上下文组织成请求，接收模型的流式输出、工具请求和错误信息。模型是重要的一环，但不是整个系统。</p>
-<p>从源码可以观察请求怎样准备、响应怎样处理、失败怎样回到任务流。看不到的部分也要划清边界：公开客户端代码不能还原模型的私有推理过程。后文会分析可验证的控制流，不把猜测写成源码结论。</p>
-<h3 id="5-工具让去做成为事实">5. 工具：让“去做”成为事实
-</h3><p>读取文件、全文搜索、执行测试、应用补丁、查看 Git 状态，这些都是工具。模型说“检查失败测试”时，真正读取文件的是工具；模型说“运行测试”时，真正启动进程的也是工具。</p>
-<p>工具返回的内容不只是给人看的日志。它是下一轮上下文的一部分。测试失败的输出会改变下一步搜索方向，补丁是否应用成功也会影响任务能否继续。这条来回路径比“模型调用了函数”更接近真实的编码工作。</p>
-<h3 id="6-权限与沙箱哪些动作现在可以发生">6. 权限与沙箱：哪些动作现在可以发生
-</h3><p>能执行命令不等于应该执行命令。读取仓库里的一个测试文件，和向工作区外写文件、联网安装依赖，不是同一种风险。</p>
-<p>Codex 会把权限策略和沙箱放在工具路径旁边。它们决定可写范围、命令怎样运行，以及何时需要确认或升级。这个设计不是给 Agent 外面再套一层说明书，而是决定工具请求最终是否能落地。没有这一层，模型生成的一条命令就可能直接碰到不该碰的地方。</p>
-<h2 id="用一次测试修复把它们串起来">用一次测试修复把它们串起来
-</h2><p>假设仓库里有一个失败的测试。用户的任务很简单：找出失败原因，修复它，并运行相关测试。开始时，Codex 并不知道问题在哪。</p>
-<pre class="mermaid">sequenceDiagram
-    participant D as 开发者
-    participant R as Codex 运行时
-    participant M as 模型
-    participant W as 工作区与工具
-
-    D-&gt;&gt;R: 修复失败测试
-    R-&gt;&gt;M: 任务、目录、项目指令
-    M-&gt;&gt;R: 请求读取测试并搜索相关代码
-    R-&gt;&gt;W: 执行读取与搜索
-    W--&gt;&gt;R: 测试内容、代码位置
-    R-&gt;&gt;M: 返回观察结果
-    M-&gt;&gt;R: 请求修改并运行目标测试
-    R-&gt;&gt;W: 在权限允许的范围内执行
-    W--&gt;&gt;R: 修改结果、测试输出
-    R-&gt;&gt;M: 返回验证结果
-    R--&gt;&gt;D: 说明改动与测试状态</pre>
-<p>这张图有两个容易被忽略的点。</p>
-<p>第一，模型通常不会先看遍整个仓库，再一次性给出答案。它根据当前证据选择下一步，工具结果再改变后续选择。第二，模型的请求没有绕过运行时直接落到工作区。工具调用和安全检查都在中间，这也是为什么 Codex 的源码不只有一个 API 客户端。</p>
-<h2 id="cliappide先分清入口再谈源码">CLI、App、IDE：先分清入口，再谈源码
-</h2><p>读 README 时容易把几个名字混在一起。它们服务的使用场景不同。</p>
+    W --&gt; C
+    C --&gt; R[&#34;向开发者汇报结果&#34;]
+    P[&#34;权限与沙箱&#34;] -.限制工具操作.-&gt; T</pre>
+<p>这张图从左到右可以这样读：</p>
+<ol>
+<li>开发者说明想做什么，例如“找出这个测试为何失败”。</li>
+<li>Codex 收集眼前需要的信息，例如当前目录、项目指令和先前结果。</li>
+<li>模型选择一个小动作，例如读测试文件或搜索函数名。</li>
+<li>工具在本地完成动作，把输出交回 Codex。</li>
+<li>新结果成为下一次选择的依据，直到任务完成、无法继续，或开发者叫停。</li>
+</ol>
+<p>这就是 Agent 的基本含义：它不是一次性生成答案，而是在“决定、执行、观察”之间反复往返。一次简单的问题也许只需要两轮；排查问题时，轮数会更多。</p>
+<p>权限与沙箱也在这条链上。读一个文件和向仓库外写文件的风险不同，运行时必须在工具真正执行前判断边界。第六篇会专门拆开这一层。</p>
+<h2 id="六个部分六个问题">六个部分，六个问题
+</h2><p>为了读源码方便，可以把这条链分成六个部分。它们不是六个彼此隔离的程序，只是六个不同的问题。</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>部分</th>
+					<th>它要解决的问题</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>入口</td>
+					<td>开发者从哪里提交任务？</td>
+			</tr>
+			<tr>
+					<td>任务与上下文</td>
+					<td>模型此刻能看到哪些材料？</td>
+			</tr>
+			<tr>
+					<td>Agent 循环</td>
+					<td>一次工具结果怎样引出下一步？</td>
+			</tr>
+			<tr>
+					<td>模型通信</td>
+					<td>任务怎样发给模型，回答怎样回来？</td>
+			</tr>
+			<tr>
+					<td>工具</td>
+					<td>怎样真正读、搜、改和运行命令？</td>
+			</tr>
+			<tr>
+					<td>安全边界</td>
+					<td>哪些操作可以直接做，哪些需要限制或确认？</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>后面的九篇会一层层回答这些问题。现在只需要记住，它们共同让一句自然语言任务变成可检查的本地工作。</p>
+<h2 id="cliapp-和-ide-是什么关系">CLI、App 和 IDE 是什么关系
+</h2><p>它们都是使用 Codex 的入口，区别在于人从哪里发起任务、在哪里看过程。</p>
 <div class="table-wrapper"><table>
 	<thead>
 			<tr>
 					<th>名称</th>
-					<th>面向的使用方式</th>
-					<th>本系列中的位置</th>
+					<th>可以先这样理解</th>
 			</tr>
 	</thead>
 	<tbody>
 			<tr>
 					<td>Codex CLI</td>
-					<td>在终端和本地仓库里工作</td>
-					<td>主线</td>
+					<td>在终端中启动 Codex 的命令行程序，本系列的主线</td>
 			</tr>
 			<tr>
-					<td>Codex App</td>
-					<td>桌面端任务体验</td>
-					<td>只说明产品边界，不分析私有实现</td>
+					<td>TUI</td>
+					<td>终端里显示出来的交互界面，例如消息、进度和确认提示</td>
 			</tr>
 			<tr>
 					<td>IDE 集成</td>
-					<td>在编辑器中使用 Codex</td>
-					<td>用来理解富客户端需求</td>
+					<td>编辑器里的 Codex 入口</td>
 			</tr>
 			<tr>
-					<td><code>app-server</code></td>
-					<td>富客户端可使用的本地协议服务</td>
-					<td>后文分析公开接口与事件流</td>
+					<td>Codex App</td>
+					<td>桌面端产品入口；公开 CLI 仓库不是它的全部实现</td>
 			</tr>
 	</tbody>
 </table></div>
-<p>把 <code>app-server</code> 和 App 分开，后面会轻松很多。前者是源码中的一个服务接口；后者是用户看到的产品入口。名称相近，不表示二者是一一对应的实现关系。</p>
+<p>还有一个很容易混淆的名字：<code>app-server</code>。它不是 Codex App。它是公开 CLI 源码中的一个<strong>本地服务</strong>：其他界面，例如终端界面或编辑器，可以把任务交给它，再从它那里接收进度。可以先把它想成“界面和任务运行时之间的接线员”。第二篇会沿着这条线解释它。</p>
 <h2 id="现在再看目录名">现在再看目录名
-</h2><p>理解任务流程后，再打开仓库。根目录下的 <code>codex-rs</code> 是主要 Rust workspace，可以把它看成多个 Rust crate 组成的大工程。第一轮只需要记住五个路标：</p>
+</h2><p>理解了任务链后，<code>codex-rs</code> 里的目录才有位置可放。<code>codex-rs</code> 是主要 Rust workspace，可以理解为一个统一构建的 Rust 工程集合。里面可独立编译的模块叫 crate；不熟悉 Rust 时，把它近似看作 Go 项目中的一个包或程序即可。</p>
+<p>第一轮只需要记住下面五个路标：</p>
 <div class="table-wrapper"><table>
 	<thead>
 			<tr>
 					<th>目录</th>
-					<th>先这样理解</th>
-					<th>后面在哪篇读</th>
+					<th>它在任务链中的位置</th>
 			</tr>
 	</thead>
 	<tbody>
 			<tr>
 					<td><code>cli</code></td>
-					<td>命令行入口</td>
-					<td>第二篇</td>
+					<td>接住终端命令的入口</td>
 			</tr>
 			<tr>
 					<td><code>tui</code></td>
-					<td>终端中的交互界面</td>
-					<td>第二篇、第九篇</td>
+					<td>终端交互界面</td>
 			</tr>
 			<tr>
 					<td><code>app-server</code></td>
-					<td>面向富客户端的本地服务接口</td>
-					<td>第二篇、第九篇</td>
+					<td>给其他界面使用的本地服务</td>
 			</tr>
 			<tr>
 					<td><code>core</code></td>
-					<td>任务运行时的主要协调逻辑</td>
-					<td>第三篇起</td>
+					<td>协调任务、模型和工具的主要运行时</td>
 			</tr>
 			<tr>
 					<td><code>tools</code></td>
-					<td>工具定义与调度的一部分</td>
-					<td>第五篇</td>
+					<td>读取、搜索、执行等工具能力</td>
 			</tr>
 	</tbody>
 </table></div>
-<p>目录不是架构图。一个模块可能参与多个职责，一项职责也可能散在多个 crate 中。以后读源码时，先问“这个任务步骤在哪儿发生”，再去找目录；不要看到 <code>core</code> 就把所有 Agent 逻辑都塞进一个概念里。</p>
-<p><code>MCP</code>、<code>Skill</code>、Plugin、Hook 和 Memory 也在仓库中，但它们解决的是扩展与定制问题。主任务循环还没看清之前，先不急着背这些名字。第七篇和第八篇会把它们拆开。</p>
-<h2 id="带着这些问题进入下一篇">带着这些问题进入下一篇
+<p>目录名不是完整的架构图。一个目录可能服务多件事，一件事也可能跨多个目录。读源码时，先问“这个步骤在任务链的哪里发生”，再去找对应目录。</p>
+<p><code>MCP</code>、Skill、Plugin、Hook 和 Memory 都属于扩展与定制能力。它们会在第七、八篇单独解释；刚开始不必把它们和主任务链混在一起。</p>
+<h2 id="接下来可以继续想">接下来可以继续想
 </h2><ul>
-<li>用户输入的一段任务文本，最早由哪个入口接住？</li>
-<li>一条任务怎样从“已创建”变成一串可以显示给界面的事件？</li>
-<li>终端里的 <code>tui</code> 为什么不是桌面 App？</li>
-<li>富客户端通过 <code>app-server</code> 提交任务时，和 CLI 共享了哪些概念？</li>
+<li>如果模型不能直接碰文件和 Shell，工具结果是怎样回到它手里的？</li>
+<li>当前目录、项目指令和已经读过的文件，为什么都会影响下一步？</li>
+<li>为什么“能运行命令”还不足以说明一个编码 Agent 可以安全工作？</li>
 </ul>
-<p>下一篇从 <code>codex</code> 命令开始，追到 CLI、TUI 和 <code>app-server</code> 各自怎样把任务送入运行时。</p>
+<p>下一篇从终端里的 <code>codex</code> 命令开始，分清 CLI、TUI 和 <code>app-server</code> 分别处在什么位置。</p>
 <h2 id="参考资料">参考资料
 </h2><ul>
-<li><a class="link" href="https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/README.md"  target="_blank" rel="noopener"
-    ><code>openai/codex</code> README，源码版本 <code>268288a</code></a></li>
-<li><a class="link" href="https://github.com/openai/codex/tree/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs"  target="_blank" rel="noopener"
-    ><code>codex-rs</code> Rust workspace</a></li>
-<li><a class="link" href="https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/app-server/README.md"  target="_blank" rel="noopener"
-    ><code>app-server</code> 协议说明</a></li>
 <li><a class="link" href="https://developers.openai.com/codex/cli"  target="_blank" rel="noopener"
     >Codex CLI 文档</a></li>
 <li><a class="link" href="https://openai.com/zh-Hans-CN/index/harness-engineering/"  target="_blank" rel="noopener"
@@ -545,12 +545,12 @@
             
                 
 <article class="">
-    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%9B%9B%E6%A8%A1%E5%9E%8B%E7%9C%8B%E5%88%B0%E7%9A%84%E4%B8%8D%E6%98%AF%E6%95%B4%E4%B8%AA%E4%BB%93%E5%BA%93/">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%8D%81%E4%BB%8E%E4%B8%80%E5%8F%A5%E4%BB%BB%E5%8A%A1%E5%88%B0%E4%B8%80%E6%AC%A1%E5%8F%AF%E9%AA%8C%E8%AF%81%E7%9A%84%E6%94%B9%E5%8A%A8/">
         
         
 
         <div class="article-details">
-            <h2 class="article-title">Codex CLI 源码导读（四）：模型看到的不是整个仓库</h2>
+            <h2 class="article-title">Codex CLI 源码导读（十）：从一句任务到一次可验证的改动</h2>
         </div>
     </a>
 </article>
@@ -558,12 +558,12 @@
             
                 
 <article class="">
-    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%89%E4%B8%80%E8%BD%AE%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E5%8F%98%E6%88%90%E8%BF%9E%E7%BB%AD%E8%A1%8C%E5%8A%A8/">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B9%9D%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E6%80%8E%E6%A0%B7%E9%80%81%E5%88%B0%E7%BB%88%E7%AB%AF%E5%92%8C%E5%AF%8C%E5%AE%A2%E6%88%B7%E7%AB%AF/">
         
         
 
         <div class="article-details">
-            <h2 class="article-title">Codex CLI 源码导读（三）：一轮任务怎样变成连续行动</h2>
+            <h2 class="article-title">Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端</h2>
         </div>
     </a>
 </article>
@@ -571,12 +571,12 @@
             
                 
 <article class="">
-    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%BA%8C%E4%B8%80%E6%9D%A1%E4%BB%BB%E5%8A%A1%E4%BB%8E%E5%93%AA%E9%87%8C%E5%BC%80%E5%A7%8B/">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%ABskillpluginhook-%E4%B8%8E-memory-%E5%90%84%E6%94%BE%E5%9C%A8%E5%93%AA%E9%87%8C/">
         
         
 
         <div class="article-details">
-            <h2 class="article-title">Codex CLI 源码导读（二）：一条任务从哪里开始</h2>
+            <h2 class="article-title">Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里</h2>
         </div>
     </a>
 </article>
@@ -584,12 +584,12 @@
             
                 
 <article class="">
-    <a href="/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-openapi-%E8%AF%B7%E6%B1%82%E6%A0%A1%E9%AA%8C%E8%AF%A6%E8%A7%A3%E4%BB%8E%E6%8E%A5%E5%8F%A3%E5%A5%91%E7%BA%A6%E5%88%B0%E7%BD%91%E5%85%B3%E6%BA%90%E7%A0%81/">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%83mcp-%E6%80%8E%E6%A0%B7%E6%8A%8A%E5%A4%96%E9%83%A8%E7%B3%BB%E7%BB%9F%E6%8E%A5%E8%BF%9B%E4%BB%BB%E5%8A%A1/">
         
         
 
         <div class="article-details">
-            <h2 class="article-title">dubbo-go-pixiu 添加 OpenAPI 请求校验详解：从接口契约到网关源码</h2>
+            <h2 class="article-title">Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务</h2>
         </div>
     </a>
 </article>
@@ -597,12 +597,12 @@
             
                 
 <article class="">
-    <a href="/p/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA%E5%8F%82%E4%B8%8E%E7%9A%84%E8%A7%84%E8%8C%83-git-%E6%B5%81%E7%A8%8B/">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%AD%E5%B7%A5%E5%85%B7%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E8%83%BD%E7%9B%B4%E6%8E%A5%E8%B7%91%E5%91%BD%E4%BB%A4/">
         
         
 
         <div class="article-details">
-            <h2 class="article-title">开源社区参与的规范 Git 流程</h2>
+            <h2 class="article-title">Codex CLI 源码导读（六）：工具为什么不能直接跑命令</h2>
         </div>
     </a>
 </article>

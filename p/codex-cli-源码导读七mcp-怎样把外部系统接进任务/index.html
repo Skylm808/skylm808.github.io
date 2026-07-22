@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务 前六篇里的工具都围绕本地仓库：搜索文件、改补丁、运行测试。可是在真实工作里，完成一次修改常常还需要仓库之外的信息，例如缺陷系统里的复现步骤、内部文档中的接口约定，或某个服务的当前状态。复制内容进对话适合一次性补充；长期使用时，更新、访问范围和调用记录都会散掉。\n">
+<title>Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务</title>
+
+<link rel='canonical' href='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%83mcp-%E6%80%8E%E6%A0%B7%E6%8A%8A%E5%A4%96%E9%83%A8%E7%B3%BB%E7%BB%9F%E6%8E%A5%E8%BF%9B%E4%BB%BB%E5%8A%A1/'>
+
+<link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务">
+<meta property='og:description' content="Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务 前六篇里的工具都围绕本地仓库：搜索文件、改补丁、运行测试。可是在真实工作里，完成一次修改常常还需要仓库之外的信息，例如缺陷系统里的复现步骤、内部文档中的接口约定，或某个服务的当前状态。复制内容进对话适合一次性补充；长期使用时，更新、访问范围和调用记录都会散掉。\n">
+<meta property='og:url' content='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%83mcp-%E6%80%8E%E6%A0%B7%E6%8A%8A%E5%A4%96%E9%83%A8%E7%B3%BB%E7%BB%9F%E6%8E%A5%E8%BF%9B%E4%BB%BB%E5%8A%A1/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Codex' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='CLI' /><meta property='article:tag' content='源码导读' /><meta property='article:tag' content='MCP' /><meta property='article:published_time' content='2026-07-22T10:02:00&#43;08:00'/><meta property='article:modified_time' content='2026-07-22T10:02:00&#43;08:00'/>
+<meta name="twitter:title" content="Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务">
+<meta name="twitter:description" content="Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务 前六篇里的工具都围绕本地仓库：搜索文件、改补丁、运行测试。可是在真实工作里，完成一次修改常常还需要仓库之外的信息，例如缺陷系统里的复现步骤、内部文档中的接口约定，或某个服务的当前状态。复制内容进对话适合一次性补充；长期使用时，更新、访问范围和调用记录都会散掉。\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友链</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#先看它解决的缺口">先看它解决的缺口</a></li>
+    <li><a href="#配置先描述要连谁">配置先描述“要连谁”</a></li>
+    <li><a href="#连接成功后先发现工具">连接成功后，先发现工具</a></li>
+    <li><a href="#发现不等于全部暴露">发现不等于全部暴露</a></li>
+    <li><a href="#模型调用-mcp-工具时codex-做了什么">模型调用 MCP 工具时，Codex 做了什么</a></li>
+    <li><a href="#外部能力仍要经过边界">外部能力仍要经过边界</a></li>
+    <li><a href="#读源码时从这五处开始">读源码时从这五处开始</a></li>
+    <li><a href="#接下来可以继续想">接下来可以继续想</a></li>
+    <li><a href="#参考资料">参考资料</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/ai/" >
+                AI
+            </a>
+        
+            <a href="/categories/%E5%BC%80%E6%BA%90/" >
+                开源
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%83mcp-%E6%80%8E%E6%A0%B7%E6%8A%8A%E5%A4%96%E9%83%A8%E7%B3%BB%E7%BB%9F%E6%8E%A5%E8%BF%9B%E4%BB%BB%E5%8A%A1/">Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Jul 22, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 8 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="codex-cli-源码导读七mcp-怎样把外部系统接进任务">Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务
+</h1><p>前六篇里的工具都围绕本地仓库：搜索文件、改补丁、运行测试。可是在真实工作里，完成一次修改常常还需要仓库之外的信息，例如缺陷系统里的复现步骤、内部文档中的接口约定，或某个服务的当前状态。复制内容进对话适合一次性补充；长期使用时，更新、访问范围和调用记录都会散掉。</p>
+<p>MCP，也就是 Model Context Protocol，是 Codex 与外部能力对话的一套协议。Codex 作为客户端连接一个 MCP 服务；服务声明自己有哪些工具和资源；模型选择其中一个工具时，Codex 代为发起协议调用，再把结果放回当前任务。MCP 解决的是“怎么接上外部系统”，不负责替模型判断任务，也不自动授予外部系统的全部权限。</p>
+<p>本文固定使用 <code>openai/codex</code> 的 <code>268288a</code>。阅读范围是公开 CLI 源码中的 MCP 客户端路径，不讨论某个具体公司的 MCP 服务实现或其中保存的数据。</p>
+<h2 id="先看它解决的缺口">先看它解决的缺口
+</h2><p>假设团队已经把缺陷系统接成一个 MCP 服务，提供 <code>search_issues</code> 工具。用户要求：“根据支付模块当前的阻塞问题，修复仓库里的失败测试。”</p>
+<p>这里有两类动作：在本地仓库运行测试，和到缺陷系统查询问题。前者适合内置的 Shell、文件和补丁工具；后者的账号、数据模型和访问方式属于外部系统。让 Codex 自己为每一种系统编写一套集成，既难维护，也无法复用。</p>
+<p>MCP 把外部能力收敛成同一种问答形式：先列出工具，再以工具名和 JSON 参数调用。Codex 从协议返回的工具说明中取得名称、用途和参数结构，无须为每个缺陷系统、文档系统或内部服务单独接入 API。</p>
+<pre class="mermaid">flowchart LR
+    U[&#34;用户任务&#34;] --&gt; C[&#34;Codex 本地运行时&#34;]
+    C --&gt; L[&#34;内置工具\n读文件、Shell、补丁&#34;]
+    C --&gt; M[&#34;MCP 客户端&#34;]
+    M --&gt; S[&#34;MCP 服务\n外部系统的适配层&#34;]
+    S --&gt; X[&#34;缺陷系统、文档或业务服务&#34;]
+    L --&gt; R[&#34;本地结果&#34;]
+    S --&gt; Q[&#34;外部工具结果&#34;]
+    R --&gt; C
+    Q --&gt; C</pre>
+<p>图中的 MCP 服务是适配层，不是模型本身。它可以是 Codex 在本机启动的一个进程，也可以是通过网络连接的服务。模型不会直接拿着数据库凭证或 HTTP 客户端绕过 Codex；它看到的是 Codex 最终暴露给它的工具规格。</p>
+<h2 id="配置先描述要连谁">配置先描述“要连谁”
+</h2><p><code>codex-rs/config/src/config_toml.rs</code> 的 <code>mcp_servers</code> 保存 MCP 服务定义。每个服务至少有名字、是否启用和一种传输方式。当前源码支持两类常见传输：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>传输</th>
+					<th>适合的服务形态</th>
+					<th>Codex 需要的信息</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>stdio</code></td>
+					<td>本机启动的服务进程</td>
+					<td>命令、参数、环境变量和可选工作目录</td>
+			</tr>
+			<tr>
+					<td><code>streamable_http</code></td>
+					<td>已部署的远程服务</td>
+					<td>URL、可选 Bearer Token 环境变量和 HTTP 头</td>
+			</tr>
+	</tbody>
+</table></div>
+<p><code>stdio</code> 的意思是 Codex 启动子进程，并通过标准输入输出交换协议消息；<code>streamable_http</code> 则是在 HTTP 连接上交换协议消息。两者都不是“模型直接访问网络”的别名，它们只是 Codex 与服务建立连接的两种传输方式。</p>
+<p>命令行里的 <code>codex mcp add</code> 会把服务定义写入 Codex 的全局配置。<code>codex-rs/cli/src/mcp_cmd.rs</code> 在创建配置时还记录了服务是否必需、启动和调用超时、默认审批方式，以及每个工具的覆盖配置。MCP 服务由运行时配置管理，而不是靠一段临时提示词维持。</p>
+<p>有两个设置值得在读源码时先记住。<code>enabled = false</code> 会让 Codex 跳过该服务的初始化；<code>required = true</code> 则会让 <code>codex exec</code> 在该服务启动失败时返回错误。前者适合暂时关闭一个集成，后者适合任务离开某个外部系统就无法继续的场景。</p>
+<h2 id="连接成功后先发现工具">连接成功后，先发现工具
+</h2><p>每个 Thread 都有自己的 MCP 运行时快照。这里的 Thread 是一条持续任务的会话容器，第三篇已经解释过。每轮任务还会取得一份 Step Context，也就是这轮环境、权限和可用能力的快照。<code>McpRuntime</code> 保存当前的连接集合；配置或可用环境变化时，运行时可以原子地替换这组连接，让正在使用旧快照的工作继续完成。</p>
+<p><code>McpConnectionManager</code> 负责管理一组服务客户端。启动后，它通过 MCP 的初始化握手建立连接，并用 <code>tools/list</code> 读取每个可用服务提供的工具。<code>list_all_tools</code> 会汇总这些工具，跳过当前不可用的服务，再把工具名整理成模型可见的形式。</p>
+<pre class="mermaid">sequenceDiagram
+    participant S as Step Context
+    participant R as MCP Runtime
+    participant M as Connection Manager
+    participant P as MCP 服务
+    participant T as ToolRouter
+
+    S-&gt;&gt;R: 取得本轮连接快照
+    R-&gt;&gt;M: 获取全部 MCP 工具
+    M-&gt;&gt;P: initialize &#43; tools/list
+    P--&gt;&gt;M: 工具名、说明、参数 schema
+    M-&gt;&gt;M: 过滤、规范化名称
+    M--&gt;&gt;T: ToolInfo 列表
+    T--&gt;&gt;S: 本轮模型可见的工具</pre>
+<p>这里的 schema 是参数结构说明。例如 <code>search_issues</code> 可以声明 <code>project</code>、<code>status</code> 和 <code>query</code> 三个字段。模型据此生成参数；服务据此验证参数。模型只需要看到稳定的名称、说明和结构，不需要了解服务背后是 SQL、REST API 还是另一套 RPC。</p>
+<p>源码刻意区分“给协议路由用的原始名称”和“给模型看的名称”。<code>codex-rs/codex-mcp/src/tools.rs</code> 的 <code>ToolInfo</code> 同时保存服务名、原始工具名和规范化后的可调用名称。这样，模型侧的名称可以清理非法字符、解决重名；真正调用时仍会准确回到原服务的原工具名。</p>
+<h2 id="发现不等于全部暴露">发现不等于全部暴露
+</h2><p>外部服务报出十几个工具，不代表模型这一轮必然能看到十几个。Codex 还要过三道筛选。</p>
+<p>第一道是服务配置。<code>enabled_tools</code> 可以成为显式允许列表，<code>disabled_tools</code> 可以明确屏蔽工具。<code>ToolFilter</code> 在列工具和真正调用时都会检查这两项，所以不能只靠“模型没看到”来防止调用。</p>
+<p>第二道是模型可见性。<code>tool_is_model_visible</code> 会检查工具的协议元数据；<code>build_mcp_tool_runtimes</code> 只为可见工具创建处理器。若开启工具搜索，一部分 MCP 工具还会以延迟加载方式出现，模型先搜索能力，再取得具体工具规格。这和第五篇的 Tool Plan 是同一层机制。</p>
+<p>第三道是当前 Thread 的环境与配置。<code>Session::mcp_runtime_for_step</code> 会根据本轮可用环境、插件贡献和服务配置生成运行时投影。服务写在配置文件里，并不保证它此刻已经成功连接，也不保证它的工具会出现在本轮的列表中。</p>
+<p>因此，MCP 工具的可见性是一份运行时结果，不是一张静态清单。</p>
+<h2 id="模型调用-mcp-工具时codex-做了什么">模型调用 MCP 工具时，Codex 做了什么
+</h2><p>当模型选中一个 MCP 工具，<code>McpHandler</code> 先把模型参数交给 <code>handle_mcp_tool_call</code>。后者解析 JSON，检查该服务和工具仍可用，发出“工具调用开始”的 Turn 事件，然后决定是否需要审批。</p>
+<pre class="mermaid">flowchart TD
+    A[&#34;模型请求 MCP 工具&#34;] --&gt; B[&#34;McpHandler&#34;]
+    B --&gt; C[&#34;解析 JSON 参数\n检查工具元数据&#34;]
+    C --&gt; D{&#34;需要审批？&#34;}
+    D --&gt;|&#34;拒绝或取消&#34;| E[&#34;完成事件和拒绝结果&#34;]
+    D --&gt;|&#34;通过或无需审批&#34;| F[&#34;McpConnectionManager.call_tool&#34;]
+    F --&gt; G[&#34;MCP tools/call&#34;]
+    G --&gt; H[&#34;CallToolResult&#34;]
+    H --&gt; I[&#34;完成事件与下一轮模型输入&#34;]</pre>
+<p><code>McpConnectionManager::call_tool</code> 仍会检查配置的工具过滤规则，然后调用客户端的 <code>tools/call</code>。返回值被转换成 <code>CallToolResult</code>，其中可以有文本内容、结构化内容、错误标记和元数据。Codex 还会按模型支持的输入类型清理结果，并对发往事件流的内容施加长度限制。</p>
+<p>对前面的缺陷系统例子而言，模型拿到的是一条绑定了调用 ID 的工具结果。它可以据此继续读本地测试、修改代码，或者提出需要用户确认的下一步。MCP 调用仍在第三篇的 Turn 循环里，并进入这条任务的历史记录。</p>
+<h2 id="外部能力仍要经过边界">外部能力仍要经过边界
+</h2><p>MCP 把能力接进来，同时也把新的信任边界接进来。外部工具的参数可能触发写操作、发消息或读取私有数据；即便工具名称叫 <code>search</code>，也不该只根据名字判断安全性。</p>
+<p>Codex 在 MCP 调用前沿用权限 Hook 和审批流程。<code>mcp_tool_call.rs</code> 处理一次性允许、会话内允许、记住允许、拒绝和取消等结果。对于服务配置，管理员或用户还可以规定默认审批方式，并按工具覆盖。这个流程和第六篇中的 Shell 审批相似，但它保护的是“让外部服务执行某个协议动作”，不是替外部服务实施它自己的权限模型。</p>
+<p>这里要留一条清晰边界：对于 <code>stdio</code> 服务，Codex 负责启动并连接本地进程；对于远程 HTTP 服务，Codex 负责协议连接与本地侧的配置、认证和审批。服务最终能读什么、写什么、如何保存凭证，仍由服务和它连接的系统决定。接入 MCP 前，要分别审查 Codex 的配置范围和该服务本身的权限范围。</p>
+<h2 id="读源码时从这五处开始">读源码时从这五处开始
+</h2><div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>想确认的问题</th>
+					<th>源码起点</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>服务怎样写入配置</td>
+					<td><code>codex-rs/config/src/mcp_types.rs</code>、<code>cli/src/mcp_cmd.rs</code></td>
+			</tr>
+			<tr>
+					<td>一条任务怎样持有 MCP 运行时</td>
+					<td><code>codex-rs/codex-mcp/src/runtime.rs</code>、<code>core/src/session/mcp.rs</code></td>
+			</tr>
+			<tr>
+					<td>怎样列出并规范化工具</td>
+					<td><code>codex-rs/codex-mcp/src/connection_manager/tool_catalog.rs</code>、<code>tools.rs</code></td>
+			</tr>
+			<tr>
+					<td>模型调用怎样变成 <code>tools/call</code></td>
+					<td><code>core/src/tools/handlers/mcp.rs</code>、<code>core/src/mcp_tool_call.rs</code></td>
+			</tr>
+			<tr>
+					<td>调用结果怎样返回</td>
+					<td><code>codex-rs/codex-mcp/src/connection_manager.rs</code></td>
+			</tr>
+	</tbody>
+</table></div>
+<p>先按这个顺序读，会比从 <code>codex-mcp</code> 的目录顶层一路向下更容易建立因果关系。尤其不要先把 Connector、Plugin 和 MCP 当成同义词。MCP 是协议接入面；第八篇会再解释什么是可复用的 Skill，什么是安装与分发用的 Plugin，Hook 和 Memory 又各自放在哪里。</p>
+<h2 id="接下来可以继续想">接下来可以继续想
+</h2><ul>
+<li>为什么模型可见的工具名需要和协议里的原始工具名分开保存？</li>
+<li>一个 MCP 服务启动失败时，任务应该继续、降级，还是直接失败？</li>
+<li><code>enabled_tools</code> 和审批各解决什么问题，为什么两者都需要？</li>
+<li>当一个 Plugin 同时带来 MCP 服务和 Skill 时，用户应怎样区分“安装包”和“任务方法”？</li>
+</ul>
+<h2 id="参考资料">参考资料
+</h2><ul>
+<li><a class="link" href="https://developers.openai.com/codex/concepts/customization#mcp"  target="_blank" rel="noopener"
+    >Codex 关于 MCP 的配置说明</a></li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/codex/">Codex</a>
+        
+            <a href="/tags/agent/">Agent</a>
+        
+            <a href="/tags/cli/">CLI</a>
+        
+            <a href="/tags/%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB/">源码导读</a>
+        
+            <a href="/tags/mcp/">MCP</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%8D%81%E4%BB%8E%E4%B8%80%E5%8F%A5%E4%BB%BB%E5%8A%A1%E5%88%B0%E4%B8%80%E6%AC%A1%E5%8F%AF%E9%AA%8C%E8%AF%81%E7%9A%84%E6%94%B9%E5%8A%A8/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（十）：从一句任务到一次可验证的改动</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B9%9D%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E6%80%8E%E6%A0%B7%E9%80%81%E5%88%B0%E7%BB%88%E7%AB%AF%E5%92%8C%E5%AF%8C%E5%AE%A2%E6%88%B7%E7%AB%AF/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%ABskillpluginhook-%E4%B8%8E-memory-%E5%90%84%E6%94%BE%E5%9C%A8%E5%93%AA%E9%87%8C/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%AD%E5%B7%A5%E5%85%B7%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E8%83%BD%E7%9B%B4%E6%8E%A5%E8%B7%91%E5%91%BD%E4%BB%A4/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（六）：工具为什么不能直接跑命令</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%BA%94%E6%A8%A1%E5%9E%8B%E6%80%8E%E6%A0%B7%E8%B0%83%E7%94%A8%E5%B7%A5%E5%85%B7/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（五）：模型怎样调用工具</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+		<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+		<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+	
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm.top\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+<style>
+    .article-content .mermaid {
+        display: block;
+        overflow-x: auto;
+        padding: 1rem;
+        text-align: center;
+    }
+</style>
+<script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+    });
+    mermaid.run({ nodes: document.querySelectorAll(".article-content .mermaid") });
+</script>
+
+    </body>
+</html>
