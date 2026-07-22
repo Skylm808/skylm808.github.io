@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="en-us" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（一）：一个任务怎样进入代码库 运行 codex 后，终端里出现的是一段对话；它的工作对象却是当前目录下的代码库。\n它需要找到项目约定，读取相关文件，运行测试，并在准备修改代码时遵守本地权限。模型只是其中一部分。围绕模型建立的运行时负责管理上下文、调用工具、保存会话，并限制每一次动作的范围。\n">
-<title>Codex CLI 源码导读（一）：一个任务怎样进入代码库</title>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（二）：一条任务从哪里开始 在终端里输入 codex 后，第一件发生的事不是调用模型。程序要先回答一个很朴素的问题：这次启动到底想做什么？是打开交互式终端，执行一条非交互任务，还是作为一个本地服务等待其他客户端连接？\n">
+<title>Codex CLI 源码导读（二）：一条任务从哪里开始</title>
 
-<link rel='canonical' href='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%80%E4%B8%80%E4%B8%AA%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E8%BF%9B%E5%85%A5%E4%BB%A3%E7%A0%81%E5%BA%93/'>
+<link rel='canonical' href='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%BA%8C%E4%B8%80%E6%9D%A1%E4%BB%BB%E5%8A%A1%E4%BB%8E%E5%93%AA%E9%87%8C%E5%BC%80%E5%A7%8B/'>
 
-<link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="Codex CLI 源码导读（一）：一个任务怎样进入代码库">
-<meta property='og:description' content="Codex CLI 源码导读（一）：一个任务怎样进入代码库 运行 codex 后，终端里出现的是一段对话；它的工作对象却是当前目录下的代码库。\n它需要找到项目约定，读取相关文件，运行测试，并在准备修改代码时遵守本地权限。模型只是其中一部分。围绕模型建立的运行时负责管理上下文、调用工具、保存会话，并限制每一次动作的范围。\n">
-<meta property='og:url' content='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%80%E4%B8%80%E4%B8%AA%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E8%BF%9B%E5%85%A5%E4%BB%A3%E7%A0%81%E5%BA%93/'>
+<link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="Codex CLI 源码导读（二）：一条任务从哪里开始">
+<meta property='og:description' content="Codex CLI 源码导读（二）：一条任务从哪里开始 在终端里输入 codex 后，第一件发生的事不是调用模型。程序要先回答一个很朴素的问题：这次启动到底想做什么？是打开交互式终端，执行一条非交互任务，还是作为一个本地服务等待其他客户端连接？\n">
+<meta property='og:url' content='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%BA%8C%E4%B8%80%E6%9D%A1%E4%BB%BB%E5%8A%A1%E4%BB%8E%E5%93%AA%E9%87%8C%E5%BC%80%E5%A7%8B/'>
 <meta property='og:site_name' content='Skylm'>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Codex' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='CLI' /><meta property='article:tag' content='源码导读' /><meta property='article:published_time' content='2026-07-21T21:00:00&#43;08:00'/><meta property='article:modified_time' content='2026-07-21T21:00:00&#43;08:00'/>
-<meta name="twitter:title" content="Codex CLI 源码导读（一）：一个任务怎样进入代码库">
-<meta name="twitter:description" content="Codex CLI 源码导读（一）：一个任务怎样进入代码库 运行 codex 后，终端里出现的是一段对话；它的工作对象却是当前目录下的代码库。\n它需要找到项目约定，读取相关文件，运行测试，并在准备修改代码时遵守本地权限。模型只是其中一部分。围绕模型建立的运行时负责管理上下文、调用工具、保存会话，并限制每一次动作的范围。\n">
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Codex' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='CLI' /><meta property='article:tag' content='源码导读' /><meta property='article:published_time' content='2026-07-21T22:00:00&#43;08:00'/><meta property='article:modified_time' content='2026-07-21T22:00:00&#43;08:00'/>
+<meta name="twitter:title" content="Codex CLI 源码导读（二）：一条任务从哪里开始">
+<meta name="twitter:description" content="Codex CLI 源码导读（二）：一条任务从哪里开始 在终端里输入 codex 后，第一件发生的事不是调用模型。程序要先回答一个很朴素的问题：这次启动到底想做什么？是打开交互式终端，执行一条非交互任务，还是作为一个本地服务等待其他客户端连接？\n">
     <link rel="shortcut icon" href="/favicon.ico" />
 
     </head>
@@ -249,19 +249,12 @@
         <div class="widget--toc">
             <nav id="TableOfContents">
   <ol>
-    <li><a href="#codex-cli任务发生在本地">Codex CLI：任务发生在本地</a></li>
-    <li><a href="#cli-和-codex-app两个入口各自分工">CLI 和 Codex App：两个入口，各自分工</a></li>
-    <li><a href="#先读懂几个目录名">先读懂几个目录名</a></li>
-    <li><a href="#一次任务经过哪些部分">一次任务经过哪些部分</a>
-      <ol>
-        <li><a href="#入口把人的意图变成一个任务">入口：把人的意图变成一个任务</a></li>
-        <li><a href="#会话与上下文决定模型此刻知道什么">会话与上下文：决定模型此刻知道什么</a></li>
-        <li><a href="#agent-核心把下一步接进循环">Agent 核心：把“下一步”接进循环</a></li>
-        <li><a href="#模型与后端让上下文和响应来回流动">模型与后端：让上下文和响应来回流动</a></li>
-        <li><a href="#工具与安全边界让动作发生也让它止步">工具与安全边界：让动作发生，也让它止步</a></li>
-      </ol>
-    </li>
-    <li><a href="#为什么第一张架构图要这样画">为什么第一张架构图要这样画</a></li>
+    <li><a href="#codex-不是一条固定路径"><code>codex</code> 不是一条固定路径</a></li>
+    <li><a href="#默认启动cli-先把控制权交给-tui">默认启动：CLI 先把控制权交给 TUI</a></li>
+    <li><a href="#app-server-不是桌面-app"><code>app-server</code> 不是桌面 App</a></li>
+    <li><a href="#thread-和-turn入口层已经在使用的任务单位">Thread 和 Turn：入口层已经在使用的任务单位</a></li>
+    <li><a href="#三个名字三个层次">三个名字，三个层次</a></li>
+    <li><a href="#接下来可以继续想">接下来可以继续想</a></li>
     <li><a href="#参考资料">参考资料</a></li>
   </ol>
 </nav>
@@ -294,7 +287,7 @@
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%80%E4%B8%80%E4%B8%AA%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E8%BF%9B%E5%85%A5%E4%BB%A3%E7%A0%81%E5%BA%93/">Codex CLI 源码导读（一）：一个任务怎样进入代码库</a>
+            <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%BA%8C%E4%B8%80%E6%9D%A1%E4%BB%BB%E5%8A%A1%E4%BB%8E%E5%93%AA%E9%87%8C%E5%BC%80%E5%A7%8B/">Codex CLI 源码导读（二）：一条任务从哪里开始</a>
         </h2>
     
         
@@ -331,7 +324,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 7 分钟
+                    阅读时长: 5 分钟
                 </time>
             </div>
         
@@ -346,139 +339,124 @@
     <section class="article-content">
     
     
-    <h1 id="codex-cli-源码导读一一个任务怎样进入代码库">Codex CLI 源码导读（一）：一个任务怎样进入代码库
-</h1><p>运行 <code>codex</code> 后，终端里出现的是一段对话；它的工作对象却是当前目录下的代码库。</p>
-<p>它需要找到项目约定，读取相关文件，运行测试，并在准备修改代码时遵守本地权限。模型只是其中一部分。围绕模型建立的运行时负责管理上下文、调用工具、保存会话，并限制每一次动作的范围。</p>
-<p>理解 Codex CLI 的起点不该是“它用了哪个模型”，而是“它怎样让模型在一个真实项目里工作”。</p>
-<p>本文先介绍 Codex CLI，再说明它和 App 的关系，最后沿着一次任务画出整体结构。目录名会出现，但它们只是路标。</p>
-<h2 id="codex-cli任务发生在本地">Codex CLI：任务发生在本地
-</h2><p><code>openai/codex</code> 的 README 将它定位为运行在本机的 Codex CLI。这个“本机”并不是一个无关紧要的部署细节。</p>
-<p>在普通聊天窗口里，模型只能根据你贴进去的内容回答。CLI 则站在当前工作目录中。它可以查看 Git 状态、读取项目文件、运行已有测试，并在权限允许时写入修改。于是，“修一个空指针”不再是一段建议，而是一段可以被验证的工作。</p>
-<p>模型不会一次看完整个仓库。一次任务通常是逐步展开的：先搜索 <code>OrderService</code>，再读取相关实现与测试，然后运行目标测试。每次工具返回的内容，才会进入下一轮决策。</p>
-<p>后面会一直用一个 Go 服务的空指针问题作为例子：它足够具体，能把一次工具调用和后续的测试验证串起来。</p>
+    <h1 id="codex-cli-源码导读二一条任务从哪里开始">Codex CLI 源码导读（二）：一条任务从哪里开始
+</h1><p>在终端里输入 <code>codex</code> 后，第一件发生的事不是调用模型。程序要先回答一个很朴素的问题：这次启动到底想做什么？是打开交互式终端，执行一条非交互任务，还是作为一个本地服务等待其他客户端连接？</p>
+<p>这个分流点在 <a class="link" href="https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/cli/src/main.rs"  target="_blank" rel="noopener"
+    ><code>codex-rs/cli/src/main.rs</code></a> 里。它看似只是命令行解析，实际上规定了任务从哪个入口进入系统，也解释了为什么 <code>tui</code> 和 <code>app-server</code> 都出现在 Codex 的源码中。</p>
+<p>本文只追任务的入口。上下文如何组装、工具如何执行、模型如何多轮推进，留给后面的章节。先把“谁接住了任务”弄明白。</p>
+<h2 id="codex-不是一条固定路径"><code>codex</code> 不是一条固定路径
+</h2><p><code>cli</code> crate 定义了一个多命令入口。输入没有子命令时，程序走交互模式；<code>codex exec</code> 走非交互执行；<code>codex app-server</code> 则启动一个面向客户端的服务。还有 <code>mcp</code>、<code>plugin</code>、<code>review</code>、<code>resume</code> 等管理或专用命令。</p>
+<pre class="mermaid">flowchart TD
+    A[&#34;终端输入 codex&#34;] --&gt; B[&#34;cli 解析参数与配置&#34;]
+    B --&gt; C{&#34;有没有子命令？&#34;}
+    C --&gt;|没有| D[&#34;启动交互式 TUI&#34;]
+    C --&gt;|exec| E[&#34;非交互执行路径&#34;]
+    C --&gt;|app-server| F[&#34;启动本地协议服务&#34;]
+    D --&gt; G[&#34;任务运行时&#34;]
+    E --&gt; G
+    F --&gt; G</pre>
+<p>图中的三条路径不是三套 Agent。它们面向不同的使用方式：</p>
+<ul>
+<li>交互式 TUI 适合人在终端里持续对话、查看命令和确认操作。</li>
+<li><code>exec</code> 适合脚本或 CI 中的一次性调用，结果需要按约定输出。</li>
+<li><code>app-server</code> 适合 IDE 等富客户端，它们需要提交任务并持续接收结构化事件。</li>
+</ul>
+<p>第一篇把 CLI、App 和 IDE 称作“入口”，这里可以再精确一点：<code>cli</code> 是可执行文件的总入口；TUI 和 <code>app-server</code> 是它分流后的两种本地交互通道。桌面 App 是另一种产品体验，不能用一个 Rust 目录替代它的全部实现。</p>
+<h2 id="默认启动cli-先把控制权交给-tui">默认启动：CLI 先把控制权交给 TUI
+</h2><p>在 <code>cli/src/main.rs</code> 中，根命令没有子命令时会调用 <code>run_interactive_tui</code>。这个函数做几件启动前的事：规范化传入的提示文本，检查终端是否可交互，解析可选的远程端点，然后进入 <code>codex_tui::run_main</code>。</p>
+<p>这里的 <code>tui</code> 是 Terminal User Interface。它不是日志输出，也不是桌面图形界面。它负责在终端里渲染消息、输入框、命令进度、批准请求和任务状态。</p>
+<p>如果只看界面，容易误以为 TUI 自己就是 Agent 运行时。当前源码的做法更有意思：TUI 会创建一个 <code>AppServerSession</code>，通过它启动或连接 <code>app-server</code>，再以客户端身份发起任务。也就是说，终端界面和任务服务之间已经有一层明确接口。</p>
 <pre class="mermaid">sequenceDiagram
-    participant D as 开发者
-    participant C as Codex 本地运行时
-    participant M as 模型
-    participant R as 代码库与工具
+    participant U as 用户
+    participant C as cli
+    participant T as tui
+    participant S as AppServerSession
+    participant R as app-server
 
-    D-&gt;&gt;C: 修复订单接口的空指针
-    C-&gt;&gt;M: 任务、项目指令和当前上下文
-    M-&gt;&gt;C: 搜索并读取相关代码
-    C-&gt;&gt;R: 搜索文件、读取实现和测试
-    R--&gt;&gt;C: 代码与命令输出
-    C-&gt;&gt;M: 新的观察结果
-    M-&gt;&gt;C: 修改代码并运行测试
-    C-&gt;&gt;R: 应用修改，执行测试
-    R--&gt;&gt;C: 测试结果
-    C--&gt;&gt;D: 修改与验证结果</pre>
-<p>图中的 Codex 是关键。它夹在模型和工作区之间，既负责传递信息，也负责控制动作。没有这一层，模型只能给出建议；有了它，模型才可以参与一次完整的软件任务。</p>
-<h2 id="cli-和-codex-app两个入口各自分工">CLI 和 Codex App：两个入口，各自分工
-</h2><p>CLI 和 App 提供的是两种使用 Codex 的方式。</p>
-<p>CLI 以终端为中心。开发者在代码库里发起任务，直接看到命令、文件改动和测试输出。它的节奏和日常开发很接近。</p>
-<p>App 以桌面界面为中心，更适合查看任务、过程与结果。当前 README 也将 <code>codex app</code> 列为桌面端体验的启动方式。</p>
-<p>两者真正共用的重点，是本地任务运行时：会话怎样建立，模型怎样获得上下文，工具怎样执行，哪些动作需要被限制。界面层决定人怎样发起和查看任务；运行时决定任务怎样进入代码库。</p>
+    U-&gt;&gt;C: codex
+    C-&gt;&gt;T: run_main
+    T-&gt;&gt;S: 创建会话
+    S-&gt;&gt;R: 初始化并创建 Thread
+    U-&gt;&gt;T: 输入任务
+    T-&gt;&gt;S: 发起 Turn
+    S-&gt;&gt;R: turn/start
+    R--&gt;&gt;T: 任务事件与输出</pre>
+<p>这条路径有一个值得记住的细节。默认的本地交互模式可以启动嵌入式 <code>app-server</code>，也可以按配置复用本地 daemon 或连接远程端点。嵌入式不等于没有服务层，它表示客户端和服务端通过进程内通道通信，而不是通过一个可见的 TCP 端口或标准输入输出通信。</p>
+<p>所以，TUI 仍然是界面层。它只是没有绕开任务服务，而是通过 <code>AppServerSession</code> 使用同一套 Thread、Turn 和事件协议。这种拆分让终端界面、IDE 和其他客户端有机会谈同一种“任务语言”。</p>
+<h2 id="app-server-不是桌面-app"><code>app-server</code> 不是桌面 App
+</h2><p>这个名字很容易造成误解。源码里的 <code>app-server</code> 是一个可由 <code>codex app-server</code> 启动的本地服务。它的公开 README 说得很直接：它为 Codex VS Code 扩展这类富客户端提供接口。</p>
+<p>它使用双向 JSON-RPC 2.0 协议。默认传输方式是标准输入输出上的 JSONL；也支持 Unix socket，WebSocket 处于实验状态。这里的重点不是记住传输名，而是理解角色：客户端负责展示与交互，<code>app-server</code> 负责接受结构化请求，并把任务过程变成结构化事件。</p>
+<p>一个富客户端的最小工作过程大致如下：</p>
+<pre class="mermaid">sequenceDiagram
+    participant I as IDE 或 TUI
+    participant S as app-server
+
+    I-&gt;&gt;S: initialize
+    I-&gt;&gt;S: initialized
+    I-&gt;&gt;S: thread/start
+    S--&gt;&gt;I: thread/started
+    I-&gt;&gt;S: turn/start
+    S--&gt;&gt;I: item/started、文本增量、工具进度
+    S--&gt;&gt;I: item/completed
+    S--&gt;&gt;I: turn/completed</pre>
+<p>初始化不是装饰步骤。协议要求连接先完成 <code>initialize</code> 和 <code>initialized</code>，之后才能发送其他请求。随后，客户端用 <code>thread/start</code> 创建会话，用 <code>turn/start</code> 把用户输入送入该会话。任务跑起来后，客户端不需要猜测终端该显示什么，而是消费 <code>item/started</code>、文本增量、工具进度和 <code>turn/completed</code> 等事件。</p>
+<p>这就是为什么 IDE 集成不必重写一套 Agent。它只需实现协议客户端：发送请求，订阅事件，把事件渲染成编辑器里的消息、改动和批准界面。</p>
+<h2 id="thread-和-turn入口层已经在使用的任务单位">Thread 和 Turn：入口层已经在使用的任务单位
+</h2><p><code>app-server</code> README 用三个词描述一次交互：Thread、Turn 和 Item。现在只需要掌握前两个。</p>
+<ul>
+<li>Thread 是一次持续的会话。它可以被恢复或分叉。</li>
+<li>Turn 是会话中的一轮交互，通常从用户输入开始，到 Agent 完成或中断结束。</li>
+</ul>
+<p>TUI 里的 <a class="link" href="https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/tui/src/app_server_session.rs"  target="_blank" rel="noopener"
+    ><code>app_server_session.rs</code></a> 很直观地保留了这两个动作：<code>start_thread</code> 发送 <code>thread/start</code>，<code>turn_start</code> 发送 <code>turn/start</code>。它还把当前目录、模型设置、审批策略和权限覆盖传入请求。</p>
+<p>这不意味着界面层决定所有运行时规则。TUI 收集启动所需的信息，并把它交给服务端。真正的任务循环、工具调用和安全判定仍在后面的路径中发生。第三篇会从 Turn 进入运行时后开始追。</p>
+<h2 id="三个名字三个层次">三个名字，三个层次
+</h2><p>最后再压缩一次，避免后面读源码时混淆：</p>
 <div class="table-wrapper"><table>
 	<thead>
 			<tr>
-					<th>入口</th>
-					<th>用户主要看到什么</th>
-					<th>本文关心什么</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td>CLI</td>
-					<td>命令、终端对话、文件改动、测试输出</td>
-					<td>任务如何在本地仓库中运行</td>
-			</tr>
-			<tr>
-					<td>App</td>
-					<td>任务视图、执行过程、结果</td>
-					<td>与本地运行时相连的部分</td>
-			</tr>
-	</tbody>
-</table></div>
-<p>后面的文章会一直坚持这个边界。本文只研究 Codex 的本地 Agent 运行时；桌面产品和云端服务的内部实现不在讨论范围内。</p>
-<h2 id="先读懂几个目录名">先读懂几个目录名
-</h2><p>开始看仓库前，先区分两件事。源码目录反映的是实现怎么拆分；架构图描述的是一项任务由哪些职责共同完成。两者有关，但不能把一个目录名直接当成一个完整的架构层。</p>
-<p><code>codex-rs</code> 是 Codex 的主要 Rust 工作区。Rust 的 workspace 可以理解为一个大工程下面放着许多可以独立编译、测试的子包，Rust 里把这些子包叫作 crate。Codex 把本地运行时的大部分实现放在这里。</p>
-<p>第一次读时，下面几个名字最常出现：</p>
-<div class="table-wrapper"><table>
-	<thead>
-			<tr>
-					<th>名字</th>
-					<th>先这样理解</th>
-					<th>它回答的问题</th>
+					<th>名称</th>
+					<th>它是什么</th>
+					<th>不是什么</th>
 			</tr>
 	</thead>
 	<tbody>
 			<tr>
 					<td><code>cli</code></td>
-					<td>命令行入口</td>
-					<td>用户输入 <code>codex</code> 后，程序从哪里开始？</td>
+					<td>命令行程序的分流入口</td>
+					<td>一整套 Agent 逻辑</td>
 			</tr>
 			<tr>
 					<td><code>tui</code></td>
-					<td>Terminal User Interface，终端里的交互界面</td>
-					<td>终端中的消息、工具调用和进度怎样显示？</td>
+					<td>终端里的交互界面与客户端</td>
+					<td>桌面 App</td>
 			</tr>
 			<tr>
 					<td><code>app-server</code></td>
-					<td>面向富客户端的本地服务接口</td>
-					<td>VS Code 扩展这类客户端怎样启动任务并接收进度？</td>
-			</tr>
-			<tr>
-					<td><code>core</code></td>
-					<td>任务运行时的核心逻辑</td>
-					<td>会话、上下文和工具调用怎样串成一条任务？</td>
+					<td>给富客户端使用的本地协议服务</td>
+					<td>Codex App 的同义词</td>
 			</tr>
 	</tbody>
 </table></div>
-<p><code>tui</code> 容易被误解成 App。它仍然运行在终端里，只是比一行行打印日志更像一个交互界面。App 则是桌面图形界面。两者可以连接到相近的本地运行时能力，但界面形态不同。</p>
-<p>接下来出现的 <code>tools</code>、<code>exec</code>、<code>sandboxing</code>、<code>config</code> 等目录，也可以用同样的方式看：先问它解决哪类问题，再追具体代码。这样不会刚进 <code>codex-rs</code> 就被几十个 crate 淹没。</p>
-<h2 id="一次任务经过哪些部分">一次任务经过哪些部分
-</h2><p>回到开头的空指针问题。为了完成这件小事，Codex 不只需要一个模型接口。它至少要处理五类工作。</p>
-<pre class="mermaid">flowchart TB
-    I[&#34;入口\nCLI、终端界面、App 连接&#34;] --&gt; S[&#34;会话与上下文\n任务、项目指令、历史、配置&#34;]
-    S --&gt; A[&#34;Agent 核心\n组织模型响应与任务推进&#34;]
-    A &lt;--&gt; M[&#34;模型与后端\n发送上下文，接收响应&#34;]
-    A &lt;--&gt; T[&#34;工具运行时\n读文件、搜索、改代码、执行命令&#34;]
-    T --&gt; W[&#34;本地工作区&#34;]
-    G[&#34;安全边界\nSandbox、执行策略、权限升级&#34;] -.约束.-&gt; T</pre>
-<h3 id="入口把人的意图变成一个任务">入口：把人的意图变成一个任务
-</h3><p>在 <code>codex-rs</code> 工作区里，<code>cli</code>、<code>tui</code> 和 <code>app-server</code> 分别对应命令行、终端交互和面向富客户端的服务入口。它们接住任务，并把执行过程呈现给用户。</p>
-<p>这也是 CLI 与 App 的差异最容易落到源码里的地方：它们的交互可以不同，但都需要把一个明确的任务交给后面的运行时。</p>
-<h3 id="会话与上下文决定模型此刻知道什么">会话与上下文：决定模型此刻知道什么
-</h3><p>项目理解必须由运行时逐步拼装。任务文本、当前目录、项目配置、<code>AGENTS.md</code>、已读文件和前几轮工具输出，都会成为当前会话的一部分。</p>
-<p><code>core</code> 周围的 <code>thread-store</code>、<code>context-fragments</code>、<code>prompts</code>、<code>state</code> 等模块都和这件事有关。阅读这里时，要先记住一个限制：上下文是有限的。把所有文档塞给模型通常不会带来更好的结果，运行时必须决定哪些信息现在相关。</p>
-<h3 id="agent-核心把下一步接进循环">Agent 核心：把“下一步”接进循环
-</h3><p><code>core</code> 和 <code>rollout</code> 一类模块负责推进任务。它们收到模型的回答后，要判断这是一段最终回复，还是一次读取文件、运行命令、应用补丁的请求；工具完成后，又把结果放回会话，继续下一轮。</p>
-<p>这里的 Agent 是一条反馈回路：模型选择动作，运行时执行动作，执行结果改变模型下一轮能看到的内容。</p>
-<h3 id="模型与后端让上下文和响应来回流动">模型与后端：让上下文和响应来回流动
-</h3><p><code>codex-api</code>、<code>backend-client</code>、<code>model-provider</code> 等模块处理模型或后端通信。它们把核心层准备好的请求发出去，也把流式文本、工具请求和失败信息带回来。</p>
-<p>这一层能告诉我们请求怎样构造、响应怎样解析、失败怎样恢复。可分析的边界到此为止：任务循环可以观察，模型的私有推理无法从源码中还原。</p>
-<h3 id="工具与安全边界让动作发生也让它止步">工具与安全边界：让动作发生，也让它止步
-</h3><p><code>tools</code>、<code>exec</code>、<code>shell-command</code>、<code>file-search</code>、<code>apply-patch</code>、<code>git-utils</code> 负责对工作区做事。它们把“搜索 <code>OrderService</code>”“读取测试”“运行 <code>go test</code>”变成真正的本地操作。</p>
-<p>同一条路径旁边，还有 <code>sandboxing</code>、<code>execpolicy</code>、<code>shell-escalation</code>、<code>process-hardening</code>。它们存在的理由很朴素：模型可以提出动作，不代表动作就应该直接执行。一个能修改仓库的 Agent，必须知道哪些目录可写、哪些命令要确认、失败时怎样把原因交回会话。</p>
-<p>工具让模型获得行动能力；安全边界让这种能力不会越过工作区和权限范围。两部分应该一起读，拆开看会误以为 Agent 只是“会跑 Shell”。</p>
-<h2 id="为什么第一张架构图要这样画">为什么第一张架构图要这样画
-</h2><p>仓库里还有 <code>skills</code>、<code>plugin</code>、<code>codex-mcp</code>、<code>hooks</code>、<code>memories</code> 等模块。它们很重要，但不该在第一章抢走主线。</p>
-<p>先看清任务怎样进入运行时、怎样调用模型、怎样使用工具，MCP 和 Skill 才有合适的位置。Skill 影响 Agent 如何做事，MCP 为它接入外部工具和数据；两者都建立在前面这条任务与工具链路之上。</p>
-<p>后续读源码时，可以带着四个问题往下走：</p>
-<ul>
-<li>当前任务的上下文是从哪里组装出来的？</li>
-<li>工具请求怎样从模型响应变成一次本地调用？</li>
-<li>哪一层决定一条命令可以直接执行，还是需要确认？</li>
-<li>工具结果怎样重新进入下一轮会话？</li>
+<p>这三个模块都和“任务开始”有关，但职责并不重叠。CLI 选择路径，TUI 负责终端交互，<code>app-server</code> 提供任务与事件协议。把它们分清楚，后面看到 <code>Thread</code>、<code>Turn</code>、事件流和工具调用时，才不会把界面代码误当成 Agent 核心。</p>
+<h2 id="接下来可以继续想">接下来可以继续想
+</h2><ul>
+<li><code>thread/start</code> 创建的会话，在哪里保存历史和当前状态？</li>
+<li><code>turn/start</code> 返回后，哪一层把模型输出、工具调用和最终消息排成事件流？</li>
+<li>CLI 的 <code>exec</code> 路径为什么不需要 TUI，却仍然需要同一类任务状态？</li>
+<li>当 TUI 连接的是远程端点时，当前目录和权限该由谁解释？</li>
 </ul>
-<p>这四个问题会比目录树更早把你带到关键代码。下一篇就从任务启动和会话创建开始。</p>
+<p>下一篇从 Turn 开始，进入 <code>core</code> 与 <code>rollout</code> 附近的任务循环，看看一次请求怎样变成连续的行动。</p>
 <h2 id="参考资料">参考资料
 </h2><ul>
-<li><a class="link" href="https://github.com/openai/codex"  target="_blank" rel="noopener"
-    >openai/codex</a></li>
-<li><a class="link" href="https://openai.com/zh-Hans-CN/index/harness-engineering/"  target="_blank" rel="noopener"
-    >工程技术：在智能体优先的世界中利用 Codex</a></li>
+<li><a class="link" href="https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/cli/src/main.rs"  target="_blank" rel="noopener"
+    ><code>cli/src/main.rs</code>，源码版本 <code>268288a</code></a></li>
+<li><a class="link" href="https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/tui/src/lib.rs"  target="_blank" rel="noopener"
+    ><code>tui/src/lib.rs</code></a></li>
+<li><a class="link" href="https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/tui/src/app_server_session.rs"  target="_blank" rel="noopener"
+    ><code>tui/src/app_server_session.rs</code></a></li>
+<li><a class="link" href="https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/app-server/README.md"  target="_blank" rel="noopener"
+    ><code>app-server</code> 协议说明</a></li>
 <li><a class="link" href="https://developers.openai.com/codex/cli"  target="_blank" rel="noopener"
     >Codex CLI 文档</a></li>
 </ul>
@@ -515,6 +493,32 @@
     <h2 class="section-title">相关文章</h2>
     <div class="related-content">
         <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%89%E4%B8%80%E8%BD%AE%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E5%8F%98%E6%88%90%E8%BF%9E%E7%BB%AD%E8%A1%8C%E5%8A%A8/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（三）：一轮任务怎样变成连续行动</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%80%E5%85%88%E7%9C%8B%E6%87%82-codex%E5%86%8D%E5%BC%80%E5%A7%8B%E8%AF%BB%E6%BA%90%E7%A0%81/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（一）：先看懂 Codex，再开始读源码</h2>
+        </div>
+    </a>
+</article>
+
             
                 
 <article class="">
