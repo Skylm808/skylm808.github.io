@@ -969,6 +969,57 @@
 &lt;p&gt;例如，测试输出很长，连续几轮工具也会产生大量日志。直接重复全部内容会很快超过模型一次能接收的输入量。Codex 因此会保留对下一步有用的证据，并在接近限制时整理历史。它并不保证模型永远记住每个字，而是尽力让下一步仍有足够的信息可用。&lt;/p&gt;
 &lt;p&gt;源码中的 &lt;code&gt;ContextManager&lt;/code&gt; 就是这个“整理工作记录”的部件。它不是另外一种模型，也不是一个外部服务；它管理按时间排列的消息和工具结果，并在发出请求前准备合适的历史。&lt;/p&gt;
 &lt;p&gt;有时你会看到 Codex 再读一次刚刚看过的文件。这不一定表示它忘了：文件可能已被修改，早前内容也可能不适合回答新的问题。是否重复读取，要看它能否带来新的证据。&lt;/p&gt;
+&lt;h2 id=&#34;历史太长时codex-留下什么&#34;&gt;历史太长时，Codex 留下什么
+&lt;/h2&gt;&lt;p&gt;先说一个容易误解的点：新的 Turn 不会固定只看“最近十条”或“最近二十条”消息。只要上下文窗口还有余量，&lt;code&gt;ContextManager&lt;/code&gt; 会把当前保留下来的整段历史整理后发给模型。消息条数没有固定上限，真正受限的是这些材料占用的 token 数量。&lt;/p&gt;
+&lt;p&gt;当历史接近模型可用的上下文窗口，Codex 会在新 Turn 前自动压缩；如果一轮任务跑得很长，也可能在这一轮中途压缩。压缩不是直接从头删消息，而是先让模型根据当前历史写一段工作总结，再用更短的新历史替换原来的长历史。&lt;/p&gt;
+&lt;p&gt;假设一个任务已经进行了很多轮：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;用户：修复支付测试，但不要改 API
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;工具：测试失败，输出很长
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;工具：读取 handler.go 和 service.go
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;模型：发现空值直接解引用
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;工具：修改 handler.go，补回归测试
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;工具：局部测试通过，尚未跑全量测试
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;压缩后，模型在后续 Turn 里不一定还能看到那几百行测试输出和每一次文件读取的原文。它会看到更接近下面的记录：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;近期用户要求：不要改 API；补回归测试；检查并发路径
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;工作总结：支付测试的失败原因是 handler 对可选字段直接解引用。
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;已修改 handler.go，并新增空值输入的回归测试。局部测试已通过，
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;全量测试尚未运行。下一步应检查并发路径后运行 payment 包测试。
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;当前环境：工作目录、AGENTS.md 指令、权限和可用工具
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;本地压缩实现还保留了一个明确的细节：它从最新的用户消息开始向前选，最多保留约 20,000 token 的原始用户要求；放不下的最早一条会被截断。早期模型回复、工具调用和工具输出则主要由工作总结替代。工具输出在写入历史时本身也可能先被截断，所以长日志并不会无限留在会话里。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;flowchart TD
+    A[&amp;#34;当前历史接近 token 上限&amp;#34;] --&amp;gt; B[&amp;#34;根据已有历史生成工作总结&amp;#34;]
+    B --&amp;gt; C[&amp;#34;保留近期用户要求&amp;#34;]
+    C --&amp;gt; D[&amp;#34;重新注入当前环境&amp;#34;]
+    D --&amp;gt; E[&amp;#34;用较短的新历史替换旧历史&amp;#34;]
+    E --&amp;gt; F[&amp;#34;下一 Turn 在新历史上继续&amp;#34;]&lt;/pre&gt;
+&lt;p&gt;如果连压缩请求本身都放不进上下文窗口，当前本地实现会从最早的历史项开始移除，优先让最近的内容留下来。压缩越多次，越可能丢掉边缘细节；需要长期成立的规则仍应写在 &lt;code&gt;AGENTS.md&lt;/code&gt;，关键进度也值得在下一次提问里再明确一遍。&lt;/p&gt;
 &lt;h2 id=&#34;当前环境怎样告诉模型发生了变化&#34;&gt;当前环境怎样告诉模型“发生了变化”
 &lt;/h2&gt;&lt;p&gt;除了历史，Codex 还要让模型知道环境变化。例如，用户调整了权限设置，或任务切换了工作目录。第一次需要时，运行时会把完整的环境说明写入模型可见的记录；后续则尽量只补充变化的部分。&lt;/p&gt;
 &lt;p&gt;源码把这份可见环境称为 &lt;code&gt;WorldState&lt;/code&gt;，实现位于 &lt;code&gt;core/src/session/world_state.rs&lt;/code&gt;。这个名字容易显得宏大，实际就是“本轮任务需要对模型说明的环境状态”。&lt;code&gt;WorldState&lt;/code&gt; 包含项目指令、权限和环境信息等片段；它配合 &lt;code&gt;StepContext&lt;/code&gt;，让模型看到的条件与工具执行的条件保持一致。&lt;/p&gt;
@@ -1414,7 +1465,7 @@
 &lt;/table&gt;
 &lt;p&gt;还有一个很容易混淆的名字：&lt;code&gt;app-server&lt;/code&gt;。它不是 Codex App。它是公开 CLI 源码中的一个&lt;strong&gt;本地服务&lt;/strong&gt;：其他界面，例如终端界面或编辑器，可以把任务交给它，再从它那里接收进度。可以先把它想成“界面和任务运行时之间的接线员”。第二篇会沿着这条线解释它。&lt;/p&gt;
 &lt;h2 id=&#34;现在再看目录名&#34;&gt;现在再看目录名
-&lt;/h2&gt;&lt;p&gt;理解了任务链后，&lt;code&gt;codex-rs&lt;/code&gt; 里的目录才有位置可放。&lt;code&gt;codex-rs&lt;/code&gt; 是主要 Rust workspace，可以理解为一个统一构建的 Rust 工程集合。里面可独立编译的模块叫 crate；不熟悉 Rust 时，把它近似看作 Go 项目中的一个包或程序即可。&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;理解了任务链后，&lt;code&gt;codex-rs&lt;/code&gt; 里的目录才有位置可放。&lt;code&gt;codex-rs&lt;/code&gt; 是主要 Rust workspace，可以理解为一个统一构建的 Rust 工程集合。里面可独立编译、声明自己依赖关系的模块叫 crate；不熟悉 Rust 时，可以近似看作 Go 项目中的一个包或程序。它通常对应一个目录和一份 &lt;code&gt;Cargo.toml&lt;/code&gt;，但“目录”与 crate 不是完全等同的概念。&lt;/p&gt;
 &lt;p&gt;第一轮只需要记住下面五个路标：&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;

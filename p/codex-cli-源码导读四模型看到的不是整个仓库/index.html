@@ -253,6 +253,7 @@
     <li><a href="#项目指令从哪里来">项目指令从哪里来</a></li>
     <li><a href="#为什么要把环境固定成一张快照">为什么要把环境固定成一张快照</a></li>
     <li><a href="#历史不是原样堆积的聊天记录">历史不是原样堆积的聊天记录</a></li>
+    <li><a href="#历史太长时codex-留下什么">历史太长时，Codex 留下什么</a></li>
     <li><a href="#当前环境怎样告诉模型发生了变化">当前环境怎样告诉模型“发生了变化”</a></li>
     <li><a href="#读源码时先找这四处">读源码时，先找这四处</a></li>
     <li><a href="#接下来可以继续想">接下来可以继续想</a></li>
@@ -325,7 +326,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 5 分钟
+                    阅读时长: 7 分钟
                 </time>
             </div>
         
@@ -413,6 +414,57 @@
 <p>例如，测试输出很长，连续几轮工具也会产生大量日志。直接重复全部内容会很快超过模型一次能接收的输入量。Codex 因此会保留对下一步有用的证据，并在接近限制时整理历史。它并不保证模型永远记住每个字，而是尽力让下一步仍有足够的信息可用。</p>
 <p>源码中的 <code>ContextManager</code> 就是这个“整理工作记录”的部件。它不是另外一种模型，也不是一个外部服务；它管理按时间排列的消息和工具结果，并在发出请求前准备合适的历史。</p>
 <p>有时你会看到 Codex 再读一次刚刚看过的文件。这不一定表示它忘了：文件可能已被修改，早前内容也可能不适合回答新的问题。是否重复读取，要看它能否带来新的证据。</p>
+<h2 id="历史太长时codex-留下什么">历史太长时，Codex 留下什么
+</h2><p>先说一个容易误解的点：新的 Turn 不会固定只看“最近十条”或“最近二十条”消息。只要上下文窗口还有余量，<code>ContextManager</code> 会把当前保留下来的整段历史整理后发给模型。消息条数没有固定上限，真正受限的是这些材料占用的 token 数量。</p>
+<p>当历史接近模型可用的上下文窗口，Codex 会在新 Turn 前自动压缩；如果一轮任务跑得很长，也可能在这一轮中途压缩。压缩不是直接从头删消息，而是先让模型根据当前历史写一段工作总结，再用更短的新历史替换原来的长历史。</p>
+<p>假设一个任务已经进行了很多轮：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>用户：修复支付测试，但不要改 API
+</span></span><span style="display:flex;"><span>工具：测试失败，输出很长
+</span></span><span style="display:flex;"><span>工具：读取 handler.go 和 service.go
+</span></span><span style="display:flex;"><span>模型：发现空值直接解引用
+</span></span><span style="display:flex;"><span>工具：修改 handler.go，补回归测试
+</span></span><span style="display:flex;"><span>工具：局部测试通过，尚未跑全量测试
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>压缩后，模型在后续 Turn 里不一定还能看到那几百行测试输出和每一次文件读取的原文。它会看到更接近下面的记录：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>近期用户要求：不要改 API；补回归测试；检查并发路径
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>工作总结：支付测试的失败原因是 handler 对可选字段直接解引用。
+</span></span><span style="display:flex;"><span>已修改 handler.go，并新增空值输入的回归测试。局部测试已通过，
+</span></span><span style="display:flex;"><span>全量测试尚未运行。下一步应检查并发路径后运行 payment 包测试。
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>当前环境：工作目录、AGENTS.md 指令、权限和可用工具
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>本地压缩实现还保留了一个明确的细节：它从最新的用户消息开始向前选，最多保留约 20,000 token 的原始用户要求；放不下的最早一条会被截断。早期模型回复、工具调用和工具输出则主要由工作总结替代。工具输出在写入历史时本身也可能先被截断，所以长日志并不会无限留在会话里。</p>
+<pre class="mermaid">flowchart TD
+    A[&#34;当前历史接近 token 上限&#34;] --&gt; B[&#34;根据已有历史生成工作总结&#34;]
+    B --&gt; C[&#34;保留近期用户要求&#34;]
+    C --&gt; D[&#34;重新注入当前环境&#34;]
+    D --&gt; E[&#34;用较短的新历史替换旧历史&#34;]
+    E --&gt; F[&#34;下一 Turn 在新历史上继续&#34;]</pre>
+<p>如果连压缩请求本身都放不进上下文窗口，当前本地实现会从最早的历史项开始移除，优先让最近的内容留下来。压缩越多次，越可能丢掉边缘细节；需要长期成立的规则仍应写在 <code>AGENTS.md</code>，关键进度也值得在下一次提问里再明确一遍。</p>
 <h2 id="当前环境怎样告诉模型发生了变化">当前环境怎样告诉模型“发生了变化”
 </h2><p>除了历史，Codex 还要让模型知道环境变化。例如，用户调整了权限设置，或任务切换了工作目录。第一次需要时，运行时会把完整的环境说明写入模型可见的记录；后续则尽量只补充变化的部分。</p>
 <p>源码把这份可见环境称为 <code>WorldState</code>，实现位于 <code>core/src/session/world_state.rs</code>。这个名字容易显得宏大，实际就是“本轮任务需要对模型说明的环境状态”。<code>WorldState</code> 包含项目指令、权限和环境信息等片段；它配合 <code>StepContext</code>，让模型看到的条件与工具执行的条件保持一致。</p>

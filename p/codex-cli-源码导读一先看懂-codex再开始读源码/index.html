@@ -324,7 +324,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 4 分钟
+                    阅读时长: 5 分钟
                 </time>
             </div>
         
@@ -461,7 +461,7 @@
 </table></div>
 <p>还有一个很容易混淆的名字：<code>app-server</code>。它不是 Codex App。它是公开 CLI 源码中的一个<strong>本地服务</strong>：其他界面，例如终端界面或编辑器，可以把任务交给它，再从它那里接收进度。可以先把它想成“界面和任务运行时之间的接线员”。第二篇会沿着这条线解释它。</p>
 <h2 id="现在再看目录名">现在再看目录名
-</h2><p>理解了任务链后，<code>codex-rs</code> 里的目录才有位置可放。<code>codex-rs</code> 是主要 Rust workspace，可以理解为一个统一构建的 Rust 工程集合。里面可独立编译的模块叫 crate；不熟悉 Rust 时，把它近似看作 Go 项目中的一个包或程序即可。</p>
+</h2><p>理解了任务链后，<code>codex-rs</code> 里的目录才有位置可放。<code>codex-rs</code> 是主要 Rust workspace，可以理解为一个统一构建的 Rust 工程集合。里面可独立编译、声明自己依赖关系的模块叫 crate；不熟悉 Rust 时，可以近似看作 Go 项目中的一个包或程序。它通常对应一个目录和一份 <code>Cargo.toml</code>，但“目录”与 crate 不是完全等同的概念。</p>
 <p>第一轮只需要记住下面五个路标：</p>
 <div class="table-wrapper"><table>
 	<thead>
