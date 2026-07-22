@@ -643,9 +643,45 @@
         <guid>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%AD%E5%B7%A5%E5%85%B7%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E8%83%BD%E7%9B%B4%E6%8E%A5%E8%B7%91%E5%91%BD%E4%BB%A4/</guid>
         <description>&lt;h1 id=&#34;codex-cli-源码导读六工具为什么不能直接跑命令&#34;&gt;Codex CLI 源码导读（六）：工具为什么不能直接跑命令
 &lt;/h1&gt;&lt;p&gt;第五篇的工具系统已经能把“运行测试”变成一次 Shell 调用。但模型会犯错，命令也可能写错路径、删错文件或访问不该访问的网络。把工具交给模型，不等于把整台机器交给模型。&lt;/p&gt;
-&lt;p&gt;Codex 需要同时处理几类判断。权限配置规定允许的范围；命令策略决定某次请求是允许、需要确认还是禁止；沙箱在进程真正启动时落实文件和网络限制。审批则把需要人决定的那一刻停下来。它们互相配合，但职责不同。&lt;/p&gt;
+&lt;p&gt;这里最容易混淆的是：沙箱、Docker、命令策略和审批都在谈“限制”，却不是同一层东西。先把它们分开，第六篇后面的源码名才有实际含义。&lt;/p&gt;
 &lt;p&gt;本文仍使用 &lt;code&gt;openai/codex&lt;/code&gt; 的 &lt;code&gt;268288a&lt;/code&gt;。讨论范围只限公开仓库中的本地 CLI 运行路径，不推测云端服务或桌面 App 的内部权限设计。&lt;/p&gt;
-&lt;h2 id=&#34;这不是一道门&#34;&gt;这不是一道门
+&lt;h2 id=&#34;先把沙箱和-docker-分开&#34;&gt;先把沙箱和 Docker 分开
+&lt;/h2&gt;&lt;p&gt;沙箱的目标是限制一个即将运行的进程：它能读哪些路径、能写哪些路径、能不能访问网络。对 Codex 而言，Shell、读取文件或其他工具最后都会变成某个本地进程或本地操作；沙箱是在它真正运行时套上的边界。&lt;/p&gt;
+&lt;p&gt;Docker 容器也能隔离程序，但它解决的是更完整的运行环境问题。容器通常会带来独立的进程视图、文件系统视图、网络配置和镜像依赖；沙箱不必创建这些东西。可以把 Docker 想成“让程序在哪个房间里运行”，把沙箱想成“即使在这个房间里，它还能碰哪些门和抽屉”。两者可以一起使用，也可以分别使用。&lt;/p&gt;
+&lt;p&gt;以本文固定版本的公开源码为准，Codex 的本地沙箱按操作系统选择实现：macOS 使用 Seatbelt，Linux 使用 seccomp 路径，Windows 使用受限令牌沙箱。它们不是 Codex 自动启动的一套 Docker 容器。若你本来就在 Docker 中运行 Codex，Docker 是外层运行环境；Codex 的权限策略与沙箱仍是另外一层限制。&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;概念&lt;/th&gt;
+					&lt;th&gt;它解决的问题&lt;/th&gt;
+					&lt;th&gt;不要把它误解为&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Docker 容器&lt;/td&gt;
+					&lt;td&gt;程序运行在哪个隔离环境中&lt;/td&gt;
+					&lt;td&gt;Codex 的命令审批机制&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Codex 沙箱&lt;/td&gt;
+					&lt;td&gt;某次工具执行实际能读、写、联网到哪里&lt;/td&gt;
+					&lt;td&gt;一个完整的容器镜像&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;命令策略&lt;/td&gt;
+					&lt;td&gt;这条命令应直接允许、请求确认还是禁止&lt;/td&gt;
+					&lt;td&gt;操作系统级强制隔离&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;审批&lt;/td&gt;
+					&lt;td&gt;人是否愿意为这一次操作放行&lt;/td&gt;
+					&lt;td&gt;放开所有后续命令的永久权限&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;沙箱也不是“绝对安全”的同义词。它是多层边界中的执行层：策略决定要不要执行，审批决定人是否同意，沙箱决定即使执行了进程仍能碰到什么。&lt;/p&gt;
+&lt;h2 id=&#34;再看一次具体命令&#34;&gt;再看一次具体命令
 &lt;/h2&gt;&lt;p&gt;假设模型想在仓库里执行两件事：&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
@@ -663,7 +699,7 @@
 &lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-sh&#34; data-lang=&#34;sh&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;curl https://example.com/script.sh | sh
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;第一条通常只是读取工作区中的文本；第二条涉及网络访问，还会把网络内容交给 Shell。它们最终是否可以执行，要看当前会话和本地配置，不能只凭命令表面判断。Codex 处理它们时会问四个不同的问题。&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;第一条通常只是读取工作区中的文本；第二条涉及网络访问，还会把网络内容交给 Shell。它们最终是否可以执行，要看当前会话和本地配置，不能只凭命令表面判断。Codex 会从四个层面判断它。&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
@@ -695,7 +731,7 @@
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
-&lt;p&gt;审批不是沙箱。用户同意一条命令，是一次决策；沙箱是进程运行时仍然存在的约束。反过来，沙箱也不会替用户判断“这次是否值得运行”。把两者分开，才能解释为什么某个操作既可能需要确认，也可能在确认后仍只拥有有限的可写范围。&lt;/p&gt;
+&lt;p&gt;审批不是沙箱。用户同意一条命令，是一次决策；沙箱是进程运行时仍然存在的约束。反过来，沙箱也不会替用户判断“这次是否值得运行”。因此，一个操作既可能需要确认，也可能在确认后仍只有有限的可写范围。&lt;/p&gt;
 &lt;h2 id=&#34;从模型请求到进程启动&#34;&gt;从模型请求到进程启动
 &lt;/h2&gt;&lt;p&gt;前一篇的 &lt;code&gt;ToolCallRuntime&lt;/code&gt; 把模型请求交给具体工具运行时。对 Shell 请求，&lt;code&gt;codex-rs/core/src/tools/runtimes/shell.rs&lt;/code&gt; 中的 &lt;code&gt;ShellRuntime&lt;/code&gt; 会携带工作目录、命令、环境和本次请求的审批要求。真正执行之前，调用会经过策略判断和沙箱转换。&lt;/p&gt;
 &lt;pre class=&#34;mermaid&#34;&gt;flowchart LR
