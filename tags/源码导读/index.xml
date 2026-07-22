@@ -7,7 +7,128 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Tue, 21 Jul 2026 23:00:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Wed, 22 Jul 2026 09:00:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Codex CLI 源码导读（四）：模型看到的不是整个仓库</title>
+        <link>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%9B%9B%E6%A8%A1%E5%9E%8B%E7%9C%8B%E5%88%B0%E7%9A%84%E4%B8%8D%E6%98%AF%E6%95%B4%E4%B8%AA%E4%BB%93%E5%BA%93/</link>
+        <pubDate>Wed, 22 Jul 2026 09:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%9B%9B%E6%A8%A1%E5%9E%8B%E7%9C%8B%E5%88%B0%E7%9A%84%E4%B8%8D%E6%98%AF%E6%95%B4%E4%B8%AA%E4%BB%93%E5%BA%93/</guid>
+        <description>&lt;h1 id=&#34;codex-cli-源码导读四模型看到的不是整个仓库&#34;&gt;Codex CLI 源码导读（四）：模型看到的不是整个仓库
+&lt;/h1&gt;&lt;p&gt;“把项目上下文交给模型”这句话听起来很顺，实际做起来却容易出问题。一个仓库可能有几万个文件，历史会话里还有工具输出、测试日志和早先的改动。全部塞进去，模型既读不完，也未必能抓住眼下真正相关的部分。&lt;/p&gt;
+&lt;p&gt;Codex 的做法不是维护一段永远不变的大提示词。每次向模型发起请求前，运行时会整理任务历史，再构造当前工作环境的快照；第一次需要时注入完整状态，后续尽量只补充变化。上下文因此是一份持续更新的工作记录。&lt;/p&gt;
+&lt;p&gt;本文从 &lt;code&gt;Session&lt;/code&gt; 的这条路径出发，解释 &lt;code&gt;AGENTS.md&lt;/code&gt;、历史、当前目录、权限和动态状态怎样进入模型视野。源码版本仍固定为 &lt;a class=&#34;link&#34; href=&#34;https://github.com/openai/codex/tree/268288ad6dc0ee4a80e1bff38354efbb71b13ac6&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;&lt;code&gt;openai/codex&lt;/code&gt; 的 &lt;code&gt;268288a&lt;/code&gt;&lt;/a&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;上下文不是一个东西&#34;&gt;上下文不是一个东西
+&lt;/h2&gt;&lt;p&gt;对 Codex 来说，模型眼前的信息至少来自两条线：已经发生过的任务记录，以及此刻的运行环境。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;flowchart LR
+    A[&amp;#34;Thread 历史\n用户消息、模型消息、工具结果&amp;#34;] --&amp;gt; E[&amp;#34;ContextManager\n规范化与裁剪&amp;#34;]
+    B[&amp;#34;当前工作状态\n目录、项目指令、权限、环境&amp;#34;] --&amp;gt; F[&amp;#34;Step Context\n一次请求的快照&amp;#34;]
+    F --&amp;gt; G[&amp;#34;World State\n完整状态或变化片段&amp;#34;]
+    G --&amp;gt; E
+    E --&amp;gt; M[&amp;#34;模型请求&amp;#34;]&lt;/pre&gt;
+&lt;p&gt;历史回答“刚才做过什么”。当前状态回答“现在允许做什么、在哪里做、有哪些项目约定”。二者都缺不得。&lt;/p&gt;
+&lt;p&gt;假设用户要求“只修复这个测试，不要升级依赖”。模型至少要知道：当前工作目录在哪，项目是否规定了专用测试命令，前一轮测试报了什么错，以及这次会话允许写入哪些位置。单独的一句用户消息并不能带来这些信息。&lt;/p&gt;
+&lt;h2 id=&#34;agentsmd-怎样进入任务&#34;&gt;&lt;code&gt;AGENTS.md&lt;/code&gt; 怎样进入任务
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;AGENTS.md&lt;/code&gt; 不是在 CLI 启动时读一次就结束。当前源码在 &lt;a class=&#34;link&#34; href=&#34;https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/core/src/agents_md.rs&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;&lt;code&gt;core/src/agents_md.rs&lt;/code&gt;&lt;/a&gt; 中把它当作项目级指令来源，并按当前工作目录查找。&lt;/p&gt;
+&lt;p&gt;默认情况下，Codex 会向上寻找项目根目录，默认根标记是 &lt;code&gt;.git&lt;/code&gt;；随后从项目根一路回到当前目录，按顺序收集沿途找到的 &lt;code&gt;AGENTS.md&lt;/code&gt;。因此，一个仓库根目录可以写通用约定，某个子目录可以补充只对该目录生效的规则。&lt;code&gt;AGENTS.override.md&lt;/code&gt; 还会优先于同目录的普通 &lt;code&gt;AGENTS.md&lt;/code&gt;。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;repo/
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├── AGENTS.md                 # 通用构建与测试约定
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;└── services/payment/
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    ├── AGENTS.md             # 支付服务的额外约束
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    └── internal/
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        └── handler/          # 当前工作目录
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;当当前目录是 &lt;code&gt;services/payment/internal/handler&lt;/code&gt; 时，模型得到的是根目录和 &lt;code&gt;services/payment&lt;/code&gt; 的两份指令，顺序从上到下。它不会继续越过项目根去读取父目录的文档。&lt;/p&gt;
+&lt;p&gt;这并不表示项目指令可以无限增长。源码里有总字节数限制，读到预算用完就截断。它还会记录每段指令来自哪个环境、哪个路径，供客户端和运行时追溯。对使用者而言，最实用的结论是：把真正需要执行的约定写具体，别把整套团队手册原样放进 &lt;code&gt;AGENTS.md&lt;/code&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;每次请求前先做一次-step-context&#34;&gt;每次请求前，先做一次 Step Context
+&lt;/h2&gt;&lt;p&gt;第三篇的 &lt;code&gt;run_turn&lt;/code&gt; 在每次模型采样前会调用 &lt;code&gt;capture_step_context&lt;/code&gt;。这个函数不是简单拿一下当前目录，而是捕获一次请求范围内的动态状态。&lt;/p&gt;
+&lt;p&gt;它会等待当前环境准备就绪，刷新与环境选择相符的项目指令，解析已选择的能力根目录，并准备本轮可用的 MCP 运行时。结果被包装成 &lt;code&gt;StepContext&lt;/code&gt;。接下来的世界状态构建、工具准备和模型请求都使用同一份快照。&lt;/p&gt;
+&lt;p&gt;这样做解决了一个看似细小的问题：假如模型看到的是 A 目录和 A 权限，工具执行时却按 B 目录和 B 权限运行，任务就会变得不可解释。把同一轮的环境选择固定下来，模型看到的条件和工具实际面对的条件才有机会一致。&lt;/p&gt;
+&lt;p&gt;这里要区分“项目文件内容”和“运行环境信息”。Step Context 会告诉模型当前目录、环境、项目指令和能力状态；它不会自动把业务源代码全文读进历史。代码文件仍要由模型通过搜索和读取工具逐步取得。这个界限能让上下文保持可控，也让每次读取有明确目的。&lt;/p&gt;
+&lt;h2 id=&#34;world-state把变化写进历史&#34;&gt;World State：把变化写进历史
+&lt;/h2&gt;&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/core/src/session/world_state.rs&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;&lt;code&gt;session/world_state.rs&lt;/code&gt;&lt;/a&gt; 把当前条件拆成若干段状态：项目指令、权限与审批规则、环境信息、协作模式、可用插件或应用说明等。扩展机制也可以贡献自己的状态段。&lt;/p&gt;
+&lt;p&gt;第一次真正需要这些信息时，&lt;code&gt;Session&lt;/code&gt; 会把完整上下文写入模型可见的历史，并记下一个基线快照。后面的 Turn 再运行时，不会机械地重复整份说明；它会比较新的 World State 和基线，把变化渲染成上下文片段。例如，权限配置或环境选择变化了，模型只收到相应更新。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;sequenceDiagram
+    participant S as Session
+    participant H as ContextManager
+    participant M as 模型
+
+    S-&amp;gt;&amp;gt;S: 捕获 Step Context
+    S-&amp;gt;&amp;gt;H: 首次：写入完整 World State
+    H-&amp;gt;&amp;gt;M: 历史加完整上下文
+    S-&amp;gt;&amp;gt;S: 下一轮捕获新快照
+    S-&amp;gt;&amp;gt;H: 比较新旧 World State
+    H-&amp;gt;&amp;gt;M: 仅追加变化片段&lt;/pre&gt;
+&lt;p&gt;这也是为什么一条任务运行久了，模型仍然能知道权限或环境已经发生变化，而不需要每轮重新阅读所有配置。它不是“记住了一切”，而是运行时把可见状态维护在历史里。&lt;/p&gt;
+&lt;h2 id=&#34;历史会被整理后再发送&#34;&gt;历史会被整理后再发送
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;ContextManager&lt;/code&gt; 保存的是按时间排列的响应项。用户消息、模型消息、工具调用和工具输出都可能进入其中。到真正发模型请求时，&lt;code&gt;for_prompt&lt;/code&gt; 会先规范化这段历史，移除不适合发送的项，并按模型支持的输入类型处理图像、音频等内容。&lt;/p&gt;
+&lt;p&gt;历史不是日志文件的原样副本。工具输出可能很长，模型又有上下文窗口限制。运行时会记录 token 使用情况，并在接近窗口限制时走压缩路径。压缩的实现细节后面会穿插出现；这一章只需要建立一个判断：上下文管理的职责不是尽可能多地保留字符，而是在下一步行动前保留足够的证据。&lt;/p&gt;
+&lt;p&gt;这也能解释 Agent 有时会重新读取文件。不是每一次重新读取都表示它“忘了”。文件可能变化了，前一次读取的内容可能不再适合当前上下文，或者它需要用新的问题重新定位证据。是否重复读取，要结合任务进度看。&lt;/p&gt;
+&lt;h2 id=&#34;读源码时先找这四处&#34;&gt;读源码时，先找这四处
+&lt;/h2&gt;&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;关心的问题&lt;/th&gt;
+					&lt;th&gt;起点&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;项目指令从哪里找&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;core/src/agents_md.rs&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;环境与指令何时刷新&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;Session::capture_step_context&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;哪些动态状态对模型可见&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;session/world_state.rs&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;历史如何整理成模型输入&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;context_manager/history.rs&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;它们共同解释了“上下文”这个词，却不应该被当成同一个文件夹。先按问题找代码，读起来会比从目录树一路展开轻松得多。&lt;/p&gt;
+&lt;h2 id=&#34;接下来可以继续想&#34;&gt;接下来可以继续想
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;为什么工具返回的测试输出也要进入历史，而不是只显示在终端？&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;AGENTS.md&lt;/code&gt; 的目录层级和权限配置的目录层级会怎样共同影响一次任务？&lt;/li&gt;
+&lt;li&gt;当历史接近上下文窗口时，哪些信息应该优先保留？&lt;/li&gt;
+&lt;li&gt;动态 MCP 工具、Skill 和 Plugin 的说明又会在哪个时刻加入模型视野？&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;下一篇沿着 &lt;code&gt;run_turn&lt;/code&gt; 的另一个分支往下走：模型请求工具后，读取文件、搜索、执行命令和应用补丁怎样真正发生。&lt;/p&gt;
+&lt;h2 id=&#34;参考资料&#34;&gt;参考资料
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/core/src/agents_md.rs&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;&lt;code&gt;AGENTS.md&lt;/code&gt; 发现与组合逻辑&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/core/src/session/mod.rs&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;&lt;code&gt;Session::capture_step_context&lt;/code&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/core/src/session/world_state.rs&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;World State 构建&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/core/src/context_manager/history.rs&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;上下文历史管理&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://developers.openai.com/codex/concepts/customization#agents-guidance&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;Codex 关于 &lt;code&gt;AGENTS.md&lt;/code&gt; 的文档&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        <item>
         <title>Codex CLI 源码导读（三）：一轮任务怎样变成连续行动</title>
         <link>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%89%E4%B8%80%E8%BD%AE%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E5%8F%98%E6%88%90%E8%BF%9E%E7%BB%AD%E8%A1%8C%E5%8A%A8/</link>
         <pubDate>Tue, 21 Jul 2026 23:00:00 +0800</pubDate>
@@ -260,8 +381,6 @@
 &lt;/h1&gt;&lt;p&gt;在一个代码仓库里，真正棘手的地方常常不在某一行代码。约定散在 &lt;code&gt;AGENTS.md&lt;/code&gt;、脚本、测试和 Git 历史里；有些修改能直接验证，有些命令却不该随便执行。一个编码 Agent 若想参与这类工作，光会生成代码远远不够。&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;codex&lt;/code&gt; 出现在终端里时，看上去像一段对话。它实际接住的是一处本地工作环境：当前目录、项目指令、可调用的工具，以及一套权限边界。模型决定下一步值得查什么、做什么；Codex CLI 负责把这个决定变成一次受控的本地操作，再把结果带回下一轮。&lt;/p&gt;
 &lt;p&gt;这是理解 Codex 的起点。本文不从某个 crate 开始，也不试图猜模型如何思考。先把任务怎样跑起来讲清楚。后面的源码阅读才有地图。&lt;/p&gt;
-&lt;p&gt;本文中的源码链接固定到 &lt;a class=&#34;link&#34; href=&#34;https://github.com/openai/codex/tree/268288ad6dc0ee4a80e1bff38354efbb71b13ac6&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
-    &gt;&lt;code&gt;openai/codex&lt;/code&gt; 的 &lt;code&gt;268288a&lt;/code&gt;&lt;/a&gt; 提交。仓库会继续变化；读到后文时，先检查当前目录和文中的版本是否仍然对应。&lt;/p&gt;
 &lt;h2 id=&#34;codex-到底是什么&#34;&gt;Codex 到底是什么
 &lt;/h2&gt;&lt;p&gt;&lt;code&gt;openai/codex&lt;/code&gt; 的 README 将 Codex CLI 描述为运行在本机上的编码 Agent。这里的“本机”决定了它和普通聊天窗口的区别。&lt;/p&gt;
 &lt;p&gt;在聊天窗口里，模型只能根据对话中已有的材料回答。它看不到你没有贴出的测试，也不能自己运行项目里的命令。CLI 工作在你启动它的目录中。它可以在授权范围内读取文件、搜索代码、运行测试，必要时写入修改。任务因此不止是一条建议，而是一个可以检查结果的过程。&lt;/p&gt;

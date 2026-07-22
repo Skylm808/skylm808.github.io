@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（四）：模型看到的不是整个仓库 “把项目上下文交给模型”这句话听起来很顺，实际做起来却容易出问题。一个仓库可能有几万个文件，历史会话里还有工具输出、测试日志和早先的改动。全部塞进去，模型既读不完，也未必能抓住眼下真正相关的部分。\n">
+<title>Codex CLI 源码导读（四）：模型看到的不是整个仓库</title>
+
+<link rel='canonical' href='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%9B%9B%E6%A8%A1%E5%9E%8B%E7%9C%8B%E5%88%B0%E7%9A%84%E4%B8%8D%E6%98%AF%E6%95%B4%E4%B8%AA%E4%BB%93%E5%BA%93/'>
+
+<link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="Codex CLI 源码导读（四）：模型看到的不是整个仓库">
+<meta property='og:description' content="Codex CLI 源码导读（四）：模型看到的不是整个仓库 “把项目上下文交给模型”这句话听起来很顺，实际做起来却容易出问题。一个仓库可能有几万个文件，历史会话里还有工具输出、测试日志和早先的改动。全部塞进去，模型既读不完，也未必能抓住眼下真正相关的部分。\n">
+<meta property='og:url' content='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%9B%9B%E6%A8%A1%E5%9E%8B%E7%9C%8B%E5%88%B0%E7%9A%84%E4%B8%8D%E6%98%AF%E6%95%B4%E4%B8%AA%E4%BB%93%E5%BA%93/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Codex' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='CLI' /><meta property='article:tag' content='源码导读' /><meta property='article:published_time' content='2026-07-22T09:00:00&#43;08:00'/><meta property='article:modified_time' content='2026-07-22T09:00:00&#43;08:00'/>
+<meta name="twitter:title" content="Codex CLI 源码导读（四）：模型看到的不是整个仓库">
+<meta name="twitter:description" content="Codex CLI 源码导读（四）：模型看到的不是整个仓库 “把项目上下文交给模型”这句话听起来很顺，实际做起来却容易出问题。一个仓库可能有几万个文件，历史会话里还有工具输出、测试日志和早先的改动。全部塞进去，模型既读不完，也未必能抓住眼下真正相关的部分。\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友链</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#上下文不是一个东西">上下文不是一个东西</a></li>
+    <li><a href="#agentsmd-怎样进入任务"><code>AGENTS.md</code> 怎样进入任务</a></li>
+    <li><a href="#每次请求前先做一次-step-context">每次请求前，先做一次 Step Context</a></li>
+    <li><a href="#world-state把变化写进历史">World State：把变化写进历史</a></li>
+    <li><a href="#历史会被整理后再发送">历史会被整理后再发送</a></li>
+    <li><a href="#读源码时先找这四处">读源码时，先找这四处</a></li>
+    <li><a href="#接下来可以继续想">接下来可以继续想</a></li>
+    <li><a href="#参考资料">参考资料</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/ai/" >
+                AI
+            </a>
+        
+            <a href="/categories/%E5%BC%80%E6%BA%90/" >
+                开源
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%9B%9B%E6%A8%A1%E5%9E%8B%E7%9C%8B%E5%88%B0%E7%9A%84%E4%B8%8D%E6%98%AF%E6%95%B4%E4%B8%AA%E4%BB%93%E5%BA%93/">Codex CLI 源码导读（四）：模型看到的不是整个仓库</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Jul 22, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 5 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="codex-cli-源码导读四模型看到的不是整个仓库">Codex CLI 源码导读（四）：模型看到的不是整个仓库
+</h1><p>“把项目上下文交给模型”这句话听起来很顺，实际做起来却容易出问题。一个仓库可能有几万个文件，历史会话里还有工具输出、测试日志和早先的改动。全部塞进去，模型既读不完，也未必能抓住眼下真正相关的部分。</p>
+<p>Codex 的做法不是维护一段永远不变的大提示词。每次向模型发起请求前，运行时会整理任务历史，再构造当前工作环境的快照；第一次需要时注入完整状态，后续尽量只补充变化。上下文因此是一份持续更新的工作记录。</p>
+<p>本文从 <code>Session</code> 的这条路径出发，解释 <code>AGENTS.md</code>、历史、当前目录、权限和动态状态怎样进入模型视野。源码版本仍固定为 <a class="link" href="https://github.com/openai/codex/tree/268288ad6dc0ee4a80e1bff38354efbb71b13ac6"  target="_blank" rel="noopener"
+    ><code>openai/codex</code> 的 <code>268288a</code></a>。</p>
+<h2 id="上下文不是一个东西">上下文不是一个东西
+</h2><p>对 Codex 来说，模型眼前的信息至少来自两条线：已经发生过的任务记录，以及此刻的运行环境。</p>
+<pre class="mermaid">flowchart LR
+    A[&#34;Thread 历史\n用户消息、模型消息、工具结果&#34;] --&gt; E[&#34;ContextManager\n规范化与裁剪&#34;]
+    B[&#34;当前工作状态\n目录、项目指令、权限、环境&#34;] --&gt; F[&#34;Step Context\n一次请求的快照&#34;]
+    F --&gt; G[&#34;World State\n完整状态或变化片段&#34;]
+    G --&gt; E
+    E --&gt; M[&#34;模型请求&#34;]</pre>
+<p>历史回答“刚才做过什么”。当前状态回答“现在允许做什么、在哪里做、有哪些项目约定”。二者都缺不得。</p>
+<p>假设用户要求“只修复这个测试，不要升级依赖”。模型至少要知道：当前工作目录在哪，项目是否规定了专用测试命令，前一轮测试报了什么错，以及这次会话允许写入哪些位置。单独的一句用户消息并不能带来这些信息。</p>
+<h2 id="agentsmd-怎样进入任务"><code>AGENTS.md</code> 怎样进入任务
+</h2><p><code>AGENTS.md</code> 不是在 CLI 启动时读一次就结束。当前源码在 <a class="link" href="https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/core/src/agents_md.rs"  target="_blank" rel="noopener"
+    ><code>core/src/agents_md.rs</code></a> 中把它当作项目级指令来源，并按当前工作目录查找。</p>
+<p>默认情况下，Codex 会向上寻找项目根目录，默认根标记是 <code>.git</code>；随后从项目根一路回到当前目录，按顺序收集沿途找到的 <code>AGENTS.md</code>。因此，一个仓库根目录可以写通用约定，某个子目录可以补充只对该目录生效的规则。<code>AGENTS.override.md</code> 还会优先于同目录的普通 <code>AGENTS.md</code>。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>repo/
+</span></span><span style="display:flex;"><span>├── AGENTS.md                 # 通用构建与测试约定
+</span></span><span style="display:flex;"><span>└── services/payment/
+</span></span><span style="display:flex;"><span>    ├── AGENTS.md             # 支付服务的额外约束
+</span></span><span style="display:flex;"><span>    └── internal/
+</span></span><span style="display:flex;"><span>        └── handler/          # 当前工作目录
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>当当前目录是 <code>services/payment/internal/handler</code> 时，模型得到的是根目录和 <code>services/payment</code> 的两份指令，顺序从上到下。它不会继续越过项目根去读取父目录的文档。</p>
+<p>这并不表示项目指令可以无限增长。源码里有总字节数限制，读到预算用完就截断。它还会记录每段指令来自哪个环境、哪个路径，供客户端和运行时追溯。对使用者而言，最实用的结论是：把真正需要执行的约定写具体，别把整套团队手册原样放进 <code>AGENTS.md</code>。</p>
+<h2 id="每次请求前先做一次-step-context">每次请求前，先做一次 Step Context
+</h2><p>第三篇的 <code>run_turn</code> 在每次模型采样前会调用 <code>capture_step_context</code>。这个函数不是简单拿一下当前目录，而是捕获一次请求范围内的动态状态。</p>
+<p>它会等待当前环境准备就绪，刷新与环境选择相符的项目指令，解析已选择的能力根目录，并准备本轮可用的 MCP 运行时。结果被包装成 <code>StepContext</code>。接下来的世界状态构建、工具准备和模型请求都使用同一份快照。</p>
+<p>这样做解决了一个看似细小的问题：假如模型看到的是 A 目录和 A 权限，工具执行时却按 B 目录和 B 权限运行，任务就会变得不可解释。把同一轮的环境选择固定下来，模型看到的条件和工具实际面对的条件才有机会一致。</p>
+<p>这里要区分“项目文件内容”和“运行环境信息”。Step Context 会告诉模型当前目录、环境、项目指令和能力状态；它不会自动把业务源代码全文读进历史。代码文件仍要由模型通过搜索和读取工具逐步取得。这个界限能让上下文保持可控，也让每次读取有明确目的。</p>
+<h2 id="world-state把变化写进历史">World State：把变化写进历史
+</h2><p><a class="link" href="https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/core/src/session/world_state.rs"  target="_blank" rel="noopener"
+    ><code>session/world_state.rs</code></a> 把当前条件拆成若干段状态：项目指令、权限与审批规则、环境信息、协作模式、可用插件或应用说明等。扩展机制也可以贡献自己的状态段。</p>
+<p>第一次真正需要这些信息时，<code>Session</code> 会把完整上下文写入模型可见的历史，并记下一个基线快照。后面的 Turn 再运行时，不会机械地重复整份说明；它会比较新的 World State 和基线，把变化渲染成上下文片段。例如，权限配置或环境选择变化了，模型只收到相应更新。</p>
+<pre class="mermaid">sequenceDiagram
+    participant S as Session
+    participant H as ContextManager
+    participant M as 模型
+
+    S-&gt;&gt;S: 捕获 Step Context
+    S-&gt;&gt;H: 首次：写入完整 World State
+    H-&gt;&gt;M: 历史加完整上下文
+    S-&gt;&gt;S: 下一轮捕获新快照
+    S-&gt;&gt;H: 比较新旧 World State
+    H-&gt;&gt;M: 仅追加变化片段</pre>
+<p>这也是为什么一条任务运行久了，模型仍然能知道权限或环境已经发生变化，而不需要每轮重新阅读所有配置。它不是“记住了一切”，而是运行时把可见状态维护在历史里。</p>
+<h2 id="历史会被整理后再发送">历史会被整理后再发送
+</h2><p><code>ContextManager</code> 保存的是按时间排列的响应项。用户消息、模型消息、工具调用和工具输出都可能进入其中。到真正发模型请求时，<code>for_prompt</code> 会先规范化这段历史，移除不适合发送的项，并按模型支持的输入类型处理图像、音频等内容。</p>
+<p>历史不是日志文件的原样副本。工具输出可能很长，模型又有上下文窗口限制。运行时会记录 token 使用情况，并在接近窗口限制时走压缩路径。压缩的实现细节后面会穿插出现；这一章只需要建立一个判断：上下文管理的职责不是尽可能多地保留字符，而是在下一步行动前保留足够的证据。</p>
+<p>这也能解释 Agent 有时会重新读取文件。不是每一次重新读取都表示它“忘了”。文件可能变化了，前一次读取的内容可能不再适合当前上下文，或者它需要用新的问题重新定位证据。是否重复读取，要结合任务进度看。</p>
+<h2 id="读源码时先找这四处">读源码时，先找这四处
+</h2><div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>关心的问题</th>
+					<th>起点</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>项目指令从哪里找</td>
+					<td><code>core/src/agents_md.rs</code></td>
+			</tr>
+			<tr>
+					<td>环境与指令何时刷新</td>
+					<td><code>Session::capture_step_context</code></td>
+			</tr>
+			<tr>
+					<td>哪些动态状态对模型可见</td>
+					<td><code>session/world_state.rs</code></td>
+			</tr>
+			<tr>
+					<td>历史如何整理成模型输入</td>
+					<td><code>context_manager/history.rs</code></td>
+			</tr>
+	</tbody>
+</table></div>
+<p>它们共同解释了“上下文”这个词，却不应该被当成同一个文件夹。先按问题找代码，读起来会比从目录树一路展开轻松得多。</p>
+<h2 id="接下来可以继续想">接下来可以继续想
+</h2><ul>
+<li>为什么工具返回的测试输出也要进入历史，而不是只显示在终端？</li>
+<li><code>AGENTS.md</code> 的目录层级和权限配置的目录层级会怎样共同影响一次任务？</li>
+<li>当历史接近上下文窗口时，哪些信息应该优先保留？</li>
+<li>动态 MCP 工具、Skill 和 Plugin 的说明又会在哪个时刻加入模型视野？</li>
+</ul>
+<p>下一篇沿着 <code>run_turn</code> 的另一个分支往下走：模型请求工具后，读取文件、搜索、执行命令和应用补丁怎样真正发生。</p>
+<h2 id="参考资料">参考资料
+</h2><ul>
+<li><a class="link" href="https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/core/src/agents_md.rs"  target="_blank" rel="noopener"
+    ><code>AGENTS.md</code> 发现与组合逻辑</a></li>
+<li><a class="link" href="https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/core/src/session/mod.rs"  target="_blank" rel="noopener"
+    ><code>Session::capture_step_context</code></a></li>
+<li><a class="link" href="https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/core/src/session/world_state.rs"  target="_blank" rel="noopener"
+    >World State 构建</a></li>
+<li><a class="link" href="https://github.com/openai/codex/blob/268288ad6dc0ee4a80e1bff38354efbb71b13ac6/codex-rs/core/src/context_manager/history.rs"  target="_blank" rel="noopener"
+    >上下文历史管理</a></li>
+<li><a class="link" href="https://developers.openai.com/codex/concepts/customization#agents-guidance"  target="_blank" rel="noopener"
+    >Codex 关于 <code>AGENTS.md</code> 的文档</a></li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/codex/">Codex</a>
+        
+            <a href="/tags/agent/">Agent</a>
+        
+            <a href="/tags/cli/">CLI</a>
+        
+            <a href="/tags/%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB/">源码导读</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%89%E4%B8%80%E8%BD%AE%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E5%8F%98%E6%88%90%E8%BF%9E%E7%BB%AD%E8%A1%8C%E5%8A%A8/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（三）：一轮任务怎样变成连续行动</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%BA%8C%E4%B8%80%E6%9D%A1%E4%BB%BB%E5%8A%A1%E4%BB%8E%E5%93%AA%E9%87%8C%E5%BC%80%E5%A7%8B/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（二）：一条任务从哪里开始</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%80%E5%85%88%E7%9C%8B%E6%87%82-codex%E5%86%8D%E5%BC%80%E5%A7%8B%E8%AF%BB%E6%BA%90%E7%A0%81/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（一）：先看懂 Codex，再开始读源码</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-openapi-%E8%AF%B7%E6%B1%82%E6%A0%A1%E9%AA%8C%E8%AF%A6%E8%A7%A3%E4%BB%8E%E6%8E%A5%E5%8F%A3%E5%A5%91%E7%BA%A6%E5%88%B0%E7%BD%91%E5%85%B3%E6%BA%90%E7%A0%81/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">dubbo-go-pixiu 添加 OpenAPI 请求校验详解：从接口契约到网关源码</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA%E5%8F%82%E4%B8%8E%E7%9A%84%E8%A7%84%E8%8C%83-git-%E6%B5%81%E7%A8%8B/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">开源社区参与的规范 Git 流程</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+		<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+		<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+	
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm.top\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+<style>
+    .article-content .mermaid {
+        display: block;
+        overflow-x: auto;
+        padding: 1rem;
+        text-align: center;
+    }
+</style>
+<script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+    });
+    mermaid.run({ nodes: document.querySelectorAll(".article-content .mermaid") });
+</script>
+
+    </body>
+</html>

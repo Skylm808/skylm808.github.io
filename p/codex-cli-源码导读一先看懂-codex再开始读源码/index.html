@@ -352,8 +352,6 @@
 </h1><p>在一个代码仓库里，真正棘手的地方常常不在某一行代码。约定散在 <code>AGENTS.md</code>、脚本、测试和 Git 历史里；有些修改能直接验证，有些命令却不该随便执行。一个编码 Agent 若想参与这类工作，光会生成代码远远不够。</p>
 <p><code>codex</code> 出现在终端里时，看上去像一段对话。它实际接住的是一处本地工作环境：当前目录、项目指令、可调用的工具，以及一套权限边界。模型决定下一步值得查什么、做什么；Codex CLI 负责把这个决定变成一次受控的本地操作，再把结果带回下一轮。</p>
 <p>这是理解 Codex 的起点。本文不从某个 crate 开始，也不试图猜模型如何思考。先把任务怎样跑起来讲清楚。后面的源码阅读才有地图。</p>
-<p>本文中的源码链接固定到 <a class="link" href="https://github.com/openai/codex/tree/268288ad6dc0ee4a80e1bff38354efbb71b13ac6"  target="_blank" rel="noopener"
-    ><code>openai/codex</code> 的 <code>268288a</code></a> 提交。仓库会继续变化；读到后文时，先检查当前目录和文中的版本是否仍然对应。</p>
 <h2 id="codex-到底是什么">Codex 到底是什么
 </h2><p><code>openai/codex</code> 的 README 将 Codex CLI 描述为运行在本机上的编码 Agent。这里的“本机”决定了它和普通聊天窗口的区别。</p>
 <p>在聊天窗口里，模型只能根据对话中已有的材料回答。它看不到你没有贴出的测试，也不能自己运行项目里的命令。CLI 工作在你启动它的目录中。它可以在授权范围内读取文件、搜索代码、运行测试，必要时写入修改。任务因此不止是一条建议，而是一个可以检查结果的过程。</p>
@@ -547,6 +545,19 @@
             
                 
 <article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%9B%9B%E6%A8%A1%E5%9E%8B%E7%9C%8B%E5%88%B0%E7%9A%84%E4%B8%8D%E6%98%AF%E6%95%B4%E4%B8%AA%E4%BB%93%E5%BA%93/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（四）：模型看到的不是整个仓库</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
     <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%89%E4%B8%80%E8%BD%AE%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E5%8F%98%E6%88%90%E8%BF%9E%E7%BB%AD%E8%A1%8C%E5%8A%A8/">
         
         
@@ -592,19 +603,6 @@
 
         <div class="article-details">
             <h2 class="article-title">开源社区参与的规范 Git 流程</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-saml-%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3%E4%BB%8E%E4%BC%81%E4%B8%9A-sso-%E5%88%B0-pixiu-%E6%BA%90%E7%A0%81/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码</h2>
         </div>
     </a>
 </article>
