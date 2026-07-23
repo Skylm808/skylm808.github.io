@@ -14,10 +14,59 @@
         
         <guid>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%ABskillpluginhook-%E4%B8%8E-memory-%E5%90%84%E6%94%BE%E5%9C%A8%E5%93%AA%E9%87%8C/</guid>
         <description>&lt;h1 id=&#34;codex-cli-源码导读八skillpluginhook-与-memory-各放在哪里&#34;&gt;Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里
-&lt;/h1&gt;&lt;p&gt;给 Codex 加一条团队约定时，很容易把几种扩展面混在一起。有人把测试步骤写成 Hook，结果每次工具调用都被打断；有人把一个可复用的审查流程做成 MCP 服务，却没有外部系统可连；还有人把一次会话里的临时事实当成长期 Memory。&lt;/p&gt;
-&lt;p&gt;这几种东西解决的问题不同。Skill 是一份可复用的工作方法；Plugin 是把若干能力装在一起的分发包；Hook 在特定生命周期节点执行规则；Memory 是为跨任务复用而保存的信息。MCP 已在第七篇讨论过，它负责连接外部工具和数据。&lt;/p&gt;
+&lt;/h1&gt;&lt;p&gt;给 Codex 加一条团队约定时，最常见的错误是先选技术名词，再想自己究竟要解决什么。测试步骤被写成 Hook，每次工具调用都被打断；一套审查流程被做成 MCP 服务，实际上也没有外部系统可连接；一次排查中的临时结论又被当成长期 Memory。&lt;/p&gt;
+&lt;p&gt;Skill 先解决“这类任务该按什么方法做”。它可以规定步骤、给出判断标准、提供模板和参考资料，但它自己不读取 Jira，不运行测试，也不绕过权限。第七篇里的 MCP 则负责把外部数据和动作接入任务。Plugin 管打包与安装；Hook 在固定时点执行规则；Memory 保存经过筛选、可跨任务复用的信息。&lt;/p&gt;
 &lt;p&gt;本文固定使用 &lt;code&gt;openai/codex&lt;/code&gt; 的 &lt;code&gt;268288a&lt;/code&gt;。重点是公开 CLI 源码中各机制的职责和连接点，不把它们的产品界面或任何私有服务实现混进来。&lt;/p&gt;
-&lt;h2 id=&#34;先从一个选择题开始&#34;&gt;先从一个选择题开始
+&lt;h2 id=&#34;先用同一件事分开-skill工具调用和-mcp&#34;&gt;先用同一件事分开 Skill、工具调用和 MCP
+&lt;/h2&gt;&lt;p&gt;假设任务是修复订单重试逻辑。一个 TDD Skill 可以要求 Agent 先写一条会失败的测试，确认失败原因，再写最小改动，最后跑目标测试和相关测试。它描述的是工作顺序和验收条件。&lt;/p&gt;
+&lt;p&gt;当 Agent 真的要运行 &lt;code&gt;go test ./...&lt;/code&gt; 时，模型会发起一次 Shell 工具调用，Codex 在本地执行命令；这属于工具调用。若任务还需要查 Jira 中的复现步骤，模型同样会发起工具调用，但 Codex 会把这个调用交给 Jira 的 MCP 服务；这才属于 MCP。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;flowchart LR
+    A[&amp;#34;Skill\n先写失败测试，再做最小修改&amp;#34;] --&amp;gt; B[&amp;#34;模型决定下一步&amp;#34;]
+    B --&amp;gt; C[&amp;#34;工具调用\n运行 go test&amp;#34;]
+    B --&amp;gt; D[&amp;#34;工具调用\n查询 Jira&amp;#34;]
+    C --&amp;gt; E[&amp;#34;Codex 内置 Shell 工具&amp;#34;]
+    D --&amp;gt; F[&amp;#34;MCP 服务\n连接 Jira&amp;#34;]&lt;/pre&gt;
+&lt;p&gt;Skill 改变的是做事的方法；工具调用把一次动作交给运行时；MCP 让其中一部分动作能够到达外部系统。三者会出现在同一项任务里，但各自所在的层不同。&lt;/p&gt;
+&lt;h2 id=&#34;用-superpowers-看一个-skill-的骨架&#34;&gt;用 Superpowers 看一个 Skill 的骨架
+&lt;/h2&gt;&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/obra/superpowers&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;obra/superpowers&lt;/a&gt; 是一个适合作为参考的开源 Skill 集合。本文不把它当作 Codex 的内部实现，而是借它看一份能长期维护的 Skill 长什么样。本文查阅的版本为 &lt;code&gt;d884ae0&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;它的 &lt;code&gt;skills/&lt;/code&gt; 下按任务方法划分目录，例如 &lt;code&gt;test-driven-development&lt;/code&gt;、&lt;code&gt;systematic-debugging&lt;/code&gt;、&lt;code&gt;writing-plans&lt;/code&gt;。每个 Skill 以 &lt;code&gt;SKILL.md&lt;/code&gt; 为入口；复杂的 Skill 还会带测试反模式说明、参考资料、脚本或任务模板。这个结构比把所有团队规则塞进一个长提示词好维护得多：入口文件说明何时启用和怎样执行，细节文件按需要展开。&lt;/p&gt;
+&lt;p&gt;以 &lt;a class=&#34;link&#34; href=&#34;https://github.com/obra/superpowers/blob/main/skills/test-driven-development/SKILL.md&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;&lt;code&gt;test-driven-development/SKILL.md&lt;/code&gt;&lt;/a&gt; 为例，它的前置元数据给出名称和适用时机，正文把过程写得很具体：先写失败测试，确认失败原因正确，再做最小实现，确认通过后才允许整理代码。它不是一句“请注意测试”，而是一份带有顺序、检查点和反例的工作约定。&lt;/p&gt;
+&lt;p&gt;一个实用的 Skill 通常有这些部分：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;部分&lt;/th&gt;
+					&lt;th&gt;用处&lt;/th&gt;
+					&lt;th&gt;Superpowers 的例子&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;名称与说明&lt;/td&gt;
+					&lt;td&gt;让运行时和模型判断何时应读取它&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;test-driven-development&lt;/code&gt; 的适用条件&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;明确步骤&lt;/td&gt;
+					&lt;td&gt;把模糊经验写成可执行的工作顺序&lt;/td&gt;
+					&lt;td&gt;Red、Green、Refactor&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;检查点&lt;/td&gt;
+					&lt;td&gt;说明何时不能继续&lt;/td&gt;
+					&lt;td&gt;测试必须先以预期方式失败&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;局部资料或脚本&lt;/td&gt;
+					&lt;td&gt;复杂主题按需补充，而非占满每轮上下文&lt;/td&gt;
+					&lt;td&gt;测试反模式文档、Skill 内脚本&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;它也说明了 Skill 的边界。Skill 可以要求“运行目标测试”，却不会自己在机器上运行命令；Shell 工具才执行命令。Skill 可以要求“先查清缺陷复现步骤”，但访问缺陷系统仍要由 MCP 或其他已配置的工具完成。一个好的 Skill 会把方法写清楚，同时不假装自己拥有执行能力。&lt;/p&gt;
+&lt;h2 id=&#34;再从一个选择题开始&#34;&gt;再从一个选择题开始
 &lt;/h2&gt;&lt;p&gt;假设支付仓库希望每次修改接口时都遵循同一套约定：先阅读目录里的项目指令，查找受影响调用方，运行目标测试，最后检查不应改动的 API 定义。团队还想把这套方法分享给其他仓库。&lt;/p&gt;
 &lt;p&gt;这时应先问“要改变什么”，而不是先问“该写哪个配置文件”。&lt;/p&gt;
 &lt;table&gt;
@@ -146,6 +195,8 @@
 &lt;/ul&gt;
 &lt;h2 id=&#34;参考资料&#34;&gt;参考资料
 &lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/obra/superpowers/tree/d884ae04edebef577e82ff7c4e143debd0bbec99/skills&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;obra/superpowers 仓库与 Skill 目录&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://developers.openai.com/codex/concepts/customization#skills&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;Codex 关于 Skills 的说明&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://developers.openai.com/codex/plugins/build#plugin-structure&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;

@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="en-us" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里 给 Codex 加一条团队约定时，很容易把几种扩展面混在一起。有人把测试步骤写成 Hook，结果每次工具调用都被打断；有人把一个可复用的审查流程做成 MCP 服务，却没有外部系统可连；还有人把一次会话里的临时事实当成长期 Memory。\n">
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里 给 Codex 加一条团队约定时，最常见的错误是先选技术名词，再想自己究竟要解决什么。测试步骤被写成 Hook，每次工具调用都被打断；一套审查流程被做成 MCP 服务，实际上也没有外部系统可连接；一次排查中的临时结论又被当成长期 Memory。\n">
 <title>Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里</title>
 
 <link rel='canonical' href='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%ABskillpluginhook-%E4%B8%8E-memory-%E5%90%84%E6%94%BE%E5%9C%A8%E5%93%AA%E9%87%8C/'>
 
 <link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里">
-<meta property='og:description' content="Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里 给 Codex 加一条团队约定时，很容易把几种扩展面混在一起。有人把测试步骤写成 Hook，结果每次工具调用都被打断；有人把一个可复用的审查流程做成 MCP 服务，却没有外部系统可连；还有人把一次会话里的临时事实当成长期 Memory。\n">
+<meta property='og:description' content="Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里 给 Codex 加一条团队约定时，最常见的错误是先选技术名词，再想自己究竟要解决什么。测试步骤被写成 Hook，每次工具调用都被打断；一套审查流程被做成 MCP 服务，实际上也没有外部系统可连接；一次排查中的临时结论又被当成长期 Memory。\n">
 <meta property='og:url' content='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%ABskillpluginhook-%E4%B8%8E-memory-%E5%90%84%E6%94%BE%E5%9C%A8%E5%93%AA%E9%87%8C/'>
 <meta property='og:site_name' content='Skylm'>
 <meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Codex' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='CLI' /><meta property='article:tag' content='源码导读' /><meta property='article:tag' content='Skill' /><meta property='article:tag' content='Plugin' /><meta property='article:published_time' content='2026-07-22T10:03:00&#43;08:00'/><meta property='article:modified_time' content='2026-07-22T10:03:00&#43;08:00'/>
 <meta name="twitter:title" content="Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里">
-<meta name="twitter:description" content="Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里 给 Codex 加一条团队约定时，很容易把几种扩展面混在一起。有人把测试步骤写成 Hook，结果每次工具调用都被打断；有人把一个可复用的审查流程做成 MCP 服务，却没有外部系统可连；还有人把一次会话里的临时事实当成长期 Memory。\n">
+<meta name="twitter:description" content="Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里 给 Codex 加一条团队约定时，最常见的错误是先选技术名词，再想自己究竟要解决什么。测试步骤被写成 Hook，每次工具调用都被打断；一套审查流程被做成 MCP 服务，实际上也没有外部系统可连接；一次排查中的临时结论又被当成长期 Memory。\n">
     <link rel="shortcut icon" href="/favicon.ico" />
 
     </head>
@@ -249,7 +249,9 @@
         <div class="widget--toc">
             <nav id="TableOfContents">
   <ol>
-    <li><a href="#先从一个选择题开始">先从一个选择题开始</a></li>
+    <li><a href="#先用同一件事分开-skill工具调用和-mcp">先用同一件事分开 Skill、工具调用和 MCP</a></li>
+    <li><a href="#用-superpowers-看一个-skill-的骨架">用 Superpowers 看一个 Skill 的骨架</a></li>
+    <li><a href="#再从一个选择题开始">再从一个选择题开始</a></li>
     <li><a href="#skill让模型知道一套工作方法">Skill：让模型知道一套工作方法</a></li>
     <li><a href="#plugin把一组组件变成可安装包">Plugin：把一组组件变成可安装包</a></li>
     <li><a href="#hook在动作发生的节点执行规则">Hook：在动作发生的节点执行规则</a></li>
@@ -325,7 +327,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 7 分钟
+                    阅读时长: 9 分钟
                 </time>
             </div>
         
@@ -341,10 +343,59 @@
     
     
     <h1 id="codex-cli-源码导读八skillpluginhook-与-memory-各放在哪里">Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里
-</h1><p>给 Codex 加一条团队约定时，很容易把几种扩展面混在一起。有人把测试步骤写成 Hook，结果每次工具调用都被打断；有人把一个可复用的审查流程做成 MCP 服务，却没有外部系统可连；还有人把一次会话里的临时事实当成长期 Memory。</p>
-<p>这几种东西解决的问题不同。Skill 是一份可复用的工作方法；Plugin 是把若干能力装在一起的分发包；Hook 在特定生命周期节点执行规则；Memory 是为跨任务复用而保存的信息。MCP 已在第七篇讨论过，它负责连接外部工具和数据。</p>
+</h1><p>给 Codex 加一条团队约定时，最常见的错误是先选技术名词，再想自己究竟要解决什么。测试步骤被写成 Hook，每次工具调用都被打断；一套审查流程被做成 MCP 服务，实际上也没有外部系统可连接；一次排查中的临时结论又被当成长期 Memory。</p>
+<p>Skill 先解决“这类任务该按什么方法做”。它可以规定步骤、给出判断标准、提供模板和参考资料，但它自己不读取 Jira，不运行测试，也不绕过权限。第七篇里的 MCP 则负责把外部数据和动作接入任务。Plugin 管打包与安装；Hook 在固定时点执行规则；Memory 保存经过筛选、可跨任务复用的信息。</p>
 <p>本文固定使用 <code>openai/codex</code> 的 <code>268288a</code>。重点是公开 CLI 源码中各机制的职责和连接点，不把它们的产品界面或任何私有服务实现混进来。</p>
-<h2 id="先从一个选择题开始">先从一个选择题开始
+<h2 id="先用同一件事分开-skill工具调用和-mcp">先用同一件事分开 Skill、工具调用和 MCP
+</h2><p>假设任务是修复订单重试逻辑。一个 TDD Skill 可以要求 Agent 先写一条会失败的测试，确认失败原因，再写最小改动，最后跑目标测试和相关测试。它描述的是工作顺序和验收条件。</p>
+<p>当 Agent 真的要运行 <code>go test ./...</code> 时，模型会发起一次 Shell 工具调用，Codex 在本地执行命令；这属于工具调用。若任务还需要查 Jira 中的复现步骤，模型同样会发起工具调用，但 Codex 会把这个调用交给 Jira 的 MCP 服务；这才属于 MCP。</p>
+<pre class="mermaid">flowchart LR
+    A[&#34;Skill\n先写失败测试，再做最小修改&#34;] --&gt; B[&#34;模型决定下一步&#34;]
+    B --&gt; C[&#34;工具调用\n运行 go test&#34;]
+    B --&gt; D[&#34;工具调用\n查询 Jira&#34;]
+    C --&gt; E[&#34;Codex 内置 Shell 工具&#34;]
+    D --&gt; F[&#34;MCP 服务\n连接 Jira&#34;]</pre>
+<p>Skill 改变的是做事的方法；工具调用把一次动作交给运行时；MCP 让其中一部分动作能够到达外部系统。三者会出现在同一项任务里，但各自所在的层不同。</p>
+<h2 id="用-superpowers-看一个-skill-的骨架">用 Superpowers 看一个 Skill 的骨架
+</h2><p><a class="link" href="https://github.com/obra/superpowers"  target="_blank" rel="noopener"
+    >obra/superpowers</a> 是一个适合作为参考的开源 Skill 集合。本文不把它当作 Codex 的内部实现，而是借它看一份能长期维护的 Skill 长什么样。本文查阅的版本为 <code>d884ae0</code>。</p>
+<p>它的 <code>skills/</code> 下按任务方法划分目录，例如 <code>test-driven-development</code>、<code>systematic-debugging</code>、<code>writing-plans</code>。每个 Skill 以 <code>SKILL.md</code> 为入口；复杂的 Skill 还会带测试反模式说明、参考资料、脚本或任务模板。这个结构比把所有团队规则塞进一个长提示词好维护得多：入口文件说明何时启用和怎样执行，细节文件按需要展开。</p>
+<p>以 <a class="link" href="https://github.com/obra/superpowers/blob/main/skills/test-driven-development/SKILL.md"  target="_blank" rel="noopener"
+    ><code>test-driven-development/SKILL.md</code></a> 为例，它的前置元数据给出名称和适用时机，正文把过程写得很具体：先写失败测试，确认失败原因正确，再做最小实现，确认通过后才允许整理代码。它不是一句“请注意测试”，而是一份带有顺序、检查点和反例的工作约定。</p>
+<p>一个实用的 Skill 通常有这些部分：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>部分</th>
+					<th>用处</th>
+					<th>Superpowers 的例子</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>名称与说明</td>
+					<td>让运行时和模型判断何时应读取它</td>
+					<td><code>test-driven-development</code> 的适用条件</td>
+			</tr>
+			<tr>
+					<td>明确步骤</td>
+					<td>把模糊经验写成可执行的工作顺序</td>
+					<td>Red、Green、Refactor</td>
+			</tr>
+			<tr>
+					<td>检查点</td>
+					<td>说明何时不能继续</td>
+					<td>测试必须先以预期方式失败</td>
+			</tr>
+			<tr>
+					<td>局部资料或脚本</td>
+					<td>复杂主题按需补充，而非占满每轮上下文</td>
+					<td>测试反模式文档、Skill 内脚本</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>它也说明了 Skill 的边界。Skill 可以要求“运行目标测试”，却不会自己在机器上运行命令；Shell 工具才执行命令。Skill 可以要求“先查清缺陷复现步骤”，但访问缺陷系统仍要由 MCP 或其他已配置的工具完成。一个好的 Skill 会把方法写清楚，同时不假装自己拥有执行能力。</p>
+<h2 id="再从一个选择题开始">再从一个选择题开始
 </h2><p>假设支付仓库希望每次修改接口时都遵循同一套约定：先阅读目录里的项目指令，查找受影响调用方，运行目标测试，最后检查不应改动的 API 定义。团队还想把这套方法分享给其他仓库。</p>
 <p>这时应先问“要改变什么”，而不是先问“该写哪个配置文件”。</p>
 <div class="table-wrapper"><table>
@@ -473,6 +524,8 @@
 </ul>
 <h2 id="参考资料">参考资料
 </h2><ul>
+<li><a class="link" href="https://github.com/obra/superpowers/tree/d884ae04edebef577e82ff7c4e143debd0bbec99/skills"  target="_blank" rel="noopener"
+    >obra/superpowers 仓库与 Skill 目录</a></li>
 <li><a class="link" href="https://developers.openai.com/codex/concepts/customization#skills"  target="_blank" rel="noopener"
     >Codex 关于 Skills 的说明</a></li>
 <li><a class="link" href="https://developers.openai.com/codex/plugins/build#plugin-structure"  target="_blank" rel="noopener"

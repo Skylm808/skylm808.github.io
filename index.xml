@@ -490,10 +490,59 @@
         
         <guid>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%ABskillpluginhook-%E4%B8%8E-memory-%E5%90%84%E6%94%BE%E5%9C%A8%E5%93%AA%E9%87%8C/</guid>
         <description>&lt;h1 id=&#34;codex-cli-源码导读八skillpluginhook-与-memory-各放在哪里&#34;&gt;Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里
-&lt;/h1&gt;&lt;p&gt;给 Codex 加一条团队约定时，很容易把几种扩展面混在一起。有人把测试步骤写成 Hook，结果每次工具调用都被打断；有人把一个可复用的审查流程做成 MCP 服务，却没有外部系统可连；还有人把一次会话里的临时事实当成长期 Memory。&lt;/p&gt;
-&lt;p&gt;这几种东西解决的问题不同。Skill 是一份可复用的工作方法；Plugin 是把若干能力装在一起的分发包；Hook 在特定生命周期节点执行规则；Memory 是为跨任务复用而保存的信息。MCP 已在第七篇讨论过，它负责连接外部工具和数据。&lt;/p&gt;
+&lt;/h1&gt;&lt;p&gt;给 Codex 加一条团队约定时，最常见的错误是先选技术名词，再想自己究竟要解决什么。测试步骤被写成 Hook，每次工具调用都被打断；一套审查流程被做成 MCP 服务，实际上也没有外部系统可连接；一次排查中的临时结论又被当成长期 Memory。&lt;/p&gt;
+&lt;p&gt;Skill 先解决“这类任务该按什么方法做”。它可以规定步骤、给出判断标准、提供模板和参考资料，但它自己不读取 Jira，不运行测试，也不绕过权限。第七篇里的 MCP 则负责把外部数据和动作接入任务。Plugin 管打包与安装；Hook 在固定时点执行规则；Memory 保存经过筛选、可跨任务复用的信息。&lt;/p&gt;
 &lt;p&gt;本文固定使用 &lt;code&gt;openai/codex&lt;/code&gt; 的 &lt;code&gt;268288a&lt;/code&gt;。重点是公开 CLI 源码中各机制的职责和连接点，不把它们的产品界面或任何私有服务实现混进来。&lt;/p&gt;
-&lt;h2 id=&#34;先从一个选择题开始&#34;&gt;先从一个选择题开始
+&lt;h2 id=&#34;先用同一件事分开-skill工具调用和-mcp&#34;&gt;先用同一件事分开 Skill、工具调用和 MCP
+&lt;/h2&gt;&lt;p&gt;假设任务是修复订单重试逻辑。一个 TDD Skill 可以要求 Agent 先写一条会失败的测试，确认失败原因，再写最小改动，最后跑目标测试和相关测试。它描述的是工作顺序和验收条件。&lt;/p&gt;
+&lt;p&gt;当 Agent 真的要运行 &lt;code&gt;go test ./...&lt;/code&gt; 时，模型会发起一次 Shell 工具调用，Codex 在本地执行命令；这属于工具调用。若任务还需要查 Jira 中的复现步骤，模型同样会发起工具调用，但 Codex 会把这个调用交给 Jira 的 MCP 服务；这才属于 MCP。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;flowchart LR
+    A[&amp;#34;Skill\n先写失败测试，再做最小修改&amp;#34;] --&amp;gt; B[&amp;#34;模型决定下一步&amp;#34;]
+    B --&amp;gt; C[&amp;#34;工具调用\n运行 go test&amp;#34;]
+    B --&amp;gt; D[&amp;#34;工具调用\n查询 Jira&amp;#34;]
+    C --&amp;gt; E[&amp;#34;Codex 内置 Shell 工具&amp;#34;]
+    D --&amp;gt; F[&amp;#34;MCP 服务\n连接 Jira&amp;#34;]&lt;/pre&gt;
+&lt;p&gt;Skill 改变的是做事的方法；工具调用把一次动作交给运行时；MCP 让其中一部分动作能够到达外部系统。三者会出现在同一项任务里，但各自所在的层不同。&lt;/p&gt;
+&lt;h2 id=&#34;用-superpowers-看一个-skill-的骨架&#34;&gt;用 Superpowers 看一个 Skill 的骨架
+&lt;/h2&gt;&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/obra/superpowers&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;obra/superpowers&lt;/a&gt; 是一个适合作为参考的开源 Skill 集合。本文不把它当作 Codex 的内部实现，而是借它看一份能长期维护的 Skill 长什么样。本文查阅的版本为 &lt;code&gt;d884ae0&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;它的 &lt;code&gt;skills/&lt;/code&gt; 下按任务方法划分目录，例如 &lt;code&gt;test-driven-development&lt;/code&gt;、&lt;code&gt;systematic-debugging&lt;/code&gt;、&lt;code&gt;writing-plans&lt;/code&gt;。每个 Skill 以 &lt;code&gt;SKILL.md&lt;/code&gt; 为入口；复杂的 Skill 还会带测试反模式说明、参考资料、脚本或任务模板。这个结构比把所有团队规则塞进一个长提示词好维护得多：入口文件说明何时启用和怎样执行，细节文件按需要展开。&lt;/p&gt;
+&lt;p&gt;以 &lt;a class=&#34;link&#34; href=&#34;https://github.com/obra/superpowers/blob/main/skills/test-driven-development/SKILL.md&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;&lt;code&gt;test-driven-development/SKILL.md&lt;/code&gt;&lt;/a&gt; 为例，它的前置元数据给出名称和适用时机，正文把过程写得很具体：先写失败测试，确认失败原因正确，再做最小实现，确认通过后才允许整理代码。它不是一句“请注意测试”，而是一份带有顺序、检查点和反例的工作约定。&lt;/p&gt;
+&lt;p&gt;一个实用的 Skill 通常有这些部分：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;部分&lt;/th&gt;
+					&lt;th&gt;用处&lt;/th&gt;
+					&lt;th&gt;Superpowers 的例子&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;名称与说明&lt;/td&gt;
+					&lt;td&gt;让运行时和模型判断何时应读取它&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;test-driven-development&lt;/code&gt; 的适用条件&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;明确步骤&lt;/td&gt;
+					&lt;td&gt;把模糊经验写成可执行的工作顺序&lt;/td&gt;
+					&lt;td&gt;Red、Green、Refactor&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;检查点&lt;/td&gt;
+					&lt;td&gt;说明何时不能继续&lt;/td&gt;
+					&lt;td&gt;测试必须先以预期方式失败&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;局部资料或脚本&lt;/td&gt;
+					&lt;td&gt;复杂主题按需补充，而非占满每轮上下文&lt;/td&gt;
+					&lt;td&gt;测试反模式文档、Skill 内脚本&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;它也说明了 Skill 的边界。Skill 可以要求“运行目标测试”，却不会自己在机器上运行命令；Shell 工具才执行命令。Skill 可以要求“先查清缺陷复现步骤”，但访问缺陷系统仍要由 MCP 或其他已配置的工具完成。一个好的 Skill 会把方法写清楚，同时不假装自己拥有执行能力。&lt;/p&gt;
+&lt;h2 id=&#34;再从一个选择题开始&#34;&gt;再从一个选择题开始
 &lt;/h2&gt;&lt;p&gt;假设支付仓库希望每次修改接口时都遵循同一套约定：先阅读目录里的项目指令，查找受影响调用方，运行目标测试，最后检查不应改动的 API 定义。团队还想把这套方法分享给其他仓库。&lt;/p&gt;
 &lt;p&gt;这时应先问“要改变什么”，而不是先问“该写哪个配置文件”。&lt;/p&gt;
 &lt;table&gt;
@@ -622,6 +671,8 @@
 &lt;/ul&gt;
 &lt;h2 id=&#34;参考资料&#34;&gt;参考资料
 &lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/obra/superpowers/tree/d884ae04edebef577e82ff7c4e143debd0bbec99/skills&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;obra/superpowers 仓库与 Skill 目录&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://developers.openai.com/codex/concepts/customization#skills&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;Codex 关于 Skills 的说明&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://developers.openai.com/codex/plugins/build#plugin-structure&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
@@ -639,12 +690,70 @@
         <guid>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%83mcp-%E6%80%8E%E6%A0%B7%E6%8A%8A%E5%A4%96%E9%83%A8%E7%B3%BB%E7%BB%9F%E6%8E%A5%E8%BF%9B%E4%BB%BB%E5%8A%A1/</guid>
         <description>&lt;h1 id=&#34;codex-cli-源码导读七mcp-怎样把外部系统接进任务&#34;&gt;Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务
 &lt;/h1&gt;&lt;p&gt;前六篇里的工具都围绕本地仓库：搜索文件、改补丁、运行测试。可是在真实工作里，完成一次修改常常还需要仓库之外的信息，例如缺陷系统里的复现步骤、内部文档中的接口约定，或某个服务的当前状态。复制内容进对话适合一次性补充；长期使用时，更新、访问范围和调用记录都会散掉。&lt;/p&gt;
-&lt;p&gt;MCP，也就是 Model Context Protocol，是 Codex 与外部能力对话的一套协议。Codex 作为客户端连接一个 MCP 服务；服务声明自己有哪些工具和资源；模型选择其中一个工具时，Codex 代为发起协议调用，再把结果放回当前任务。MCP 解决的是“怎么接上外部系统”，不负责替模型判断任务，也不自动授予外部系统的全部权限。&lt;/p&gt;
+&lt;p&gt;这里最容易混淆三件事：模型发起一次工具调用，和 Codex 怎样执行它，是一回事；工具的能力从哪里来，是另一回事。MCP 处理第二件事。它是一套让 Codex 连接外部能力的协议：Codex 作为客户端连接 MCP 服务，服务声明工具和资源，Codex 再把符合条件的工具交给当前任务使用。&lt;/p&gt;
 &lt;p&gt;本文固定使用 &lt;code&gt;openai/codex&lt;/code&gt; 的 &lt;code&gt;268288a&lt;/code&gt;。阅读范围是公开 CLI 源码中的 MCP 客户端路径，不讨论某个具体公司的 MCP 服务实现或其中保存的数据。&lt;/p&gt;
-&lt;h2 id=&#34;先看它解决的缺口&#34;&gt;先看它解决的缺口
+&lt;h2 id=&#34;先把工具调用和-mcp-分开&#34;&gt;先把工具调用和 MCP 分开
+&lt;/h2&gt;&lt;p&gt;“function calling”在这里可以先理解为模型与运行时之间的一种约定：模型不直接执行程序，而是返回“调用哪个工具、参数是什么”的结构化请求。比如模型可能请求：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;name&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;search_issues&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;arguments&amp;#34;&lt;/span&gt;: { &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;project&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;payment&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;status&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;open&amp;#34;&lt;/span&gt; }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;Codex 收到这份请求，找到对应处理器，执行动作，再把结果交还给模型。这条来回过程适用于所有工具，不只适用于 MCP。&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;名称&lt;/th&gt;
+					&lt;th&gt;它解决的问题&lt;/th&gt;
+					&lt;th&gt;在一次任务中的位置&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;工具调用&lt;/td&gt;
+					&lt;td&gt;模型怎样提出“请做这个动作”&lt;/td&gt;
+					&lt;td&gt;模型给出工具名和 JSON 参数，等待结果&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;内置工具&lt;/td&gt;
+					&lt;td&gt;Codex 在本地已经会做什么&lt;/td&gt;
+					&lt;td&gt;读文件、搜索、执行 Shell、应用补丁&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;MCP&lt;/td&gt;
+					&lt;td&gt;外部系统怎样接进 Codex&lt;/td&gt;
+					&lt;td&gt;发现外部工具，并把调用转发给 MCP 服务&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;所以，MCP 工具通常也会成为模型可调用的工具，但两者不能画等号。模型请求 &lt;code&gt;exec_command&lt;/code&gt; 时，Codex 会在本地找到 Shell 工具的处理器；模型请求 &lt;code&gt;search_issues&lt;/code&gt; 时，Codex 可能需要将同样形式的工具调用转给一个 MCP 服务。前者不经过 MCP，后者才经过。&lt;/p&gt;
+&lt;p&gt;下面仍以 &lt;code&gt;search_issues&lt;/code&gt; 为例。先看整条路径，再进入配置和源码细节。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;sequenceDiagram
+    participant A as 模型
+    participant C as Codex 工具运行时
+    participant M as MCP 客户端
+    participant S as 缺陷系统的 MCP 服务
+
+    A-&amp;gt;&amp;gt;C: 请求 search_issues(JSON 参数)
+    C-&amp;gt;&amp;gt;M: 确认这是 MCP 工具
+    M-&amp;gt;&amp;gt;S: tools/call
+    S--&amp;gt;&amp;gt;M: 问题列表
+    M--&amp;gt;&amp;gt;C: 工具结果
+    C--&amp;gt;&amp;gt;A: 本轮可继续使用的信息&lt;/pre&gt;
+&lt;p&gt;MCP 解决的是“怎么接上外部系统”，不负责替模型判断任务，也不自动授予外部系统的全部权限。&lt;/p&gt;
+&lt;h2 id=&#34;再看它解决的缺口&#34;&gt;再看它解决的缺口
 &lt;/h2&gt;&lt;p&gt;假设团队已经把缺陷系统接成一个 MCP 服务，提供 &lt;code&gt;search_issues&lt;/code&gt; 工具。用户要求：“根据支付模块当前的阻塞问题，修复仓库里的失败测试。”&lt;/p&gt;
 &lt;p&gt;这里有两类动作：在本地仓库运行测试，和到缺陷系统查询问题。前者适合内置的 Shell、文件和补丁工具；后者的账号、数据模型和访问方式属于外部系统。让 Codex 自己为每一种系统编写一套集成，既难维护，也无法复用。&lt;/p&gt;
-&lt;p&gt;MCP 把外部能力收敛成同一种问答形式：先列出工具，再以工具名和 JSON 参数调用。Codex 从协议返回的工具说明中取得名称、用途和参数结构，无须为每个缺陷系统、文档系统或内部服务单独接入 API。&lt;/p&gt;
+&lt;p&gt;MCP 把外部能力收敛成统一的工具接口：先列出工具，再以工具名和 JSON 参数调用。Codex 从协议返回的工具说明中取得名称、用途和参数结构，无须为每个缺陷系统、文档系统或内部服务单独接入 API。&lt;/p&gt;
 &lt;pre class=&#34;mermaid&#34;&gt;flowchart LR
     U[&amp;#34;用户任务&amp;#34;] --&amp;gt; C[&amp;#34;Codex 本地运行时&amp;#34;]
     C --&amp;gt; L[&amp;#34;内置工具\n读文件、Shell、补丁&amp;#34;]
