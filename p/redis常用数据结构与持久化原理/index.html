@@ -256,6 +256,8 @@
     <li><a href="#sorted-set--zset有序集合">Sorted Set / ZSet（有序集合）</a>
       <ol>
         <li><a href="#跳表skip-list原理">跳表（Skip List）原理</a></li>
+        <li><a href="#一条-zset-在内存里有几层">一条 ZSet 在内存里有几层</a></li>
+        <li><a href="#zadd-怎样同时维护两份索引"><code>ZADD</code> 怎样同时维护两份索引</a></li>
         <li><a href="#zset-常见场景">ZSet 常见场景</a>
           <ol>
             <li></li>
@@ -350,7 +352,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 17 分钟
+                    阅读时长: 18 分钟
                 </time>
             </div>
         
@@ -596,6 +598,120 @@
 <li>同时维护一个哈希表，key 是 member，value 是 score，用于 O(1) 查找某个元素的分数</li>
 <li>跳表按 score 排序，score 相同时按 member 字典序排序</li>
 </ul>
+<h3 id="一条-zset-在内存里有几层">一条 ZSet 在内存里有几层
+</h3><p>先把 Redis 数据库的 key 空间与 ZSet 内部结构分开。<code>game:rank</code> 是 Redis 数据库中的一个 key，它指向一个 ZSet 对象；它不在 ZSet 内部的哈希表里。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Redis 数据库 key 空间
+</span></span><span style="display:flex;"><span>└─ game:rank  -&gt;  ZSet 对象
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>小 ZSet 使用一块 listpack，只有 <code>member</code>、<code>score</code> 的连续对，没有跳表和内部哈希表：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>[listpack: player_B 50  player_A 100]
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>当 ZSet 超过 listpack 阈值后，ZSet 对象内部会有两份索引：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>game:rank
+</span></span><span style="display:flex;"><span>└─ ZSet 对象
+</span></span><span style="display:flex;"><span>   ├─ hashtable（按 member 找分数）
+</span></span><span style="display:flex;"><span>   │  ├─ player_A -&gt; 100
+</span></span><span style="display:flex;"><span>   │  └─ player_B -&gt; 50
+</span></span><span style="display:flex;"><span>   │
+</span></span><span style="display:flex;"><span>   └─ skiplist（按 score 排序）
+</span></span><span style="display:flex;"><span>      50  -&gt; player_B
+</span></span><span style="display:flex;"><span>      100 -&gt; player_A
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>逻辑上，<code>member</code> 和 <code>score</code> 都会出现在两份索引中。物理上，Redis 会尽量复用内存：跳表节点持有 member 和 score；哈希表以 member 为 key，value 指向该跳表节点的 score。这样 <code>ZSCORE game:rank player_A</code> 先查哈希表，<code>ZREVRANGE game:rank 0 9</code> 则从跳表按分数取排名。</p>
+<h3 id="zadd-怎样同时维护两份索引"><code>ZADD</code> 怎样同时维护两份索引
+</h3><p>先看一个已经转为“哈希表 + 跳表”的排行榜：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>dict：      player_B -&gt; 50, player_A -&gt; 100
+</span></span><span style="display:flex;"><span>skiplist：  50 -&gt; player_B -&gt; 100 -&gt; player_A
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>执行下面的命令：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>ZADD game:rank <span style="color:#bd93f9">75</span> player_C
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Redis 会这样做：</p>
+<ol>
+<li>先在内部哈希表查 <code>player_C</code>。查不到，说明是新成员。</li>
+<li>从跳表高层向右查找，定位到 score 为 50 的 <code>player_B</code> 和 score 为 100 的 <code>player_A</code> 之间。</li>
+<li>创建跳表节点，将 <code>player_C</code> 插入 score 为 75 的位置。</li>
+<li>在哈希表加入 <code>player_C -&gt; 75</code>，保存对新跳表节点 score 的引用。</li>
+</ol>
+<p>结果如下：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>dict：      player_B -&gt; 50, player_C -&gt; 75, player_A -&gt; 100
+</span></span><span style="display:flex;"><span>skiplist：  50 -&gt; player_B -&gt; 75 -&gt; player_C -&gt; 100 -&gt; player_A
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>更新已有成员时，流程略有不同：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>ZINCRBY game:rank <span style="color:#bd93f9">80</span> player_B
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># player_B 的分数从 50 变成 130</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ol>
+<li>哈希表先找到 <code>player_B</code> 的旧分数 50。</li>
+<li>跳表检查新分数 130 是否还适合原来的位置。这里不适合，因为它应排到 <code>player_A</code> 后面。</li>
+<li>跳表摘下 <code>player_B</code>，再插入 score 为 130 的新位置。</li>
+<li>哈希表把 <code>player_B</code> 对应的 score 引用更新为新节点的 score。</li>
+</ol>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>dict：      player_C -&gt; 75, player_A -&gt; 100, player_B -&gt; 130
+</span></span><span style="display:flex;"><span>skiplist：  75 -&gt; player_C -&gt; 100 -&gt; player_A -&gt; 130 -&gt; player_B
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>若分数变化后仍夹在原来的两个邻居之间，跳表可以只更新节点分数，不必摘下再插入。无论哪条路径，命令执行结束时两份索引都指向同一组 member 与 score。</p>
 <h3 id="zset-常见场景">ZSet 常见场景
 </h3><h5 id="1-排行榜系统">1. 排行榜系统
 </h5><p><strong>需求</strong>：游戏积分榜、文章热度榜、销量排行等，需要实时更新分数并快速查询 Top N。</p>
