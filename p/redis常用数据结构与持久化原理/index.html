@@ -282,9 +282,11 @@
       <ol>
         <li><a href="#先决定需要多大的数据丢失窗口">先决定需要多大的数据丢失窗口</a></li>
         <li><a href="#rdb在一个时间点拍快照">RDB：在一个时间点拍快照</a></li>
+        <li><a href="#save-与-bgsave差别在谁负责写文件"><code>SAVE</code> 与 <code>BGSAVE</code>：差别在谁负责写文件</a></li>
         <li><a href="#cow为什么子进程能写旧快照主进程还能继续改数据">COW：为什么子进程能写旧快照，主进程还能继续改数据</a></li>
         <li><a href="#aof持续追加写入记录">AOF：持续追加写入记录</a></li>
         <li><a href="#aof-为什么还要重写">AOF 为什么还要重写</a></li>
+        <li><a href="#混合持久化先加载-rdb再重放之后的-aof">混合持久化：先加载 RDB，再重放之后的 AOF</a></li>
         <li><a href="#一套容易起步的组合">一套容易起步的组合</a></li>
       </ol>
     </li>
@@ -353,7 +355,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 19 分钟
+                    阅读时长: 20 分钟
                 </time>
             </div>
         
@@ -1277,7 +1279,33 @@
 </span></span></code></pre></td></tr></table>
 </div>
 </div><p>若只能恢复 10:00 的 RDB，<code>order:1001</code> 和 <code>order:1002</code> 都不会回来。RDB 的数据丢失窗口由快照间隔决定。</p>
-<p>生产中通常使用 <code>BGSAVE</code>，而不是 <code>SAVE</code>。<code>SAVE</code> 由主进程同步写文件，会停住所有请求；<code>BGSAVE</code> 通过 <code>fork()</code> 创建子进程，子进程写 RDB，主进程继续接收请求。</p>
+<h3 id="save-与-bgsave差别在谁负责写文件"><code>SAVE</code> 与 <code>BGSAVE</code>：差别在谁负责写文件
+</h3><div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>命令</th>
+					<th>谁写 RDB</th>
+					<th>客户端请求会怎样</th>
+					<th>适合什么情况</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>SAVE</code></td>
+					<td>主进程</td>
+					<td>全部停住，直到 RDB 写完</td>
+					<td>调试或维护窗口；不适合在线业务</td>
+			</tr>
+			<tr>
+					<td><code>BGSAVE</code></td>
+					<td><code>fork()</code> 出的子进程</td>
+					<td>主进程通常继续处理请求</td>
+					<td>在线生成 RDB 的常规方式</td>
+			</tr>
+	</tbody>
+</table></div>
+<p><code>SAVE</code> 的流程很直白：主进程自己把整个内存写成 RDB，写完前不处理后续命令。数据量大时，停顿会很明显。</p>
+<p><code>BGSAVE</code> 把写文件交给子进程：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
@@ -1297,7 +1325,7 @@
 </span></span></code></pre></td></tr></table>
 </div>
 </div><h3 id="cow为什么子进程能写旧快照主进程还能继续改数据">COW：为什么子进程能写旧快照，主进程还能继续改数据
-</h3><p>COW 是操作系统的 Copy-On-Write，中文常叫“写时复制”。它不是 Redis 再把整个内存复制一份，而是 <code>fork()</code> 后，父子进程暂时共享相同的物理内存页，并把这些页标记为只读共享。</p>
+</h3><p>COW 是操作系统的 Copy-On-Write，中文常叫“写时复制”。它让 <code>BGSAVE</code> 的子进程读到旧数据，同时让主进程继续写新数据。它不是 Redis 先复制整个内存，而是用到哪一页、改到哪一页，才复制哪一页。</p>
 <p>假设 Redis 内存里有两页数据：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
@@ -1328,8 +1356,14 @@
 </span></span><span style="display:flex;"><span>子进程 -&gt; [页 A : user:1=18] [页 B: user:2=20]
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>因此子进程写出的 RDB 保持 <code>fork()</code> 那一刻的视图，主进程也能继续服务新写入。只有被主进程修改过的页会额外占内存。</p>
-<p>COW 不是“没有成本”。<code>fork()</code> 仍要复制页表，内存很大时会带来短暂停顿；子进程运行期间，写入越密集，被复制的页越多，Redis 的实际内存占用越高。<code>BGSAVE</code> 和 AOF 重写都会经过这条路径，监控时要同时关注 fork 延迟、内存峰值和磁盘 I/O。</p>
+</div><p>子进程把旧页写进临时 RDB 文件后就退出。它持有的旧页随后不再被引用，操作系统会回收；主进程不会把旧页“合并”回来。只有主进程继续使用新页 A&rsquo;。</p>
+<p>所以 <code>BGSAVE</code> 的好处是：写 RDB 的长过程不占用主进程，主进程能继续处理读写。代价是：</p>
+<ul>
+<li><code>fork()</code> 仍会有一次短暂停顿，内存很大时更明显。</li>
+<li>子进程运行期间，主进程写得越多，复制的页越多，内存峰值越高。</li>
+<li>子进程写文件会占用磁盘 I/O，也可能影响请求延迟。</li>
+</ul>
+<p>这和 Redis 的单线程模型有关系，但不是 COW 出现的原因。COW 是操作系统的机制；Redis 的主事件循环主要由一个线程执行命令，因此 fork 停顿、写入触发的页复制或内存压力造成的延迟，没有另一条命令执行线程可以替它分担。<code>BGSAVE</code> 避免的是“主进程同步写完整个 RDB”的长时间阻塞，不代表完全没有延迟。</p>
 <h3 id="aof持续追加写入记录">AOF：持续追加写入记录
 </h3><p>AOF 记录写命令的 Redis 协议表示，Redis 重启后按顺序重放这些记录恢复数据。它适合需要缩小数据丢失窗口的场景。</p>
 <p>Redis 7.x 使用多段 AOF，而不是只有一个不断变大的 <code>appendonly.aof</code>：</p>
@@ -1400,7 +1434,46 @@
 </span></span></code></pre></td></tr></table>
 </div>
 </div><p>重写期间的子进程同样依赖 COW 读取 fork 时刻的内存。主进程不需要停掉写请求，但写入量很大时仍可能带来额外内存和磁盘压力。</p>
-<h3 id="一套容易起步的组合">一套容易起步的组合
+<h3 id="混合持久化先加载-rdb再重放之后的-aof">混合持久化：先加载 RDB，再重放之后的 AOF
+</h3><p>你可以把 Redis 7.x 的 <code>base.rdb + incr.aof</code> 看成混合持久化。这里的“混合”不是把独立的 <code>BGSAVE</code> 文件和 AOF 随便拼在一起，而是一次 AOF 重写生成的一套恢复文件。</p>
+<p>假设 AOF 重写在 <code>10:00</code> fork：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>10:00  子进程看到 fork 时刻的内存，写出 base.rdb
+</span></span><span style="display:flex;"><span>10:01  主进程执行 SET order:1001 paid，写入 incr.aof
+</span></span><span style="display:flex;"><span>10:02  主进程执行 SET order:1002 paid，继续写入 incr.aof
+</span></span><span style="display:flex;"><span>10:03  Redis 重启
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>恢复顺序是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>1. 加载 base.rdb，快速还原 10:00 的全量数据；
+</span></span><span style="display:flex;"><span>2. 重放 incr.aof，把 10:00 之后的 SET order:1001、SET order:1002 补上。
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>因此你的理解接近正确：前半部分用快速加载的 RDB 恢复，后半部分用 <strong>RDB 基准时刻之后持续记录的增量 AOF 命令</strong> 补齐。后半部分不是“在 RDB 之后又做一次 AOF 重写”；AOF 重写负责产生新的 base 文件，之后的新写入才进入增量 AOF。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>base.rdb                  incr.aof
+</span></span><span style="display:flex;"><span>[10:00 的全量状态]  +  [10:00 之后的写命令]
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="一套容易起步的组合">一套容易起步的组合
 </h3><p>若 Redis 保存的不是纯缓存，且业务可以接受通常约 1 秒的故障窗口，可以从下面的配置开始，再根据压测与故障演练调整：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
