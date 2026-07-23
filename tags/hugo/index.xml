@@ -7,14 +7,14 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Wed, 22 Jul 2026 10:05:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/hugo/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>Codex CLI 源码导读（十）：从一句任务到一次可验证的改动</title>
-        <link>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%8D%81%E4%BB%8E%E4%B8%80%E5%8F%A5%E4%BB%BB%E5%8A%A1%E5%88%B0%E4%B8%80%E6%AC%A1%E5%8F%AF%E9%AA%8C%E8%AF%81%E7%9A%84%E6%94%B9%E5%8A%A8/</link>
-        <pubDate>Wed, 22 Jul 2026 10:05:00 +0800</pubDate>
+        <lastBuildDate>Wed, 22 Jul 2026 10:06:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/hugo/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Codex CLI 源码导读（十一）：从一句任务到一次可验证的改动</title>
+        <link>https://skylm.top/p/codex-cli-agent-architecture-10/</link>
+        <pubDate>Wed, 22 Jul 2026 10:06:00 +0800</pubDate>
         
-        <guid>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%8D%81%E4%BB%8E%E4%B8%80%E5%8F%A5%E4%BB%BB%E5%8A%A1%E5%88%B0%E4%B8%80%E6%AC%A1%E5%8F%AF%E9%AA%8C%E8%AF%81%E7%9A%84%E6%94%B9%E5%8A%A8/</guid>
-        <description>&lt;h1 id=&#34;codex-cli-源码导读十从一句任务到一次可验证的改动&#34;&gt;Codex CLI 源码导读（十）：从一句任务到一次可验证的改动
-&lt;/h1&gt;&lt;p&gt;前九篇把 Codex 拆成了运行时、上下文、工具、权限和事件。最后把它们放回一项小任务里看，事情会具体许多：模型给出下一步的选择，Codex 让选择落到工作区；改动是否成立，还要靠构建和差异检查来回答。&lt;/p&gt;
+        <guid>https://skylm.top/p/codex-cli-agent-architecture-10/</guid>
+        <description>&lt;h1 id=&#34;codex-cli-源码导读十一从一句任务到一次可验证的改动&#34;&gt;Codex CLI 源码导读（十一）：从一句任务到一次可验证的改动
+&lt;/h1&gt;&lt;p&gt;前十篇把 Codex 拆成了运行时、上下文、工具、权限、协作与事件。最后把它们放回一项小任务里看，事情会具体许多：模型给出下一步的选择，Codex 让选择落到工作区；改动是否成立，还要靠构建和差异检查来回答。&lt;/p&gt;
 &lt;p&gt;本文使用本系列所在的 Hugo 站点仓库作为实例。这个仓库的部署工作流会运行 Hugo 构建，因此“新增一篇文章并让站点仍可构建”是一个真实、范围也足够小的任务。&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
@@ -66,13 +66,13 @@
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;同系列怎样命名和标记&lt;/td&gt;
-					&lt;td&gt;&lt;code&gt;content/post/ai/codex-cli-agent-architecture-01.md&lt;/code&gt; 至 &lt;code&gt;09.md&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;content/post/ai/codex-cli-agent-architecture-01.md&lt;/code&gt; 至 &lt;code&gt;10.md&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;文件名和 front matter 保持连续&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;哪些改动已经存在&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;git status --short&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;只新增第十篇，不覆盖前九篇或其他文件&lt;/td&gt;
+					&lt;td&gt;只新增第十一篇，不覆盖前十篇或其他文件&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;发布时实际运行什么&lt;/td&gt;
@@ -82,7 +82,7 @@
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;p&gt;这正对应第四篇的内容。运行时会从当前目录、项目指令、配置和已读文件构造当前步骤的上下文；文件正文通常在工具读取后才加入。&lt;code&gt;codex-rs/core/src/session/step_context.rs&lt;/code&gt; 保存每一步的环境快照，工具在 &lt;code&gt;codex-rs/core/src/tools/context.rs&lt;/code&gt; 中取得这份信息。&lt;/p&gt;
-&lt;p&gt;Git 状态尤其不能跳过。当前工作区已经有前九篇导读的改动。它们可能来自同一项写作，也可能来自用户的其他安排。Agent 的正确动作是把它们当成既有状态，而不是为了获得“干净工作区”去还原文件。&lt;/p&gt;
+&lt;p&gt;Git 状态尤其不能跳过。当前工作区已经有前十篇导读的改动。它们可能来自同一项写作，也可能来自用户的其他安排。Agent 的正确动作是把它们当成既有状态，而不是为了获得“干净工作区”去还原文件。&lt;/p&gt;
 &lt;h2 id=&#34;3-模型选择工具codex-检查工具能否执行&#34;&gt;3. 模型选择工具，Codex 检查工具能否执行
 &lt;/h2&gt;&lt;p&gt;在这项任务里，模型可能依次选择搜索、读取、写入和执行命令。选择本身来自模型；每一步实际如何落地，由工具系统决定。&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
@@ -96,7 +96,7 @@
 &lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
 &lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rg --files content/post/ai/          # 找到相邻文章
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;sed -n ...                           # 读取 front matter 与写法
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;apply_patch                          # 新增第十篇文章
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;apply_patch                          # 新增第十一篇文章
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;hugo --renderToMemory                # 在内存中构建站点
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;git diff --check                     # 检查已跟踪改动的空白错误
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;

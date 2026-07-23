@@ -472,7 +472,6 @@
 <h2 id="审批把一次高风险动作变成可见决定">审批把一次高风险动作变成可见决定
 </h2><p>当策略结果是 <code>NeedsApproval</code>，Shell 运行时会按命令、工作目录、沙箱权限和额外权限组成审批键，并请求审批。相同键若被选择“本次会话内允许”，会被缓存，后续相同范围的请求不必反复打断用户。</p>
 <p>审批的来源不只可能是终端里的用户。公开代码先运行权限请求 Hook，也就是在固定生命周期节点执行的一小段本地规则；它可以允许或拒绝。若没有给出决定，再根据配置交给自动审查组件或用户。无论来源是什么，最后都收敛为 <code>ReviewDecision</code>；拒绝、超时或中止都会转换为工具拒绝结果。</p>
-<p>图里的 <code>alt</code> 是 Mermaid 时序图的语法，等同于程序中的 <code>if / else</code>；它不是 Codex 的术语。原图把几个分支压在一起，读起来不直观。换成下面这个判断过程会更清楚：</p>
 <pre class="mermaid">flowchart TD
     A[&#34;ShellRuntime 收到需要审批的命令&#34;] --&gt; B{&#34;本会话是否有完全匹配的允许记录？&#34;}
     B --&gt;|&#34;有&#34;| C[&#34;直接按会话内允许执行&#34;]
@@ -531,7 +530,7 @@
 </h2><p>审批通过后，Shell 运行时会构造 <code>SandboxCommand</code>，再交给 <code>SandboxManager::transform</code>。这个转换阶段把工作目录、环境、有效权限配置、网络代理条件和当前平台的沙箱类型组合成实际启动请求。</p>
 <p><code>codex-rs/sandboxing</code> 公开了平台选择：macOS 使用系统提供的 Seatbelt 沙箱，Linux 使用 seccomp 路径，Windows 使用受限令牌沙箱。具体能力会随操作系统而变，但上层接口保持同一件事：启动时带上由权限配置推导出的文件系统和网络策略。</p>
 <p>有一个细节很能说明沙箱不是摆设：当有效文件系统策略包含“拒绝读取”的路径时，代码不允许因为升级请求就简单跳过沙箱。原因写在 <code>sandboxing.rs</code> 的注释里：这些拒绝读取规则只能在沙箱中得到执行，直接取消沙箱会把原本拒绝的读取悄悄放开。</p>
-<p>Unix 下还有一个更细的路径。<code>codex-rs/shell-escalation/README.md</code> 说明了它如何拦截 Shell 的 <code>execve</code> 请求；<code>execve</code> 是 Unix 启动新程序的底层系统调用。协议端会返回“继续在沙箱内运行”“升级到沙箱外运行”或“拒绝”。它服务的是 Shell 子进程的升级处理，不是另一套通用权限系统。第一次读源码时，把它放在“执行过程中如何保留或升级边界”的位置即可，不必一开始就钻进补丁过的 zsh 实现。</p>
+<p>Unix 下还有一个更细的路径。<code>codex-rs/shell-escalation/README.md</code> 说明了它如何拦截 Shell 的 <code>execve</code> 请求；<code>execve</code> 是 Unix 启动新程序的底层系统调用。协议端会返回“继续在沙箱内运行”“升级到沙箱外运行”或“拒绝”。它服务的是 Shell 子进程的升级处理，不是另一套通用权限系统。</p>
 <h2 id="用一个判断框架读执行结果">用一个判断框架读执行结果
 </h2><p>面对一次命令执行，不妨按下面的顺序追源码：</p>
 <ol>
@@ -590,12 +589,12 @@
             
                 
 <article class="">
-    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%8D%81%E4%BB%8E%E4%B8%80%E5%8F%A5%E4%BB%BB%E5%8A%A1%E5%88%B0%E4%B8%80%E6%AC%A1%E5%8F%AF%E9%AA%8C%E8%AF%81%E7%9A%84%E6%94%B9%E5%8A%A8/">
+    <a href="/p/codex-cli-agent-architecture-10/">
         
         
 
         <div class="article-details">
-            <h2 class="article-title">Codex CLI 源码导读（十）：从一句任务到一次可验证的改动</h2>
+            <h2 class="article-title">Codex CLI 源码导读（十一）：从一句任务到一次可验证的改动</h2>
         </div>
     </a>
 </article>
@@ -603,12 +602,25 @@
             
                 
 <article class="">
-    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B9%9D%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E6%80%8E%E6%A0%B7%E9%80%81%E5%88%B0%E7%BB%88%E7%AB%AF%E5%92%8C%E5%AF%8C%E5%AE%A2%E6%88%B7%E7%AB%AF/">
+    <a href="/p/codex-cli-agent-architecture-09/">
         
         
 
         <div class="article-details">
-            <h2 class="article-title">Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端</h2>
+            <h2 class="article-title">Codex CLI 源码导读（十）：任务进度怎样送到终端和富客户端</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-agent-architecture-multi-agent/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（九）：多 Agent 怎样拆分任务、通信与收束</h2>
         </div>
     </a>
 </article>
@@ -635,19 +647,6 @@
 
         <div class="article-details">
             <h2 class="article-title">Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%BA%94%E6%A8%A1%E5%9E%8B%E6%80%8E%E6%A0%B7%E8%B0%83%E7%94%A8%E5%B7%A5%E5%85%B7/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">Codex CLI 源码导读（五）：模型怎样调用工具</h2>
         </div>
     </a>
 </article>

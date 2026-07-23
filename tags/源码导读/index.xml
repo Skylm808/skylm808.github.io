@@ -7,14 +7,14 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Wed, 22 Jul 2026 10:05:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>Codex CLI 源码导读（十）：从一句任务到一次可验证的改动</title>
-        <link>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%8D%81%E4%BB%8E%E4%B8%80%E5%8F%A5%E4%BB%BB%E5%8A%A1%E5%88%B0%E4%B8%80%E6%AC%A1%E5%8F%AF%E9%AA%8C%E8%AF%81%E7%9A%84%E6%94%B9%E5%8A%A8/</link>
-        <pubDate>Wed, 22 Jul 2026 10:05:00 +0800</pubDate>
+        <lastBuildDate>Wed, 22 Jul 2026 10:06:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Codex CLI 源码导读（十一）：从一句任务到一次可验证的改动</title>
+        <link>https://skylm.top/p/codex-cli-agent-architecture-10/</link>
+        <pubDate>Wed, 22 Jul 2026 10:06:00 +0800</pubDate>
         
-        <guid>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%8D%81%E4%BB%8E%E4%B8%80%E5%8F%A5%E4%BB%BB%E5%8A%A1%E5%88%B0%E4%B8%80%E6%AC%A1%E5%8F%AF%E9%AA%8C%E8%AF%81%E7%9A%84%E6%94%B9%E5%8A%A8/</guid>
-        <description>&lt;h1 id=&#34;codex-cli-源码导读十从一句任务到一次可验证的改动&#34;&gt;Codex CLI 源码导读（十）：从一句任务到一次可验证的改动
-&lt;/h1&gt;&lt;p&gt;前九篇把 Codex 拆成了运行时、上下文、工具、权限和事件。最后把它们放回一项小任务里看，事情会具体许多：模型给出下一步的选择，Codex 让选择落到工作区；改动是否成立，还要靠构建和差异检查来回答。&lt;/p&gt;
+        <guid>https://skylm.top/p/codex-cli-agent-architecture-10/</guid>
+        <description>&lt;h1 id=&#34;codex-cli-源码导读十一从一句任务到一次可验证的改动&#34;&gt;Codex CLI 源码导读（十一）：从一句任务到一次可验证的改动
+&lt;/h1&gt;&lt;p&gt;前十篇把 Codex 拆成了运行时、上下文、工具、权限、协作与事件。最后把它们放回一项小任务里看，事情会具体许多：模型给出下一步的选择，Codex 让选择落到工作区；改动是否成立，还要靠构建和差异检查来回答。&lt;/p&gt;
 &lt;p&gt;本文使用本系列所在的 Hugo 站点仓库作为实例。这个仓库的部署工作流会运行 Hugo 构建，因此“新增一篇文章并让站点仍可构建”是一个真实、范围也足够小的任务。&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
@@ -66,13 +66,13 @@
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;同系列怎样命名和标记&lt;/td&gt;
-					&lt;td&gt;&lt;code&gt;content/post/ai/codex-cli-agent-architecture-01.md&lt;/code&gt; 至 &lt;code&gt;09.md&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;content/post/ai/codex-cli-agent-architecture-01.md&lt;/code&gt; 至 &lt;code&gt;10.md&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;文件名和 front matter 保持连续&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;哪些改动已经存在&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;git status --short&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;只新增第十篇，不覆盖前九篇或其他文件&lt;/td&gt;
+					&lt;td&gt;只新增第十一篇，不覆盖前十篇或其他文件&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;发布时实际运行什么&lt;/td&gt;
@@ -82,7 +82,7 @@
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;p&gt;这正对应第四篇的内容。运行时会从当前目录、项目指令、配置和已读文件构造当前步骤的上下文；文件正文通常在工具读取后才加入。&lt;code&gt;codex-rs/core/src/session/step_context.rs&lt;/code&gt; 保存每一步的环境快照，工具在 &lt;code&gt;codex-rs/core/src/tools/context.rs&lt;/code&gt; 中取得这份信息。&lt;/p&gt;
-&lt;p&gt;Git 状态尤其不能跳过。当前工作区已经有前九篇导读的改动。它们可能来自同一项写作，也可能来自用户的其他安排。Agent 的正确动作是把它们当成既有状态，而不是为了获得“干净工作区”去还原文件。&lt;/p&gt;
+&lt;p&gt;Git 状态尤其不能跳过。当前工作区已经有前十篇导读的改动。它们可能来自同一项写作，也可能来自用户的其他安排。Agent 的正确动作是把它们当成既有状态，而不是为了获得“干净工作区”去还原文件。&lt;/p&gt;
 &lt;h2 id=&#34;3-模型选择工具codex-检查工具能否执行&#34;&gt;3. 模型选择工具，Codex 检查工具能否执行
 &lt;/h2&gt;&lt;p&gt;在这项任务里，模型可能依次选择搜索、读取、写入和执行命令。选择本身来自模型；每一步实际如何落地，由工具系统决定。&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
@@ -96,7 +96,7 @@
 &lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
 &lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;rg --files content/post/ai/          # 找到相邻文章
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;sed -n ...                           # 读取 front matter 与写法
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;apply_patch                          # 新增第十篇文章
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;apply_patch                          # 新增第十一篇文章
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;hugo --renderToMemory                # 在内存中构建站点
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;git diff --check                     # 检查已跟踪改动的空白错误
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
@@ -186,15 +186,15 @@
 </description>
         </item>
         <item>
-        <title>Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端</title>
-        <link>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B9%9D%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E6%80%8E%E6%A0%B7%E9%80%81%E5%88%B0%E7%BB%88%E7%AB%AF%E5%92%8C%E5%AF%8C%E5%AE%A2%E6%88%B7%E7%AB%AF/</link>
-        <pubDate>Wed, 22 Jul 2026 10:04:00 +0800</pubDate>
+        <title>Codex CLI 源码导读（十）：任务进度怎样送到终端和富客户端</title>
+        <link>https://skylm.top/p/codex-cli-agent-architecture-09/</link>
+        <pubDate>Wed, 22 Jul 2026 10:05:00 +0800</pubDate>
         
-        <guid>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B9%9D%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E6%80%8E%E6%A0%B7%E9%80%81%E5%88%B0%E7%BB%88%E7%AB%AF%E5%92%8C%E5%AF%8C%E5%AE%A2%E6%88%B7%E7%AB%AF/</guid>
-        <description>&lt;h1 id=&#34;codex-cli-源码导读九任务进度怎样送到终端和富客户端&#34;&gt;Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端
+        <guid>https://skylm.top/p/codex-cli-agent-architecture-09/</guid>
+        <description>&lt;h1 id=&#34;codex-cli-源码导读十任务进度怎样送到终端和富客户端&#34;&gt;Codex CLI 源码导读（十）：任务进度怎样送到终端和富客户端
 &lt;/h1&gt;&lt;p&gt;让 Codex 在仓库里找一个调用点、改一处文件、再跑一条测试时，界面不会等到任务结束才给出一整段结果。你会先看到任务开始，接着看到命令、文件改动和文字回复，最后看到完成或中断。支撑这个体验的是一串带有任务标识和状态的结构化事件。&lt;/p&gt;
 &lt;p&gt;本文的判断很简单：运行时负责产生事实，界面负责呈现事实；两者之间由 &lt;code&gt;app-server&lt;/code&gt; 的本地协议连接。&lt;code&gt;app-server&lt;/code&gt; 不是桌面版 Codex App 本身。它是公开 CLI 中的本地服务，供 TUI 和 VS Code 扩展这类富客户端使用。桌面 App 可以使用类似能力，但其完整实现不在这份公开仓库中。&lt;/p&gt;
-&lt;p&gt;本文固定使用 &lt;code&gt;openai/codex&lt;/code&gt; 的 &lt;code&gt;268288a&lt;/code&gt;。第九篇只讨论公开源码里事件如何流动，不把某个界面的具体设计当作协议承诺。&lt;/p&gt;
+&lt;p&gt;本文固定使用 &lt;code&gt;openai/codex&lt;/code&gt; 的 &lt;code&gt;268288a&lt;/code&gt;。第十篇只讨论公开源码里事件如何流动，不把某个界面的具体设计当作协议承诺。&lt;/p&gt;
 &lt;h2 id=&#34;先把进度看成状态不是日志&#34;&gt;先把“进度”看成状态，不是日志
 &lt;/h2&gt;&lt;p&gt;日志是给人或诊断工具看的文本，常常只说明“发生过什么”。结构化事件则会明确说明：哪一个 Thread、哪一轮 Turn、哪一个 Item 发生了什么变化。&lt;/p&gt;
 &lt;p&gt;这里的三个名词来自第二、三篇：Thread 是一段持续的任务会话；Turn 是用户提交一次请求后的一轮执行；Item 是这一轮里一项可记录的输入或输出，例如用户消息、模型回复、命令执行和文件改动。&lt;/p&gt;
@@ -341,6 +341,141 @@
 &lt;li&gt;协议中的 &lt;code&gt;thread_id&lt;/code&gt;、&lt;code&gt;turn_id&lt;/code&gt; 和 &lt;code&gt;item&lt;/code&gt; 标识分别解决了什么混淆？&lt;/li&gt;
 &lt;li&gt;当协议增加一种新的 Item 类型时，旧客户端应该如何退化处理？&lt;/li&gt;
 &lt;/ul&gt;
+&lt;h2 id=&#34;参考资料&#34;&gt;参考资料
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://developers.openai.com/codex/cli/reference&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;Codex CLI 参考文档&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        </item>
+        <item>
+        <title>Codex CLI 源码导读（九）：多 Agent 怎样拆分任务、通信与收束</title>
+        <link>https://skylm.top/p/codex-cli-agent-architecture-multi-agent/</link>
+        <pubDate>Wed, 22 Jul 2026 10:04:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/p/codex-cli-agent-architecture-multi-agent/</guid>
+        <description>&lt;h1 id=&#34;codex-cli-源码导读九多-agent-怎样拆分任务通信与收束&#34;&gt;Codex CLI 源码导读（九）：多 Agent 怎样拆分任务、通信与收束
+&lt;/h1&gt;&lt;p&gt;一个任务变大后，主 Agent 不一定要按顺序做完所有事。排查失败测试时，定位报错、检查配置和阅读最近改动可能彼此独立。把这些工作拆开，能更快获得证据；但如果几个 Agent 同时修改同一个文件，结果也会立刻混乱。&lt;/p&gt;
+&lt;p&gt;因此，多 Agent 不是“多开几个 Shell 命令”。它要处理任务拆分、独立上下文、结果汇总和状态追踪。本章固定使用 &lt;code&gt;openai/codex&lt;/code&gt; 的 &lt;code&gt;268288a&lt;/code&gt;，只讨论公开源码中可观察到的 Thread 派生与状态关系。&lt;/p&gt;
+&lt;h2 id=&#34;先分清三种并行&#34;&gt;先分清三种并行
+&lt;/h2&gt;&lt;p&gt;“并行”在 Codex 里至少可能指三件不同的事。&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;情况&lt;/th&gt;
+					&lt;th&gt;例子&lt;/th&gt;
+					&lt;th&gt;它们怎样关联&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Shell 管道&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;rg &amp;quot;TODO&amp;quot; src | head -n 20&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;两个操作系统进程用标准输入输出传递字节流&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;并行工具调用&lt;/td&gt;
+					&lt;td&gt;同时读取两个互不相关的文件&lt;/td&gt;
+					&lt;td&gt;同一个 Turn 中的多个工具请求由运行时收集结果&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Subagent&lt;/td&gt;
+					&lt;td&gt;一个查测试，一个查配置，一个审查改动&lt;/td&gt;
+					&lt;td&gt;多个独立 Thread 分别完成子任务，再由上层收束&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;管道里的 &lt;code&gt;|&lt;/code&gt; 是进程间通信方式。&lt;code&gt;rg&lt;/code&gt; 的输出直接流给 &lt;code&gt;head&lt;/code&gt;，二者通常会同时运行。它不是 Agent A 把调查结论交给 Agent B。&lt;/p&gt;
+&lt;p&gt;并行工具调用也还不是多 Agent。模型可以在一次回复中提出多个没有依赖关系的工具请求；是否真正并发执行，取决于模型能力、工具类型和运行时安排。读取两个文件适合并行，“修改文件后运行测试”则必须等待修改完成。&lt;/p&gt;
+&lt;p&gt;Subagent 走的是另一条路径：每个子任务有自己的 Thread、上下文和工具循环。它们不会共享完整的模型内部状态。&lt;/p&gt;
+&lt;h2 id=&#34;什么任务值得拆&#34;&gt;什么任务值得拆
+&lt;/h2&gt;&lt;p&gt;假设主任务是“修复支付模块的失败测试，并确认没有改坏配置”。可以这样拆：&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;flowchart TD
+    P[&amp;#34;主任务：修复支付测试&amp;#34;] --&amp;gt; A[&amp;#34;子任务 A：定位失败断言和调用路径&amp;#34;]
+    P --&amp;gt; B[&amp;#34;子任务 B：检查测试配置和项目指令&amp;#34;]
+    P --&amp;gt; C[&amp;#34;子任务 C：阅读近期改动，识别风险&amp;#34;]
+    A --&amp;gt; R[&amp;#34;主 Agent 汇总证据&amp;#34;]
+    B --&amp;gt; R
+    C --&amp;gt; R
+    R --&amp;gt; D[&amp;#34;决定最小改动&amp;#34;]
+    D --&amp;gt; T[&amp;#34;运行验证&amp;#34;]&lt;/pre&gt;
+&lt;p&gt;前三项主要读取信息，彼此干扰很小，适合并行。修改文件和最终测试则应由一个明确的执行者串起来：多个 Agent 同时写同一个工作区，会产生覆盖、冲突和无法解释的测试结果。&lt;/p&gt;
+&lt;p&gt;一个实用判断是：子任务的输入能否写成一段独立说明，输出能否写成一份可复用的结论？能，就适合拆；若后一步必须依赖前一步刚写入的文件，则更适合留在同一个 Turn 中顺序执行。&lt;/p&gt;
+&lt;h2 id=&#34;子-agent-不是共享脑袋&#34;&gt;子 Agent 不是共享脑袋
+&lt;/h2&gt;&lt;p&gt;公开源码把被派生的任务记录为 &lt;code&gt;SessionSource::SubAgent(SubAgentSource::ThreadSpawn { ... })&lt;/code&gt;，并保存 &lt;code&gt;parent_thread_id&lt;/code&gt;、深度等信息。它说明子任务从哪个父 Thread 派生，而不表示父子任务共享同一段完整对话。&lt;/p&gt;
+&lt;p&gt;可以把主 Agent 给子 Agent 的内容理解成一份任务单：目标、必要约束、可用工作区和希望返回的结果。子 Agent 在自己的 Thread 中读取文件、调用工具、产生事件；它的价值是交回可被主任务使用的结论，例如“失败来自哪个条件分支”“配置没有覆盖这条路径”“改动会影响哪些调用方”。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;主 Agent 的任务单
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  ├── 子 Agent A：只读排查 payment_test.go 的首个失败原因
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  ├── 子 Agent B：检查当前目录下的 AGENTS.md 与测试命令
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  └── 子 Agent C：审查最近改动是否触及支付调用方
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;主 Agent 收到结果后
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  └── 决定是否修改、修改哪里、跑哪些验证
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这与 Shell 管道的差别很大。管道传的是连续字节；Subagent 交回的是任务级结果、状态和事件。主 Agent 也不应该把子 Agent 的原始长日志全部塞回自己的上下文，而应保留对决策有用的结论和证据位置。&lt;/p&gt;
+&lt;h2 id=&#34;谁记录进度谁决定下一步&#34;&gt;谁记录进度，谁决定下一步
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;codex-rs/agent-graph-store&lt;/code&gt; 保存父 Thread 与子 Thread 之间的有向边。每个子 Thread 至多有一个已持久化的父任务；边有 &lt;code&gt;Open&lt;/code&gt; 和 &lt;code&gt;Closed&lt;/code&gt; 等生命周期状态。存储层可以列出某个父任务的直接子任务，也可以按层级查询后代任务。&lt;/p&gt;
+&lt;p&gt;这已经是一个任务协调中心，但它的职责很具体：&lt;strong&gt;登记关系、保存状态、支持查询&lt;/strong&gt;。它不是一个自动替主 Agent 分配工作的“总指挥”。是否创建子任务、给出什么任务单、拿到结果后是否继续，仍由上层编排和主任务的决策流程处理。&lt;/p&gt;
+&lt;pre class=&#34;mermaid&#34;&gt;flowchart LR
+    P[&amp;#34;父 Thread / 主 Agent&amp;#34;] --&amp;gt;|&amp;#34;创建子任务&amp;#34;| A[&amp;#34;子 Thread A&amp;#34;]
+    P --&amp;gt;|&amp;#34;创建子任务&amp;#34;| B[&amp;#34;子 Thread B&amp;#34;]
+    P --&amp;gt;|&amp;#34;创建子任务&amp;#34;| C[&amp;#34;子 Thread C&amp;#34;]
+    A --&amp;gt;|&amp;#34;状态与结果&amp;#34;| O[&amp;#34;协调层：Thread 关系、事件、状态&amp;#34;]
+    B --&amp;gt;|&amp;#34;状态与结果&amp;#34;| O
+    C --&amp;gt;|&amp;#34;状态与结果&amp;#34;| O
+    O --&amp;gt;|&amp;#34;可查询的进度&amp;#34;| P
+    P --&amp;gt;|&amp;#34;收束结论&amp;#34;| F[&amp;#34;最终改动与验证&amp;#34;]&lt;/pre&gt;
+&lt;p&gt;界面要显示“哪个子任务还在跑”，不必猜测模型状态。每个 Thread 和 Turn 都会产生结构化事件；协调层保存父子关系，&lt;code&gt;app-server&lt;/code&gt; 再按 &lt;code&gt;thread_id&lt;/code&gt; 把事件送到客户端。下一篇会继续解释这些事件怎样送到 TUI 和富客户端。&lt;/p&gt;
+&lt;h2 id=&#34;并行并不自动提高质量&#34;&gt;并行并不自动提高质量
+&lt;/h2&gt;&lt;p&gt;多 Agent 最常见的问题不是“不会并行”，而是边界太模糊：三个子任务都在查同一件事，或两个子任务同时改同一个文件。拆分时应把输出形式写清楚，例如“返回失败的条件、证据文件和行号，不修改文件”。&lt;/p&gt;
+&lt;p&gt;对有写入需求的任务，更稳妥的做法是先让多个子任务并行收集证据，再由主 Agent 统一修改和验证。若必须并行修改，应提供隔离工作区并明确合并责任；否则子 Agent 的完成状态不能证明最终工作区仍然一致。&lt;/p&gt;
+&lt;h2 id=&#34;读源码时先找这四处&#34;&gt;读源码时，先找这四处
+&lt;/h2&gt;&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;关心的问题&lt;/th&gt;
+					&lt;th&gt;起点&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;子任务如何标识为派生任务&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;core/src/session/multi_agents.rs&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;父子 Thread 信息如何进入请求元数据&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;core/src/responses_metadata.rs&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;父子任务关系和状态如何保存、查询&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;agent-graph-store/src/store.rs&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;任务事件怎样按 Thread 送到界面&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;app-server&lt;/code&gt; 与下一篇的 &lt;code&gt;tui&lt;/code&gt; 事件处理&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;接下来可以继续想&#34;&gt;接下来可以继续想
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;哪些子任务只需要返回证据，哪些子任务值得拥有写权限？&lt;/li&gt;
+&lt;li&gt;父 Agent 收到互相矛盾的结论时，应怎样决定是否再派一个核查任务？&lt;/li&gt;
+&lt;li&gt;状态显示为完成，为什么仍不等于最终工作区已经通过验证？&lt;/li&gt;
+&lt;li&gt;多个子 Agent 共享同一仓库时，怎样避免写入冲突？&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;下一篇回到事件协议，看一个或多个 Thread 的进度怎样送到终端和富客户端。&lt;/p&gt;
 &lt;h2 id=&#34;参考资料&#34;&gt;参考资料
 &lt;/h2&gt;&lt;ul&gt;
 &lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://developers.openai.com/codex/cli/reference&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
@@ -771,7 +906,6 @@
 &lt;h2 id=&#34;审批把一次高风险动作变成可见决定&#34;&gt;审批把一次高风险动作变成可见决定
 &lt;/h2&gt;&lt;p&gt;当策略结果是 &lt;code&gt;NeedsApproval&lt;/code&gt;，Shell 运行时会按命令、工作目录、沙箱权限和额外权限组成审批键，并请求审批。相同键若被选择“本次会话内允许”，会被缓存，后续相同范围的请求不必反复打断用户。&lt;/p&gt;
 &lt;p&gt;审批的来源不只可能是终端里的用户。公开代码先运行权限请求 Hook，也就是在固定生命周期节点执行的一小段本地规则；它可以允许或拒绝。若没有给出决定，再根据配置交给自动审查组件或用户。无论来源是什么，最后都收敛为 &lt;code&gt;ReviewDecision&lt;/code&gt;；拒绝、超时或中止都会转换为工具拒绝结果。&lt;/p&gt;
-&lt;p&gt;图里的 &lt;code&gt;alt&lt;/code&gt; 是 Mermaid 时序图的语法，等同于程序中的 &lt;code&gt;if / else&lt;/code&gt;；它不是 Codex 的术语。原图把几个分支压在一起，读起来不直观。换成下面这个判断过程会更清楚：&lt;/p&gt;
 &lt;pre class=&#34;mermaid&#34;&gt;flowchart TD
     A[&amp;#34;ShellRuntime 收到需要审批的命令&amp;#34;] --&amp;gt; B{&amp;#34;本会话是否有完全匹配的允许记录？&amp;#34;}
     B --&amp;gt;|&amp;#34;有&amp;#34;| C[&amp;#34;直接按会话内允许执行&amp;#34;]
@@ -830,7 +964,7 @@
 &lt;/h2&gt;&lt;p&gt;审批通过后，Shell 运行时会构造 &lt;code&gt;SandboxCommand&lt;/code&gt;，再交给 &lt;code&gt;SandboxManager::transform&lt;/code&gt;。这个转换阶段把工作目录、环境、有效权限配置、网络代理条件和当前平台的沙箱类型组合成实际启动请求。&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;codex-rs/sandboxing&lt;/code&gt; 公开了平台选择：macOS 使用系统提供的 Seatbelt 沙箱，Linux 使用 seccomp 路径，Windows 使用受限令牌沙箱。具体能力会随操作系统而变，但上层接口保持同一件事：启动时带上由权限配置推导出的文件系统和网络策略。&lt;/p&gt;
 &lt;p&gt;有一个细节很能说明沙箱不是摆设：当有效文件系统策略包含“拒绝读取”的路径时，代码不允许因为升级请求就简单跳过沙箱。原因写在 &lt;code&gt;sandboxing.rs&lt;/code&gt; 的注释里：这些拒绝读取规则只能在沙箱中得到执行，直接取消沙箱会把原本拒绝的读取悄悄放开。&lt;/p&gt;
-&lt;p&gt;Unix 下还有一个更细的路径。&lt;code&gt;codex-rs/shell-escalation/README.md&lt;/code&gt; 说明了它如何拦截 Shell 的 &lt;code&gt;execve&lt;/code&gt; 请求；&lt;code&gt;execve&lt;/code&gt; 是 Unix 启动新程序的底层系统调用。协议端会返回“继续在沙箱内运行”“升级到沙箱外运行”或“拒绝”。它服务的是 Shell 子进程的升级处理，不是另一套通用权限系统。第一次读源码时，把它放在“执行过程中如何保留或升级边界”的位置即可，不必一开始就钻进补丁过的 zsh 实现。&lt;/p&gt;
+&lt;p&gt;Unix 下还有一个更细的路径。&lt;code&gt;codex-rs/shell-escalation/README.md&lt;/code&gt; 说明了它如何拦截 Shell 的 &lt;code&gt;execve&lt;/code&gt; 请求；&lt;code&gt;execve&lt;/code&gt; 是 Unix 启动新程序的底层系统调用。协议端会返回“继续在沙箱内运行”“升级到沙箱外运行”或“拒绝”。它服务的是 Shell 子进程的升级处理，不是另一套通用权限系统。&lt;/p&gt;
 &lt;h2 id=&#34;用一个判断框架读执行结果&#34;&gt;用一个判断框架读执行结果
 &lt;/h2&gt;&lt;p&gt;面对一次命令执行，不妨按下面的顺序追源码：&lt;/p&gt;
 &lt;ol&gt;

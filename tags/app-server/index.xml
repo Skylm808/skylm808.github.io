@@ -7,16 +7,16 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Wed, 22 Jul 2026 10:04:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/app-server/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端</title>
-        <link>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B9%9D%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E6%80%8E%E6%A0%B7%E9%80%81%E5%88%B0%E7%BB%88%E7%AB%AF%E5%92%8C%E5%AF%8C%E5%AE%A2%E6%88%B7%E7%AB%AF/</link>
-        <pubDate>Wed, 22 Jul 2026 10:04:00 +0800</pubDate>
+        <lastBuildDate>Wed, 22 Jul 2026 10:05:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/app-server/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Codex CLI 源码导读（十）：任务进度怎样送到终端和富客户端</title>
+        <link>https://skylm.top/p/codex-cli-agent-architecture-09/</link>
+        <pubDate>Wed, 22 Jul 2026 10:05:00 +0800</pubDate>
         
-        <guid>https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B9%9D%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E6%80%8E%E6%A0%B7%E9%80%81%E5%88%B0%E7%BB%88%E7%AB%AF%E5%92%8C%E5%AF%8C%E5%AE%A2%E6%88%B7%E7%AB%AF/</guid>
-        <description>&lt;h1 id=&#34;codex-cli-源码导读九任务进度怎样送到终端和富客户端&#34;&gt;Codex CLI 源码导读（九）：任务进度怎样送到终端和富客户端
+        <guid>https://skylm.top/p/codex-cli-agent-architecture-09/</guid>
+        <description>&lt;h1 id=&#34;codex-cli-源码导读十任务进度怎样送到终端和富客户端&#34;&gt;Codex CLI 源码导读（十）：任务进度怎样送到终端和富客户端
 &lt;/h1&gt;&lt;p&gt;让 Codex 在仓库里找一个调用点、改一处文件、再跑一条测试时，界面不会等到任务结束才给出一整段结果。你会先看到任务开始，接着看到命令、文件改动和文字回复，最后看到完成或中断。支撑这个体验的是一串带有任务标识和状态的结构化事件。&lt;/p&gt;
 &lt;p&gt;本文的判断很简单：运行时负责产生事实，界面负责呈现事实；两者之间由 &lt;code&gt;app-server&lt;/code&gt; 的本地协议连接。&lt;code&gt;app-server&lt;/code&gt; 不是桌面版 Codex App 本身。它是公开 CLI 中的本地服务，供 TUI 和 VS Code 扩展这类富客户端使用。桌面 App 可以使用类似能力，但其完整实现不在这份公开仓库中。&lt;/p&gt;
-&lt;p&gt;本文固定使用 &lt;code&gt;openai/codex&lt;/code&gt; 的 &lt;code&gt;268288a&lt;/code&gt;。第九篇只讨论公开源码里事件如何流动，不把某个界面的具体设计当作协议承诺。&lt;/p&gt;
+&lt;p&gt;本文固定使用 &lt;code&gt;openai/codex&lt;/code&gt; 的 &lt;code&gt;268288a&lt;/code&gt;。第十篇只讨论公开源码里事件如何流动，不把某个界面的具体设计当作协议承诺。&lt;/p&gt;
 &lt;h2 id=&#34;先把进度看成状态不是日志&#34;&gt;先把“进度”看成状态，不是日志
 &lt;/h2&gt;&lt;p&gt;日志是给人或诊断工具看的文本，常常只说明“发生过什么”。结构化事件则会明确说明：哪一个 Thread、哪一轮 Turn、哪一个 Item 发生了什么变化。&lt;/p&gt;
 &lt;p&gt;这里的三个名词来自第二、三篇：Thread 是一段持续的任务会话；Turn 是用户提交一次请求后的一轮执行；Item 是这一轮里一项可记录的输入或输出，例如用户消息、模型回复、命令执行和文件改动。&lt;/p&gt;
