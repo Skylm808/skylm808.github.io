@@ -968,7 +968,20 @@
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
 &lt;/div&gt;&lt;h3 id=&#34;cow为什么子进程能写旧快照主进程还能继续改数据&#34;&gt;COW：为什么子进程能写旧快照，主进程还能继续改数据
-&lt;/h3&gt;&lt;p&gt;COW 是操作系统的 Copy-On-Write，中文常叫“写时复制”。它让 &lt;code&gt;BGSAVE&lt;/code&gt; 的子进程读到旧数据，同时让主进程继续写新数据。它不是 Redis 先复制整个内存，而是用到哪一页、改到哪一页，才复制哪一页。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;COW 是操作系统的 Copy-On-Write，中文常叫“写时复制”。&lt;code&gt;BGSAVE&lt;/code&gt; 之后有三个角色，先分开看：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;主进程：继续接收并执行 GET、SET、ZADD 等客户端命令
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;子进程：读取 fork 时刻的旧内存，写出 RDB 文件
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;操作系统：主进程要写共享内存页时，复制这一页
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;子进程不执行 COW，也不再接收客户端请求。它只是单独遍历旧内存并写文件。主进程仍是对外服务的 Redis；COW 的页面复制由操作系统内核完成。&lt;/p&gt;
 &lt;p&gt;假设 Redis 内存里有两页数据：&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
@@ -1000,13 +1013,34 @@
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;子进程把旧页写进临时 RDB 文件后就退出。它持有的旧页随后不再被引用，操作系统会回收；主进程不会把旧页“合并”回来。只有主进程继续使用新页 A&amp;rsquo;。&lt;/p&gt;
-&lt;p&gt;所以 &lt;code&gt;BGSAVE&lt;/code&gt; 的好处是：写 RDB 的长过程不占用主进程，主进程能继续处理读写。代价是：&lt;/p&gt;
+&lt;p&gt;读命令和写命令的区别很直接：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;GET user:1
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-&amp;gt; 只读共享页，不触发 COW
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;SET user:1 19
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-&amp;gt; 主进程要改共享页 A
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-&amp;gt; 内核复制页 A
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;-&amp;gt; 主进程修改新页 A&amp;#39;，子进程保留旧页 A
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;所以 &lt;code&gt;BGSAVE&lt;/code&gt; 的好处是：写 RDB 的长过程不占用主进程，主进程能继续处理读写。代价是：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;fork()&lt;/code&gt; 仍会有一次短暂停顿，内存很大时更明显。&lt;/li&gt;
 &lt;li&gt;子进程运行期间，主进程写得越多，复制的页越多，内存峰值越高。&lt;/li&gt;
 &lt;li&gt;子进程写文件会占用磁盘 I/O，也可能影响请求延迟。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;这和 Redis 的单线程模型有关系，但不是 COW 出现的原因。COW 是操作系统的机制；Redis 的主事件循环主要由一个线程执行命令，因此 fork 停顿、写入触发的页复制或内存压力造成的延迟，没有另一条命令执行线程可以替它分担。&lt;code&gt;BGSAVE&lt;/code&gt; 避免的是“主进程同步写完整个 RDB”的长时间阻塞，不代表完全没有延迟。&lt;/p&gt;
+&lt;p&gt;这和 Redis 的单线程模型有关系，但不是 COW 出现的原因。COW 在任何 &lt;code&gt;fork()&lt;/code&gt; 后都可能发生。Redis 的主事件循环主要由一个线程执行命令，因此某次 &lt;code&gt;SET&lt;/code&gt; 触发页复制、或系统因内存和磁盘压力变慢时，后面的命令会在同一条事件循环里排队。&lt;code&gt;BGSAVE&lt;/code&gt; 避免的是“主进程同步写完整个 RDB”的长时间阻塞，不代表完全没有延迟。&lt;/p&gt;
 &lt;h3 id=&#34;aof持续追加写入记录&#34;&gt;AOF：持续追加写入记录
 &lt;/h3&gt;&lt;p&gt;AOF 记录写命令的 Redis 协议表示，Redis 重启后按顺序重放这些记录恢复数据。它适合需要缩小数据丢失窗口的场景。&lt;/p&gt;
 &lt;p&gt;Redis 7.x 使用多段 AOF，而不是只有一个不断变大的 &lt;code&gt;appendonly.aof&lt;/code&gt;：&lt;/p&gt;
