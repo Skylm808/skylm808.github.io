@@ -352,7 +352,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 18 分钟
+                    阅读时长: 19 分钟
                 </time>
             </div>
         
@@ -849,30 +849,67 @@
 </span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
 </span></code></pre></td>
 <td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#6272a4"># 每次请求时，用当前时间戳（毫秒）作为 score 和 member</span>
-</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">current_ms</span><span style="color:#ff79c6">=</span><span style="color:#ff79c6">$(</span>date +%s%3N<span style="color:#ff79c6">)</span>
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">current_ms</span><span style="color:#ff79c6">=</span><span style="color:#ff79c6">$(</span>date +%s%3N<span style="color:#ff79c6">)</span>
 </span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">user_key</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;rate:limit:user1001&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">request_id</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;</span><span style="color:#f1fa8c">${</span><span style="color:#8be9fd;font-style:italic">current_ms</span><span style="color:#f1fa8c">}</span><span style="color:#f1fa8c">:</span><span style="color:#ff79c6">$(</span>uuidgen<span style="color:#ff79c6">)</span><span style="color:#f1fa8c">&#34;</span>  <span style="color:#6272a4"># 每次请求必须是唯一 member</span>
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 1. 记录本次请求</span>
-</span></span><span style="display:flex;"><span>ZADD <span style="color:#8be9fd;font-style:italic">$user_key</span> <span style="color:#8be9fd;font-style:italic">$current_ms</span> <span style="color:#8be9fd;font-style:italic">$current_ms</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 1. 记录本次请求：score 是发生时间，member 是这次请求的唯一 ID</span>
+</span></span><span style="display:flex;"><span>ZADD <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$user_key</span><span style="color:#f1fa8c">&#34;</span> <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$current_ms</span><span style="color:#f1fa8c">&#34;</span> <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$request_id</span><span style="color:#f1fa8c">&#34;</span>
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 2. 删除 1 分钟前的记录</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 2. 删除窗口左边界及更早的请求</span>
 </span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">one_min_ago</span><span style="color:#ff79c6">=</span><span style="color:#ff79c6">$((</span>current_ms <span style="color:#ff79c6">-</span> <span style="color:#bd93f9">60000</span><span style="color:#ff79c6">))</span>
-</span></span><span style="display:flex;"><span>ZREMRANGEBYSCORE <span style="color:#8be9fd;font-style:italic">$user_key</span> <span style="color:#bd93f9">0</span> <span style="color:#8be9fd;font-style:italic">$one_min_ago</span>
+</span></span><span style="display:flex;"><span>ZREMRANGEBYSCORE <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$user_key</span><span style="color:#f1fa8c">&#34;</span> -inf <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$one_min_ago</span><span style="color:#f1fa8c">&#34;</span>
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 3. 统计窗口内请求数</span>
-</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">count</span><span style="color:#ff79c6">=</span><span style="color:#ff79c6">$(</span>ZCARD <span style="color:#8be9fd;font-style:italic">$user_key</span><span style="color:#ff79c6">)</span>
-</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> <span style="color:#ff79c6">[</span> <span style="color:#8be9fd;font-style:italic">$count</span> -gt <span style="color:#bd93f9">100</span> <span style="color:#ff79c6">]</span>; <span style="color:#ff79c6">then</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 3. 剩下的元素就是最近一分钟内的请求数</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">count</span><span style="color:#ff79c6">=</span><span style="color:#ff79c6">$(</span>ZCARD <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$user_key</span><span style="color:#f1fa8c">&#34;</span><span style="color:#ff79c6">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> <span style="color:#ff79c6">[</span> <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$count</span><span style="color:#f1fa8c">&#34;</span> -gt <span style="color:#bd93f9">100</span> <span style="color:#ff79c6">]</span>; <span style="color:#ff79c6">then</span>
 </span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">echo</span> <span style="color:#f1fa8c">&#34;请求过于频繁&#34;</span>
 </span></span><span style="display:flex;"><span><span style="color:#ff79c6">else</span>
 </span></span><span style="display:flex;"><span>    <span style="color:#8be9fd;font-style:italic">echo</span> <span style="color:#f1fa8c">&#34;允许访问&#34;</span>
 </span></span><span style="display:flex;"><span><span style="color:#ff79c6">fi</span>
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 4. 设置过期时间（防止 key 永久存在）</span>
-</span></span><span style="display:flex;"><span>EXPIRE <span style="color:#8be9fd;font-style:italic">$user_key</span> <span style="color:#bd93f9">60</span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 4. 没有新请求后，让这个用户的窗口自然过期</span>
+</span></span><span style="display:flex;"><span>EXPIRE <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$user_key</span><span style="color:#f1fa8c">&#34;</span> <span style="color:#bd93f9">60</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p><strong>为什么用 ZSet</strong>：</p>
+</div><p><code>ZREMRANGEBYSCORE key min max</code> 的意思是：删除这个 ZSet 中，score 落在闭区间 <code>[min, max]</code> 的全部 member。这里的 score 是毫秒时间戳，所以：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>ZREMRANGEBYSCORE rate:limit:user1001 -inf <span style="color:#bd93f9">1710000063456</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>表示删除时间 <code>&lt;= 1710000063456</code> 的请求。<code>-inf</code> 是负无穷，表示不关心最早的时间；原来的 <code>0</code> 也能用于 Unix 时间戳，但 <code>-inf</code> 更能表达“所有过期记录”。</p>
+<p>假设当前时间是 <code>1710000123456</code>，那么窗口左边界是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>1710000123456 - 60000 = 1710000063456
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>清理前的 ZSet 可能是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>score=1710000059000 -&gt; req-a  # 已超过一分钟，删除
+</span></span><span style="display:flex;"><span>score=1710000063456 -&gt; req-b  # 恰好在左边界，删除
+</span></span><span style="display:flex;"><span>score=1710000064000 -&gt; req-c  # 仍在最近一分钟内，保留
+</span></span><span style="display:flex;"><span>score=1710000123456 -&gt; req-d  # 刚刚记录，保留
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>清理后只剩 <code>req-c</code>、<code>req-d</code>。<code>ZCARD</code> 返回 2，这就是当前滑动窗口里的请求数。下一次请求到来时，窗口会跟着当前时间向前移动，旧记录继续被删掉。</p>
+<p><code>score</code> 用时间排序，<code>member</code> 用于让每次请求独立存在。不要把毫秒时间戳同时当作 member：同一用户在同一毫秒发来两次请求时，第二次 <code>ZADD</code> 会覆盖第一次，计数会少一次。</p>
+<p>上面的命令用来说明原理。生产环境需要把 <code>ZADD</code>、<code>ZREMRANGEBYSCORE</code>、<code>ZCARD</code> 和判断放进 Lua 脚本，保证并发请求不会在“清理与计数”之间互相穿插。</p>
+<p><strong>为什么用 ZSet</strong>：</p>
 <ul>
 <li>自动按时间排序，<code>ZREMRANGEBYSCORE</code> 清理过期数据 O(logN + M)</li>
 <li><code>ZCARD</code> 获取窗口内请求数 O(1)</li>
