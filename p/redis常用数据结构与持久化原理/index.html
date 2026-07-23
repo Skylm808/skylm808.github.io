@@ -249,33 +249,34 @@
         <div class="widget--toc">
             <nav id="TableOfContents">
   <ol>
-    <li><a href="#1-五大基础数据结构">1. 五大基础数据结构</a>
+    <li><a href="#string字符串">String（字符串）</a></li>
+    <li><a href="#list列表">List（列表）</a></li>
+    <li><a href="#hash哈希">Hash（哈希）</a></li>
+    <li><a href="#set集合">Set（集合）</a></li>
+    <li><a href="#sorted-set--zset有序集合">Sorted Set / ZSet（有序集合）</a>
       <ol>
-        <li><a href="#string字符串">String（字符串）</a></li>
-        <li><a href="#list列表">List（列表）</a></li>
-        <li><a href="#hash哈希">Hash（哈希）</a></li>
-        <li><a href="#set集合">Set（集合）</a></li>
-        <li><a href="#sorted-set--zset有序集合">Sorted Set / ZSet（有序集合）</a>
+        <li><a href="#跳表skip-list原理">跳表（Skip List）原理</a></li>
+        <li><a href="#zset-常见场景">ZSet 常见场景</a>
           <ol>
-            <li><a href="#跳表skip-list原理">跳表（Skip List）原理</a></li>
-            <li><a href="#zset-核心应用场景详解">ZSet 核心应用场景详解</a></li>
+            <li></li>
           </ol>
         </li>
       </ol>
     </li>
-    <li><a href="#11-redis-到底把数据放成什么样">1.1 Redis 到底把数据放成什么样</a>
+    <li><a href="#先区分数据类型与内部编码">先区分数据类型与内部编码</a>
       <ol>
+        <li><a href="#先看三种转换">先看三种转换</a></li>
         <li><a href="#listpack现在的小对象紧凑编码">listpack：现在的小对象紧凑编码</a></li>
         <li><a href="#ziplist需要认识但不该当成当前默认答案">ziplist：需要认识，但不该当成当前默认答案</a></li>
-        <li><a href="#quicklist把大-list-分成多块-listpack">quicklist：把大 List 分成多块 listpack</a></li>
+        <li><a href="#quicklistlist-的分块形式">quicklist：List 的分块形式</a></li>
         <li><a href="#intset小而纯的整数集合">intset：小而纯的整数集合</a></li>
         <li><a href="#hashtable通用索引也承担渐进式扩容">hashtable：通用索引，也承担渐进式扩容</a></li>
         <li><a href="#skiplist为范围排序准备的索引">skiplist：为范围排序准备的索引</a></li>
         <li><a href="#五种之外这些命令复用了已有结构">五种之外：这些命令复用了已有结构</a></li>
-        <li><a href="#速查对比表">速查对比表</a></li>
       </ol>
     </li>
-    <li><a href="#2-持久化rdb-vs-aof">2. 持久化：RDB vs AOF</a>
+    <li><a href="#类型速查">类型速查</a></li>
+    <li><a href="#持久化rdb-与-aof">持久化：RDB 与 AOF</a>
       <ol>
         <li><a href="#rdbredis-database-快照">RDB（Redis Database）— 快照</a></li>
         <li><a href="#aofappend-only-file-追加日志">AOF（Append Only File）— 追加日志</a></li>
@@ -349,7 +350,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 14 分钟
+                    阅读时长: 17 分钟
                 </time>
             </div>
         
@@ -365,9 +366,8 @@
     
     
     <h1 id="redis常用数据结构与持久化原理">Redis：常用数据结构与持久化原理
-</h1><h2 id="1-五大基础数据结构">1. 五大基础数据结构
-</h2><h3 id="string字符串">String（字符串）
-</h3><p>Redis 最基础的类型，<code>SET key value</code> 中的 <strong>value</strong> 就是 String 类型（key 永远是字符串）。值最大 512MB。下面的编码以 Redis 7.4 为准；业务侧只使用 String、Hash 等数据类型，编码是 Redis 根据内容和大小挑选的内部存法。</p>
+</h1><h2 id="string字符串">String（字符串）
+</h2><p>Redis 最基础的类型，<code>SET key value</code> 中的 <strong>value</strong> 就是 String 类型（key 永远是字符串）。值最大 512MB。下面的编码以 Redis 7.4 为准；业务侧只使用 String、Hash 等数据类型，编码是 Redis 根据内容和大小挑选的内部存法。</p>
 <div class="table-wrapper"><table>
 	<thead>
 			<tr>
@@ -424,8 +424,8 @@
 <li><strong>分布式 Session</strong>：多个服务节点共享用户登录态</li>
 </ul>
 <hr>
-<h3 id="list列表">List（列表）
-</h3><p>有序、可重复的元素集合，两端都能操作。</p>
+<h2 id="list列表">List（列表）
+</h2><p>有序、可重复的元素集合，两端都能操作。</p>
 <div class="table-wrapper"><table>
 	<thead>
 			<tr>
@@ -462,8 +462,8 @@
 </span></span></code></pre></td></tr></table>
 </div>
 </div><hr>
-<h3 id="hash哈希">Hash（哈希）
-</h3><p>一个 key 下面挂多个 field-value 对，类似一张&quot;小表&quot;。</p>
+<h2 id="hash哈希">Hash（哈希）
+</h2><p>一个 key 下面挂多个 field-value 对，类似一张&quot;小表&quot;。</p>
 <div class="table-wrapper"><table>
 	<thead>
 			<tr>
@@ -500,8 +500,8 @@
 </span></span></code></pre></td></tr></table>
 </div>
 </div><hr>
-<h3 id="set集合">Set（集合）
-</h3><p>无序、不重复的元素集合，支持交并差运算。</p>
+<h2 id="set集合">Set（集合）
+</h2><p>无序、不重复的元素集合，支持交并差运算。</p>
 <div class="table-wrapper"><table>
 	<thead>
 			<tr>
@@ -544,8 +544,8 @@
 </span></span></code></pre></td></tr></table>
 </div>
 </div><hr>
-<h3 id="sorted-set--zset有序集合">Sorted Set / ZSet（有序集合）
-</h3><p>每个元素带一个 <code>score</code>（分数），按 score 排序，元素不重复。</p>
+<h2 id="sorted-set--zset有序集合">Sorted Set / ZSet（有序集合）
+</h2><p>每个元素带一个 <code>score</code>（分数），按 score 排序，元素不重复。</p>
 <div class="table-wrapper"><table>
 	<thead>
 			<tr>
@@ -564,8 +564,8 @@
 			</tr>
 	</tbody>
 </table></div>
-<h4 id="跳表skip-list原理">跳表（Skip List）原理
-</h4><p>跳表是一种<strong>多层链表</strong>结构，通过&quot;跳跃&quot;减少查找次数，性能接近平衡树但实现简单得多。</p>
+<h3 id="跳表skip-list原理">跳表（Skip List）原理
+</h3><p>跳表是一种<strong>多层链表</strong>结构，通过&quot;跳跃&quot;减少查找次数，性能接近平衡树但实现简单得多。</p>
 <p><strong>结构示意</strong>（以查找 score=50 为例）：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
@@ -596,8 +596,8 @@
 <li>同时维护一个哈希表，key 是 member，value 是 score，用于 O(1) 查找某个元素的分数</li>
 <li>跳表按 score 排序，score 相同时按 member 字典序排序</li>
 </ul>
-<h4 id="zset-核心应用场景详解">ZSet 核心应用场景详解
-</h4><h5 id="1-排行榜系统">1. 排行榜系统
+<h3 id="zset-常见场景">ZSet 常见场景
+</h3><h5 id="1-排行榜系统">1. 排行榜系统
 </h5><p><strong>需求</strong>：游戏积分榜、文章热度榜、销量排行等，需要实时更新分数并快速查询 Top N。</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
@@ -786,8 +786,65 @@
 </div>
 </div><p><strong>实际生产中</strong>：通常结合 Trie 树或 Elasticsearch，ZSet 只负责热度排序。</p>
 <hr>
-<h2 id="11-redis-到底把数据放成什么样">1.1 Redis 到底把数据放成什么样
-</h2><p>前面的 String、List、Hash、Set、ZSet 是命令层看到的类型。内部编码是另一层：同一个 Hash，字段少时可能是一块 listpack；字段多了会变成哈希表。用下面的命令可以在测试环境直接查看：</p>
+<h2 id="先区分数据类型与内部编码">先区分数据类型与内部编码
+</h2><p>前面的 String、List、Hash、Set、ZSet 是命令层看到的类型。内部编码是另一层：同一条 <code>HGET</code>、<code>ZRANGE</code> 或 <code>LRANGE</code> 命令不变，Redis 会根据集合大小和元素长度选择不同布局。</p>
+<h3 id="先看三种转换">先看三种转换
+</h3><p>Hash 和 ZSet 的紧凑编码通常各自只有一块 listpack。它们达到阈值后会换成另一种索引结构，不会先切成多块 listpack。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>小 Hash：
+</span></span><span style="display:flex;"><span>[listpack: field1 value1 field2 value2 ...]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>大 Hash：
+</span></span><span style="display:flex;"><span>[hashtable: field1 -&gt; value1, field2 -&gt; value2 ...]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>小 ZSet：
+</span></span><span style="display:flex;"><span>[listpack: member1 score1 member2 score2 ...]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>大 ZSet：
+</span></span><span style="display:flex;"><span>[hashtable: member -&gt; score]
+</span></span><span style="display:flex;"><span>[skiplist:  按 score 排序的 member]
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>List 是另一种情况。它很短时也可以只有一个 listpack；变大后，Redis 才把多个 listpack 节点串成 quicklist。这里的“节点大小”只适用于 List，不是 Hash、ZSet 的转换条件。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>小 List：
+</span></span><span style="display:flex;"><span>[listpack: A B C D ...]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>大 List：
+</span></span><span style="display:flex;"><span>quicklist
+</span></span><span style="display:flex;"><span>  ├─ node 1 -&gt; [listpack: A B C D]
+</span></span><span style="display:flex;"><span>  ├─ node 2 -&gt; [listpack: E F G H]
+</span></span><span style="display:flex;"><span>  └─ node 3 -&gt; [listpack: I J]
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Hash、ZSet 主要看元素数量和单个元素长度；List 还要看每个 listpack 节点允许的大小。这个区别先记住，后面的 listpack、quicklist 和跳表就不会混在一起。</p>
+<p>用下面的命令可以在测试环境直接查看实际编码：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
@@ -802,7 +859,23 @@
 </div>
 </div><p>编码会随数据变化。它不是 Schema，也不应由业务代码依赖；它解释的是同一条 <code>HGET</code> 为什么在小对象和大对象上会走不同的内存布局。</p>
 <h3 id="listpack现在的小对象紧凑编码">listpack：现在的小对象紧凑编码
-</h3><p>listpack 是一段连续字节数组，开头记录总长度和元素个数，元素依次紧挨着放。字符串长度和整数值都有紧凑编码，短整数不必先转成 ASCII 字符串。Hash 中的 <code>field</code>、<code>value</code> 会交替存放；ZSet 中则是 <code>member</code>、<code>score</code> 成对存放。</p>
+</h3><p>listpack 是一段连续字节数组。前一句“开头记录总长度和元素个数”说的是<strong>整段 listpack 的头部</strong>；后面的 <code>[本项编码][数据][backlen]</code> 说的是<strong>其中一个元素的布局</strong>。两者并不冲突，完整形状如下：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>[总字节数][元素个数] [本项编码][数据][backlen] [本项编码][数据][backlen] [结束标记]
+</span></span><span style="display:flex;"><span>\________________/ \______________________________/ \______________________________/
+</span></span><span style="display:flex;"><span>    listpack 头部                  第一个元素                       第二个元素
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>“本项编码”不是业务数据，而是 Redis 为读这个元素放的元数据。它告诉解析器：这个元素是整数还是字符串；如果是字符串，后面有多少字节；如果是整数，用哪种宽度解码。随后才是实际的“数据”。例如 Hash 里的字段 <code>age</code> 是字符串元素，编码会说明字符串长度为 3；值 <code>25</code> 可以用紧凑的整数编码保存。</p>
+<p><code>backlen</code> 记录的是<strong>当前元素本身占了多少字节</strong>，放在元素尾部。Redis 从尾部向头部遍历时，先读 <code>backlen</code>，就能跳回这个元素的起点；再看前一个字节位置，就能读到上一个元素的 <code>backlen</code>。因此不需要让下一个元素保存前一个元素的长度。</p>
+<p>Hash 中的 <code>field</code>、<code>value</code> 会交替存放；ZSet 中则是 <code>member</code>、<code>score</code> 成对存放。字符串长度和整数值都有紧凑编码，短整数不必先转成 ASCII 字符串。</p>
+<p><code>backlen</code> 不是 List 专属字段。只要数据使用 listpack，Hash、ZSet、Set，以及 List 自己或 quicklist 中的 listpack 节点，都会按这套元素格式保存。它描述的是 listpack 的二进制布局，不描述业务上的“列表元素”。</p>
 <p>它适合小数据。比如用户资料只有 <code>name</code>、<code>age</code>、<code>city</code> 三个短字段时，如果每个字段都单独分配一个哈希节点、指针和 SDS，元数据往往比内容还大；listpack 把这些东西挤在一块内存里，节省的是大量对象头和指针。</p>
 <p>连续存储也有代价：中间插入或删除需要移动后面的字节，按字段查找需要顺序扫描。因此 Redis 会在长度或单个值超过配置阈值时切成哈希表或跳表。以默认配置为例：</p>
 <div class="table-wrapper"><table>
@@ -838,8 +911,30 @@
 </table></div>
 <p>阈值来自 <code>redis.conf</code>，可以通过 <code>CONFIG GET hash-max-listpack-*</code>、<code>CONFIG GET zset-max-listpack-*</code> 等命令查看。调高阈值不必然更快：省内存与减少顺序扫描是两笔账，应当用真实数据测量。</p>
 <h3 id="ziplist需要认识但不该当成当前默认答案">ziplist：需要认识，但不该当成当前默认答案
-</h3><p>ziplist 也是旧版 Redis 的紧凑连续结构。它的每个元素开头都记录前一个元素的长度，因此可以从尾部向前走。问题在于：当前一个元素从 253 字节变成 254 字节时，后一个元素记录前驱长度的字段会从 1 字节扩到 5 字节；如果后面一串元素都卡在边界附近，可能发生连续更新和多次内存移动。</p>
-<p>listpack 把“向后遍历所需的长度”放在元素尾部的 <code>backlen</code>，不再让后一个元素保存前一个元素长度，避开了这种级联更新。Redis 7.4 的源码仍保留 ziplist 代码，主要用于读取历史 RDB 等兼容场景；新对象编码应以 listpack 为准。</p>
+</h3><p>ziplist 也是旧版 Redis 的紧凑连续结构。它的每个元素开头都记录前一个元素的长度，因此可以从尾部向头部走。这个字段同样不是 List 专属；旧版 Hash、ZSet 和 quicklist 节点使用 ziplist 时，都会带它。</p>
+<p>问题出在长度扩容会向后传递。假设 A、B、C 三个元素的大小都刚好在边界附近：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>旧 ziplist：
+</span></span><span style="display:flex;"><span>[A] [B 的 prevlen = A 的长度] [B] [C 的 prevlen = B 的长度] [C]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>A 从 253 字节变成 254 字节：
+</span></span><span style="display:flex;"><span>1. B 的 prevlen 由 1 字节扩成 5 字节；
+</span></span><span style="display:flex;"><span>2. B 本身因此变长；
+</span></span><span style="display:flex;"><span>3. C 记录的 B 长度也可能要扩容。
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>如果后面还有更多卡在边界附近的元素，更新就会继续传递，带来多次内存移动。listpack 把长度信息留在元素自己的尾部，A 变长时只需更新 A 的内容和 A 自己的 <code>backlen</code>；B、C 不需要为了描述 A 而修改。</p>
+<p>listpack 把“向后遍历所需的长度”放在元素尾部的 <code>backlen</code>，不再让后一个元素保存前一个元素长度，避开了这种级联更新。Redis 7.4 的源码仍保留 ziplist 代码和历史 RDB 格式兼容路径；新对象编码应以 listpack 为准。</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
@@ -851,8 +946,8 @@
 </span></span></code></pre></td></tr></table>
 </div>
 </div><p>旧版资料常把 ziplist 写成 Hash、ZSet 和 quicklist 节点的默认实现。读 Redis 7.x 时，应把它视为历史实现，把 listpack 视为当前默认答案。</p>
-<h3 id="quicklist把大-list-分成多块-listpack">quicklist：把大 List 分成多块 listpack
-</h3><p>List 不能一直只用一块连续内存。假设一个待处理任务列表有 20 万条短消息；如果每次 <code>LPUSH</code> 都把所有元素塞进同一块 listpack，扩容、移动和内存碎片都会变得难看。quicklist 把它拆成许多节点，每个节点是一块 listpack，节点之间用双向指针连接。</p>
+<h3 id="quicklistlist-的分块形式">quicklist：List 的分块形式
+</h3><p>List 不能一直只用一块连续内存。假设一个待处理任务列表有 20 万条短消息；如果每次 <code>LPUSH</code> 都把所有元素塞进同一块 listpack，扩容、移动和内存碎片都会变得难看。quicklist 把它拆成许多节点，每个节点是一块 listpack，节点之间用双向指针连接。这里的节点分块只属于 List 的 quicklist，不会发生在 Hash 或 ZSet 的紧凑编码上。</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
@@ -925,8 +1020,8 @@
 </table></div>
 <p>Stream 的消费者组、待确认消息等还会用字典维护状态。它比 List 消息队列多了消费组、确认和重放语义，因此不应只把 Stream 理解成“另一种 List”。</p>
 <hr>
-<h3 id="速查对比表">速查对比表
-</h3><div class="table-wrapper"><table>
+<h2 id="类型速查">类型速查
+</h2><div class="table-wrapper"><table>
 	<thead>
 			<tr>
 					<th>类型</th>
@@ -975,7 +1070,7 @@
 	</tbody>
 </table></div>
 <hr>
-<h2 id="2-持久化rdb-vs-aof">2. 持久化：RDB vs AOF
+<h2 id="持久化rdb-与-aof">持久化：RDB 与 AOF
 </h2><p>Redis 数据全在内存里，一旦进程挂了数据就没了。持久化就是把内存数据写到磁盘，重启后能恢复。</p>
 <h3 id="rdbredis-database-快照">RDB（Redis Database）— 快照
 </h3><p><strong>原理</strong>：在某个时间点，把内存中的全部数据生成一份<strong>二进制快照文件</strong>（<code>dump.rdb</code>）。</p>
