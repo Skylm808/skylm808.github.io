@@ -16,7 +16,7 @@
         <description>&lt;h1 id=&#34;redis常用数据结构与持久化原理&#34;&gt;Redis：常用数据结构与持久化原理
 &lt;/h1&gt;&lt;h2 id=&#34;1-五大基础数据结构&#34;&gt;1. 五大基础数据结构
 &lt;/h2&gt;&lt;h3 id=&#34;string字符串&#34;&gt;String（字符串）
-&lt;/h3&gt;&lt;p&gt;Redis 最基础的类型，&lt;code&gt;SET key value&lt;/code&gt; 中的 &lt;strong&gt;value&lt;/strong&gt; 就是 String 类型（key 永远是字符串）。值最大 512MB。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;Redis 最基础的类型，&lt;code&gt;SET key value&lt;/code&gt; 中的 &lt;strong&gt;value&lt;/strong&gt; 就是 String 类型（key 永远是字符串）。值最大 512MB。下面的编码以 Redis 7.4 为准；业务侧只使用 String、Hash 等数据类型，编码是 Redis 根据内容和大小挑选的内部存法。&lt;/p&gt;
 &lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
@@ -26,12 +26,16 @@
 	&lt;/thead&gt;
 	&lt;tbody&gt;
 			&lt;tr&gt;
-					&lt;td&gt;&lt;strong&gt;SDS&lt;/strong&gt;（Simple Dynamic String）&lt;/td&gt;
-					&lt;td&gt;不用 C 原生字符串，而是自己封装了一层，额外记录 &lt;code&gt;len&lt;/code&gt;（已用长度）和 &lt;code&gt;free&lt;/code&gt;（剩余空间），获取长度 O(1)，且二进制安全&lt;/td&gt;
+					&lt;td&gt;&lt;strong&gt;int&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;值是可表示为 &lt;code&gt;long&lt;/code&gt; 的整数时，直接把整数放进对象，不额外分配字符串&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;&lt;strong&gt;int 编码&lt;/strong&gt;&lt;/td&gt;
-					&lt;td&gt;当值是整数且范围在 long 内时，直接用整数存储，不走 SDS&lt;/td&gt;
+					&lt;td&gt;&lt;strong&gt;embstr&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;小字符串时，对象和 SDS 放在同一块内存里，分配与释放都更省&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;strong&gt;raw + SDS&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;较长或需要修改的字符串，用独立 SDS 保存字节内容&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
@@ -43,18 +47,23 @@
 &lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
 &lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
 &lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;7
 &lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
 &lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-c&#34; data-lang=&#34;c&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;struct&lt;/span&gt; sdshdr {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt; len;      &lt;span style=&#34;color:#6272a4&#34;&gt;// 已使用长度
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt; free;     &lt;span style=&#34;color:#6272a4&#34;&gt;// 剩余可用空间
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#8be9fd&#34;&gt;char&lt;/span&gt; buf[];   &lt;span style=&#34;color:#6272a4&#34;&gt;// 实际存储数据的字节数组
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-c&#34; data-lang=&#34;c&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#6272a4&#34;&gt;// 概念示意。Redis 会按长度选择 sdshdr8 / 16 / 32 / 64 等头部。
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;struct&lt;/span&gt; sdshdr {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#8be9fd&#34;&gt;unsigned&lt;/span&gt; &lt;span style=&#34;color:#8be9fd&#34;&gt;char&lt;/span&gt; len;    &lt;span style=&#34;color:#6272a4&#34;&gt;// 已使用长度
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#8be9fd&#34;&gt;unsigned&lt;/span&gt; &lt;span style=&#34;color:#8be9fd&#34;&gt;char&lt;/span&gt; alloc;  &lt;span style=&#34;color:#6272a4&#34;&gt;// 已分配容量
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#8be9fd&#34;&gt;unsigned&lt;/span&gt; &lt;span style=&#34;color:#8be9fd&#34;&gt;char&lt;/span&gt; flags;  &lt;span style=&#34;color:#6272a4&#34;&gt;// 头部类型
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#8be9fd&#34;&gt;char&lt;/span&gt; buf[];           &lt;span style=&#34;color:#6272a4&#34;&gt;// 实际存储的字节
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;};
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
 &lt;/div&gt;&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;为什么不用 C 字符串&lt;/strong&gt;：C 字符串以 &lt;code&gt;\0&lt;/code&gt; 结尾，获取长度需要遍历 O(N)，且无法存储二进制数据（图片、序列化对象等）&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;预分配策略&lt;/strong&gt;：修改字符串时，如果 &lt;code&gt;len &amp;lt; 1MB&lt;/code&gt; 就分配 &lt;code&gt;len&lt;/code&gt; 两倍的空间；如果 &lt;code&gt;len &amp;gt;= 1MB&lt;/code&gt; 就多分配 1MB。减少频繁内存分配&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;为什么不用 C 字符串&lt;/strong&gt;：C 字符串以 &lt;code&gt;\0&lt;/code&gt; 结尾，获取长度需要遍历 O(N)；SDS 记录长度，可以保存二进制字节。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;为什么有 &lt;code&gt;embstr&lt;/code&gt;&lt;/strong&gt;：&lt;code&gt;SET greeting hello&lt;/code&gt; 这种小值很常见。把对象头和字符串分两次分配，会多出一次内存管理成本；&lt;code&gt;embstr&lt;/code&gt; 把它们放在一起。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;预分配策略&lt;/strong&gt;：SDS 扩容会留出额外空间，减少连续 &lt;code&gt;APPEND&lt;/code&gt; 时反复分配和复制。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;&lt;strong&gt;常用场景&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
@@ -75,11 +84,16 @@
 	&lt;/thead&gt;
 	&lt;tbody&gt;
 			&lt;tr&gt;
-					&lt;td&gt;&lt;strong&gt;quicklist&lt;/strong&gt;（Redis 3.2+）&lt;/td&gt;
-					&lt;td&gt;由多个 &lt;strong&gt;ziplist&lt;/strong&gt;（压缩列表）通过双向指针串起来。兼顾了 ziplist 的内存紧凑和链表的快速两端操作&lt;/td&gt;
+					&lt;td&gt;&lt;strong&gt;listpack&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;很短的 List 直接放在一块紧凑连续内存里&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;strong&gt;quicklist&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;较大的 List 由多个 &lt;strong&gt;listpack&lt;/strong&gt; 节点组成双向链表；两端操作不必移动整条大列表，单个节点仍保持紧凑&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
+&lt;p&gt;&lt;code&gt;quicklist&lt;/code&gt; 早期的节点使用 ziplist；当前 Redis 使用 listpack。不要把“quicklist = ziplist 链表”当作新版本结论。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;常用场景&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;消息队列&lt;/strong&gt;：&lt;code&gt;LPUSH&lt;/code&gt; 生产 + &lt;code&gt;BRPOP&lt;/code&gt; 阻塞消费，简易版 MQ&lt;/li&gt;
@@ -108,8 +122,8 @@
 	&lt;/thead&gt;
 	&lt;tbody&gt;
 			&lt;tr&gt;
-					&lt;td&gt;&lt;strong&gt;ziplist&lt;/strong&gt;&lt;/td&gt;
-					&lt;td&gt;元素少且值短时使用（默认 field 数 ≤ 512 且值 ≤ 64 字节），内存紧凑&lt;/td&gt;
+					&lt;td&gt;&lt;strong&gt;listpack&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;field 和 value 交替连续存放。默认不超过 512 个 field，且单个 field/value 不超过 64 字节时采用&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;strong&gt;hashtable&lt;/strong&gt;&lt;/td&gt;
@@ -150,8 +164,12 @@
 					&lt;td&gt;全是整数且元素少时使用，内存紧凑&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
+					&lt;td&gt;&lt;strong&gt;listpack&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;小集合中出现非整数时也能紧凑保存。默认最多 128 个元素，单个元素最多 64 字节&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
 					&lt;td&gt;&lt;strong&gt;hashtable&lt;/strong&gt;&lt;/td&gt;
-					&lt;td&gt;其他情况，value 全部设为 NULL 的哈希表&lt;/td&gt;
+					&lt;td&gt;超过阈值后的常规实现，成员放在 key 中，value 为空&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
@@ -186,8 +204,8 @@
 	&lt;/thead&gt;
 	&lt;tbody&gt;
 			&lt;tr&gt;
-					&lt;td&gt;&lt;strong&gt;ziplist&lt;/strong&gt;&lt;/td&gt;
-					&lt;td&gt;元素少且值短时使用&lt;/td&gt;
+					&lt;td&gt;&lt;strong&gt;listpack&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;member 与 score 成对连续存放。默认不超过 128 个成员，且 member 不超过 64 字节时采用&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;strong&gt;skiplist + hashtable&lt;/strong&gt;&lt;/td&gt;
@@ -417,6 +435,145 @@
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;&lt;strong&gt;实际生产中&lt;/strong&gt;：通常结合 Trie 树或 Elasticsearch，ZSet 只负责热度排序。&lt;/p&gt;
 &lt;hr&gt;
+&lt;h2 id=&#34;11-redis-到底把数据放成什么样&#34;&gt;1.1 Redis 到底把数据放成什么样
+&lt;/h2&gt;&lt;p&gt;前面的 String、List、Hash、Set、ZSet 是命令层看到的类型。内部编码是另一层：同一个 Hash，字段少时可能是一块 listpack；字段多了会变成哈希表。用下面的命令可以在测试环境直接查看：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;HSET user:1001 name &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;张三&amp;#34;&lt;/span&gt; age &lt;span style=&#34;color:#bd93f9&#34;&gt;25&lt;/span&gt; city &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;北京&amp;#34;&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;OBJECT ENCODING user:1001
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#6272a4&#34;&gt;# 小 Hash 通常会显示 listpack&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;编码会随数据变化。它不是 Schema，也不应由业务代码依赖；它解释的是同一条 &lt;code&gt;HGET&lt;/code&gt; 为什么在小对象和大对象上会走不同的内存布局。&lt;/p&gt;
+&lt;h3 id=&#34;listpack现在的小对象紧凑编码&#34;&gt;listpack：现在的小对象紧凑编码
+&lt;/h3&gt;&lt;p&gt;listpack 是一段连续字节数组，开头记录总长度和元素个数，元素依次紧挨着放。字符串长度和整数值都有紧凑编码，短整数不必先转成 ASCII 字符串。Hash 中的 &lt;code&gt;field&lt;/code&gt;、&lt;code&gt;value&lt;/code&gt; 会交替存放；ZSet 中则是 &lt;code&gt;member&lt;/code&gt;、&lt;code&gt;score&lt;/code&gt; 成对存放。&lt;/p&gt;
+&lt;p&gt;它适合小数据。比如用户资料只有 &lt;code&gt;name&lt;/code&gt;、&lt;code&gt;age&lt;/code&gt;、&lt;code&gt;city&lt;/code&gt; 三个短字段时，如果每个字段都单独分配一个哈希节点、指针和 SDS，元数据往往比内容还大；listpack 把这些东西挤在一块内存里，节省的是大量对象头和指针。&lt;/p&gt;
+&lt;p&gt;连续存储也有代价：中间插入或删除需要移动后面的字节，按字段查找需要顺序扫描。因此 Redis 会在长度或单个值超过配置阈值时切成哈希表或跳表。以默认配置为例：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;类型&lt;/th&gt;
+					&lt;th&gt;紧凑编码&lt;/th&gt;
+					&lt;th&gt;默认转出条件&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Hash&lt;/td&gt;
+					&lt;td&gt;listpack&lt;/td&gt;
+					&lt;td&gt;field 数超过 512，或 field/value 超过 64 字节&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Set&lt;/td&gt;
+					&lt;td&gt;intset 或 listpack&lt;/td&gt;
+					&lt;td&gt;intset 超过 512 个整数；listpack 超过 128 个元素或元素超过 64 字节&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;ZSet&lt;/td&gt;
+					&lt;td&gt;listpack&lt;/td&gt;
+					&lt;td&gt;成员超过 128 个，或 member 超过 64 字节&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;List&lt;/td&gt;
+					&lt;td&gt;listpack&lt;/td&gt;
+					&lt;td&gt;超过 &lt;code&gt;list-max-listpack-size&lt;/code&gt; 所允许的单块大小，默认 &lt;code&gt;-2&lt;/code&gt;，约为 8 KB&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;阈值来自 &lt;code&gt;redis.conf&lt;/code&gt;，可以通过 &lt;code&gt;CONFIG GET hash-max-listpack-*&lt;/code&gt;、&lt;code&gt;CONFIG GET zset-max-listpack-*&lt;/code&gt; 等命令查看。调高阈值不必然更快：省内存与减少顺序扫描是两笔账，应当用真实数据测量。&lt;/p&gt;
+&lt;h3 id=&#34;ziplist需要认识但不该当成当前默认答案&#34;&gt;ziplist：需要认识，但不该当成当前默认答案
+&lt;/h3&gt;&lt;p&gt;ziplist 也是旧版 Redis 的紧凑连续结构。它的每个元素开头都记录前一个元素的长度，因此可以从尾部向前走。问题在于：当前一个元素从 253 字节变成 254 字节时，后一个元素记录前驱长度的字段会从 1 字节扩到 5 字节；如果后面一串元素都卡在边界附近，可能发生连续更新和多次内存移动。&lt;/p&gt;
+&lt;p&gt;listpack 把“向后遍历所需的长度”放在元素尾部的 &lt;code&gt;backlen&lt;/code&gt;，不再让后一个元素保存前一个元素长度，避开了这种级联更新。Redis 7.4 的源码仍保留 ziplist 代码，主要用于读取历史 RDB 等兼容场景；新对象编码应以 listpack 为准。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;旧 ziplist:  [前项长度][本项编码][数据] [前项长度][本项编码][数据]
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;listpack:    [本项编码][数据][backlen] [本项编码][数据][backlen]
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;旧版资料常把 ziplist 写成 Hash、ZSet 和 quicklist 节点的默认实现。读 Redis 7.x 时，应把它视为历史实现，把 listpack 视为当前默认答案。&lt;/p&gt;
+&lt;h3 id=&#34;quicklist把大-list-分成多块-listpack&#34;&gt;quicklist：把大 List 分成多块 listpack
+&lt;/h3&gt;&lt;p&gt;List 不能一直只用一块连续内存。假设一个待处理任务列表有 20 万条短消息；如果每次 &lt;code&gt;LPUSH&lt;/code&gt; 都把所有元素塞进同一块 listpack，扩容、移动和内存碎片都会变得难看。quicklist 把它拆成许多节点，每个节点是一块 listpack，节点之间用双向指针连接。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;head &amp;lt;-&amp;gt; [listpack: task-1 ... task-300] &amp;lt;-&amp;gt; [listpack: task-301 ... task-600] &amp;lt;-&amp;gt; ... &amp;lt;-&amp;gt; tail
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;code&gt;LPUSH&lt;/code&gt;、&lt;code&gt;RPUSH&lt;/code&gt;、&lt;code&gt;LPOP&lt;/code&gt;、&lt;code&gt;RPOP&lt;/code&gt; 多数只触碰头尾附近的节点；读取中间位置时，Redis 从更近的一端选择节点。&lt;code&gt;list-max-listpack-size&lt;/code&gt; 控制每个节点装多少数据，&lt;code&gt;list-compress-depth&lt;/code&gt; 还能选择只压缩中间节点，把两端若干节点留在未压缩状态，照顾常见的两端读写。&lt;/p&gt;
+&lt;h3 id=&#34;intset小而纯的整数集合&#34;&gt;intset：小而纯的整数集合
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;intset&lt;/code&gt; 是一块有序整数数组。它不存字符串指针，只存 16、32 或 64 位整数；数组内元素按数值排序，查找用二分法。插入一个更大范围的数时，Redis 会把整块数组升级到更宽的整数类型。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;SADD lottery:ids &lt;span style=&#34;color:#bd93f9&#34;&gt;7&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;12&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;42&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;OBJECT ENCODING lottery:ids
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#6272a4&#34;&gt;# 小型纯整数集合通常是 intset&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;SADD lottery:ids guest:1001
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;OBJECT ENCODING lottery:ids
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#6272a4&#34;&gt;# 出现非整数后，若集合仍很小，Redis 7.4 可以改用 listpack；再变大后使用 hashtable&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这解释了一个容易忽略的点：Set 并非永远是“哈希表”。只有数据量或数据形态不适合紧凑编码时，才会转成哈希表。&lt;/p&gt;
+&lt;h3 id=&#34;hashtable通用索引也承担渐进式扩容&#34;&gt;hashtable：通用索引，也承担渐进式扩容
+&lt;/h3&gt;&lt;p&gt;Redis 的字典结构服务于数据库 key 空间，也服务于大 Hash、Set 和 ZSet 的 member 查找。它使用哈希桶，平均查找、插入和删除是 O(1)。大 ZSet 会同时有一张 member 到 score 的字典和一座跳表：字典解决 &lt;code&gt;ZSCORE player_A&lt;/code&gt;，跳表解决“分数在 100 到 200 的成员”。&lt;/p&gt;
+&lt;p&gt;哈希表扩容时不会在一条命令里搬完所有桶。Redis 同时保留旧表和新表，把后续操作遇到的桶逐步迁走，并由后台周期继续推进。这样能把一次大迁移拆开，避免某个 Hash 扩容时突然占满事件循环。&lt;/p&gt;
+&lt;h3 id=&#34;skiplist为范围排序准备的索引&#34;&gt;skiplist：为范围排序准备的索引
+&lt;/h3&gt;&lt;p&gt;跳表已经在 ZSet 部分出现过。它的价值不只是“查找快”，而是天然维持排序顺序。排行榜里，&lt;code&gt;ZSCORE&lt;/code&gt; 走字典；&lt;code&gt;ZREVRANGE game:rank 0 9&lt;/code&gt; 和 &lt;code&gt;ZRANGEBYSCORE game:rank 100 200&lt;/code&gt; 需要跳表沿着 score 的顺序移动。两个结构存的是同一批成员，内存会更多，换来的是两种查询都不用退让。&lt;/p&gt;
+&lt;h3 id=&#34;五种之外这些命令复用了已有结构&#34;&gt;五种之外：这些命令复用了已有结构
+&lt;/h3&gt;&lt;p&gt;Redis 还有一些常用功能，但并不都引入一套新的通用对象类型。&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;功能&lt;/th&gt;
+					&lt;th&gt;内部位置&lt;/th&gt;
+					&lt;th&gt;例子&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Bitmap / Bitfield&lt;/td&gt;
+					&lt;td&gt;String 的 SDS 字节数组&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;SETBIT login:20260302 1001 1&lt;/code&gt;，一个 bit 对应一个用户是否登录&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;HyperLogLog&lt;/td&gt;
+					&lt;td&gt;特殊 String 编码的稀疏或稠密寄存器&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;PFADD uv:20260302 user:1&lt;/code&gt;，近似统计 UV&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Geo&lt;/td&gt;
+					&lt;td&gt;ZSet，score 是编码后的地理位置&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;GEOADD shops 116.397 39.908 tiananmen&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Stream&lt;/td&gt;
+					&lt;td&gt;基数树索引条目块，条目内容使用 listpack&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;XADD orders * id 1001 status created&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;Stream 的消费者组、待确认消息等还会用字典维护状态。它比 List 消息队列多了消费组、确认和重放语义，因此不应只把 Stream 理解成“另一种 List”。&lt;/p&gt;
+&lt;hr&gt;
 &lt;h3 id=&#34;速查对比表&#34;&gt;速查对比表
 &lt;/h3&gt;&lt;table&gt;
 	&lt;thead&gt;
@@ -431,35 +588,35 @@
 	&lt;tbody&gt;
 			&lt;tr&gt;
 					&lt;td&gt;String&lt;/td&gt;
-					&lt;td&gt;SDS / int&lt;/td&gt;
+					&lt;td&gt;int / embstr / SDS&lt;/td&gt;
 					&lt;td&gt;—&lt;/td&gt;
 					&lt;td&gt;—&lt;/td&gt;
 					&lt;td&gt;缓存、计数器、分布式锁&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;List&lt;/td&gt;
-					&lt;td&gt;quicklist&lt;/td&gt;
+					&lt;td&gt;listpack / quicklist&lt;/td&gt;
 					&lt;td&gt;✅ 插入序&lt;/td&gt;
 					&lt;td&gt;❌&lt;/td&gt;
 					&lt;td&gt;消息队列、最新列表&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;Hash&lt;/td&gt;
-					&lt;td&gt;ziplist / hashtable&lt;/td&gt;
+					&lt;td&gt;listpack / hashtable&lt;/td&gt;
 					&lt;td&gt;❌&lt;/td&gt;
 					&lt;td&gt;field 唯一&lt;/td&gt;
 					&lt;td&gt;对象存储、购物车&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;Set&lt;/td&gt;
-					&lt;td&gt;intset / hashtable&lt;/td&gt;
+					&lt;td&gt;intset / listpack / hashtable&lt;/td&gt;
 					&lt;td&gt;❌&lt;/td&gt;
 					&lt;td&gt;✅&lt;/td&gt;
 					&lt;td&gt;去重、社交关系、抽奖&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;ZSet&lt;/td&gt;
-					&lt;td&gt;ziplist / skiplist+ht&lt;/td&gt;
+					&lt;td&gt;listpack / skiplist + hashtable&lt;/td&gt;
 					&lt;td&gt;✅ score 序&lt;/td&gt;
 					&lt;td&gt;✅&lt;/td&gt;
 					&lt;td&gt;排行榜、延迟队列&lt;/td&gt;
@@ -719,6 +876,21 @@
 &lt;p&gt;&lt;strong&gt;定期备份 RDB&lt;/strong&gt;：即使开了 AOF，也建议定期把 &lt;code&gt;dump.rdb&lt;/code&gt; 备份到远程（如对象存储），作为灾难恢复的最后一道防线。&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id=&#34;参考源码&#34;&gt;参考源码
+&lt;/h2&gt;&lt;p&gt;本文的数据结构编码以 Redis &lt;code&gt;7.4&lt;/code&gt; 分支、提交 &lt;code&gt;93a16ee&lt;/code&gt; 为准：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/redis/redis/blob/7.4/src/object.c&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;对象创建与编码名称&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/redis/redis/blob/7.4/src/t_list.c&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;List 的 listpack / quicklist 转换&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/redis/redis/blob/7.4/src/t_set.c&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;Set 的 intset / listpack / hashtable 转换&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/redis/redis/tree/7.4/src&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;Hash 与 ZSet 的 listpack 转换&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/redis/redis/blob/7.4/redis.conf&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;默认编码阈值&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
 </description>
         </item>
         <item>
