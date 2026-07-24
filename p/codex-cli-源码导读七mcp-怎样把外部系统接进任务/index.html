@@ -347,7 +347,7 @@
 <p>这里最容易混淆三件事：模型发起一次工具调用，和 Codex 怎样执行它，是一回事；工具的能力从哪里来，是另一回事。MCP 处理第二件事。它是一套让 Codex 连接外部能力的协议：Codex 作为客户端连接 MCP 服务，服务声明工具和资源，Codex 再把符合条件的工具交给当前任务使用。</p>
 <p>本文固定使用 <code>openai/codex</code> 的 <code>268288a</code>。阅读范围是公开 CLI 源码中的 MCP 客户端路径，不讨论某个具体公司的 MCP 服务实现或其中保存的数据。</p>
 <h2 id="先把工具调用和-mcp-分开">先把工具调用和 MCP 分开
-</h2><p>“function calling”在这里可以先理解为模型与运行时之间的一种约定：模型不直接执行程序，而是返回“调用哪个工具、参数是什么”的结构化请求。比如模型可能请求：</p>
+</h2><p>function calling 可以先理解为：模型怎样表达“我下一步要调用这个工具”。模型不直接运行程序，只返回工具名和参数：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
@@ -362,48 +362,18 @@
 </span></span><span style="display:flex;"><span>}
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>Codex 收到这份请求，找到对应处理器，执行动作，再把结果交还给模型。这条来回过程适用于所有工具，不只适用于 MCP。</p>
-<div class="table-wrapper"><table>
-	<thead>
-			<tr>
-					<th>名称</th>
-					<th>它解决的问题</th>
-					<th>在一次任务中的位置</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td>工具调用</td>
-					<td>模型怎样提出“请做这个动作”</td>
-					<td>模型给出工具名和 JSON 参数，等待结果</td>
-			</tr>
-			<tr>
-					<td>内置工具</td>
-					<td>Codex 在本地已经会做什么</td>
-					<td>读文件、搜索、执行 Shell、应用补丁</td>
-			</tr>
-			<tr>
-					<td>MCP</td>
-					<td>外部系统怎样接进 Codex</td>
-					<td>发现外部工具，并把调用转发给 MCP 服务</td>
-			</tr>
-	</tbody>
-</table></div>
-<p>所以，MCP 工具通常也会成为模型可调用的工具，但两者不能画等号。模型请求 <code>exec_command</code> 时，Codex 会在本地找到 Shell 工具的处理器；模型请求 <code>search_issues</code> 时，Codex 可能需要将同样形式的工具调用转给一个 MCP 服务。前者不经过 MCP，后者才经过。</p>
-<p>下面仍以 <code>search_issues</code> 为例。先看整条路径，再进入配置和源码细节。</p>
-<pre class="mermaid">sequenceDiagram
-    participant A as 模型
-    participant C as Codex 工具运行时
-    participant M as MCP 客户端
-    participant S as 缺陷系统的 MCP 服务
-
-    A-&gt;&gt;C: 请求 search_issues(JSON 参数)
-    C-&gt;&gt;M: 确认这是 MCP 工具
-    M-&gt;&gt;S: tools/call
-    S--&gt;&gt;M: 问题列表
-    M--&gt;&gt;C: 工具结果
-    C--&gt;&gt;A: 本轮可继续使用的信息</pre>
-<p>MCP 解决的是“怎么接上外部系统”，不负责替模型判断任务，也不自动授予外部系统的全部权限。</p>
+</div><p>MCP 则解决另一件事：Codex 怎样连接外部服务。模型不会自己拿着 Jira、天气或数据库的凭证访问网络；它把请求交给 Codex，Codex 再决定在本地执行，还是通过 MCP 转发给外部服务。</p>
+<p>同一类工具调用有两条执行路线：</p>
+<pre class="mermaid">flowchart TD
+    A[&#34;模型发起工具调用\nsearch_issues({ id: 123 })&#34;] --&gt; B[&#34;Codex 工具运行时&#34;]
+    B --&gt; C{&#34;工具来自哪里？&#34;}
+    C --&gt;|&#34;内置工具&#34;| D[&#34;本地执行\n读文件、Shell、补丁&#34;]
+    C --&gt;|&#34;MCP 工具&#34;| E[&#34;MCP tools/call&#34;]
+    E --&gt; F[&#34;外部 MCP Server\nJira、天气、数据库&#34;]
+    D --&gt; G[&#34;工具结果回到模型&#34;]
+    F --&gt; G</pre>
+<p>例如模型请求 <code>exec_command</code>，Codex 本地执行 Shell，不经过 MCP；模型请求 <code>search_issues</code>，Codex 通过 MCP 的 <code>tools/call</code> 请求 Jira 服务。两次都是模型发起的工具调用，只有第二次需要 MCP。</p>
+<p>后文的 <code>tools/list</code> 也因此有了位置：它不是模型调用工具的格式，而是 Codex 连接 MCP 服务后询问“你提供哪些外部工具”。</p>
 <h2 id="再看它解决的缺口">再看它解决的缺口
 </h2><p>假设团队已经把缺陷系统接成一个 MCP 服务，提供 <code>search_issues</code> 工具。用户要求：“根据支付模块当前的阻塞问题，修复仓库里的失败测试。”</p>
 <p>这里有两类动作：在本地仓库运行测试，和到缺陷系统查询问题。前者适合内置的 Shell、文件和补丁工具；后者的账号、数据模型和访问方式属于外部系统。让 Codex 自己为每一种系统编写一套集成，既难维护，也无法复用。</p>
