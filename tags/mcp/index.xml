@@ -87,7 +87,36 @@
 &lt;p&gt;命令行里的 &lt;code&gt;codex mcp add&lt;/code&gt; 会把服务定义写入 Codex 的全局配置。&lt;code&gt;codex-rs/cli/src/mcp_cmd.rs&lt;/code&gt; 在创建配置时还记录了服务是否必需、启动和调用超时、默认审批方式，以及每个工具的覆盖配置。MCP 服务由运行时配置管理，而不是靠一段临时提示词维持。&lt;/p&gt;
 &lt;p&gt;有两个设置值得在读源码时先记住。&lt;code&gt;enabled = false&lt;/code&gt; 会让 Codex 跳过该服务的初始化；&lt;code&gt;required = true&lt;/code&gt; 则会让 &lt;code&gt;codex exec&lt;/code&gt; 在该服务启动失败时返回错误。前者适合暂时关闭一个集成，后者适合任务离开某个外部系统就无法继续的场景。&lt;/p&gt;
 &lt;h2 id=&#34;连接成功后先发现工具&#34;&gt;连接成功后，先发现工具
-&lt;/h2&gt;&lt;p&gt;每个 Thread 都有自己的 MCP 运行时快照。这里的 Thread 是一条持续任务的会话容器，第三篇已经解释过。每轮任务还会取得一份 Step Context，也就是这轮环境、权限和可用能力的快照。&lt;code&gt;McpRuntime&lt;/code&gt; 保存当前的连接集合；配置或可用环境变化时，运行时可以原子地替换这组连接，让正在使用旧快照的工作继续完成。&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;先把三个名字分开。它们常常一起出现，但不是同一件事：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;名称&lt;/th&gt;
+					&lt;th&gt;它是什么&lt;/th&gt;
+					&lt;th&gt;例子&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;MCP 服务&lt;/td&gt;
+					&lt;td&gt;连接外部系统的服务&lt;/td&gt;
+					&lt;td&gt;接入 Jira 的服务&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;MCP 工具&lt;/td&gt;
+					&lt;td&gt;该服务提供的一个具体动作&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;search_issues&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Plugin&lt;/td&gt;
+					&lt;td&gt;可安装的能力包&lt;/td&gt;
+					&lt;td&gt;可以带 Skill、Hook、MCP 配置或界面资源&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;一个 Plugin 可以带来 MCP 服务，但 Plugin 不等于 MCP；也有 Plugin 完全不连接外部系统。模型最终看到的是 MCP 工具，例如 &lt;code&gt;search_issues&lt;/code&gt;，不是“Jira 插件”这个安装包。&lt;/p&gt;
+&lt;p&gt;每个 Thread 都有自己的 MCP 运行时。一次模型请求开始时，Codex 会建立一份 &lt;code&gt;StepContext&lt;/code&gt;：它记录这一步的环境、权限和连接状态。&lt;code&gt;StepContext&lt;/code&gt; 第一次需要 MCP 工具时才调用 &lt;code&gt;list_all_tools&lt;/code&gt;，并把结果缓存到这一步结束。模型在同一步里多次调用工具，不会反复向服务询问清单。&lt;/p&gt;
+&lt;p&gt;新的 Turn 或新的执行步骤会重新取快照，但清单不一定变化。配置、权限、服务连接和可用环境都没有变化时，新的快照通常还是同一批工具。某个服务启停、登录权限变化、工具被启用或禁用，或者当前环境选择不同，模型才可能看到不同的清单。&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;McpConnectionManager&lt;/code&gt; 负责管理一组服务客户端。启动后，它通过 MCP 的初始化握手建立连接，并用 &lt;code&gt;tools/list&lt;/code&gt; 读取每个可用服务提供的工具。&lt;code&gt;list_all_tools&lt;/code&gt; 会汇总这些工具，跳过当前不可用的服务，再把工具名整理成模型可见的形式。&lt;/p&gt;
 &lt;pre class=&#34;mermaid&#34;&gt;sequenceDiagram
     participant S as Step Context
@@ -105,12 +134,9 @@
     T--&amp;gt;&amp;gt;S: 本轮模型可见的工具&lt;/pre&gt;
 &lt;p&gt;这里的 schema 是参数结构说明。例如 &lt;code&gt;search_issues&lt;/code&gt; 可以声明 &lt;code&gt;project&lt;/code&gt;、&lt;code&gt;status&lt;/code&gt; 和 &lt;code&gt;query&lt;/code&gt; 三个字段。模型据此生成参数；服务据此验证参数。模型只需要看到稳定的名称、说明和结构，不需要了解服务背后是 SQL、REST API 还是另一套 RPC。&lt;/p&gt;
 &lt;p&gt;源码刻意区分“给协议路由用的原始名称”和“给模型看的名称”。&lt;code&gt;codex-rs/codex-mcp/src/tools.rs&lt;/code&gt; 的 &lt;code&gt;ToolInfo&lt;/code&gt; 同时保存服务名、原始工具名和规范化后的可调用名称。这样，模型侧的名称可以清理非法字符、解决重名；真正调用时仍会准确回到原服务的原工具名。&lt;/p&gt;
-&lt;h2 id=&#34;发现不等于全部暴露&#34;&gt;发现不等于全部暴露
-&lt;/h2&gt;&lt;p&gt;外部服务报出十几个工具，不代表模型这一轮必然能看到十几个。Codex 还要过三道筛选。&lt;/p&gt;
-&lt;p&gt;第一道是服务配置。&lt;code&gt;enabled_tools&lt;/code&gt; 可以成为显式允许列表，&lt;code&gt;disabled_tools&lt;/code&gt; 可以明确屏蔽工具。&lt;code&gt;ToolFilter&lt;/code&gt; 在列工具和真正调用时都会检查这两项，所以不能只靠“模型没看到”来防止调用。&lt;/p&gt;
-&lt;p&gt;第二道是模型可见性。&lt;code&gt;tool_is_model_visible&lt;/code&gt; 会检查工具的协议元数据；&lt;code&gt;build_mcp_tool_runtimes&lt;/code&gt; 只为可见工具创建处理器。若开启工具搜索，一部分 MCP 工具还会以延迟加载方式出现，模型先搜索能力，再取得具体工具规格。这和第五篇的 Tool Plan 是同一层机制。&lt;/p&gt;
-&lt;p&gt;第三道是当前 Thread 的环境与配置。&lt;code&gt;Session::mcp_runtime_for_step&lt;/code&gt; 会根据本轮可用环境、插件贡献和服务配置生成运行时投影。服务写在配置文件里，并不保证它此刻已经成功连接，也不保证它的工具会出现在本轮的列表中。&lt;/p&gt;
-&lt;p&gt;因此，MCP 工具的可见性是一份运行时结果，不是一张静态清单。&lt;/p&gt;
+&lt;h2 id=&#34;发现不等于都能给模型用&#34;&gt;发现不等于都能给模型用
+&lt;/h2&gt;&lt;p&gt;外部服务报出十几个工具，不代表模型这一步必然能看到十几个。&lt;code&gt;enabled_tools&lt;/code&gt; 和 &lt;code&gt;disabled_tools&lt;/code&gt; 先按配置筛选；工具元数据再决定它是否对模型可见；当前服务是否连通、权限是否有效也会影响结果。&lt;code&gt;ToolFilter&lt;/code&gt; 在列工具和真正调用时都会检查配置，不能只靠“模型没看到”来防止调用。&lt;/p&gt;
+&lt;p&gt;因此，MCP 工具清单是当前运行条件下的结果，不是配置文件里的固定名单。&lt;code&gt;Session::mcp_runtime_for_step&lt;/code&gt; 会按本轮环境、Plugin 贡献和服务配置生成这份结果；开启工具搜索时，部分工具还会延迟到模型搜索能力后才出现。&lt;/p&gt;
 &lt;h2 id=&#34;模型调用-mcp-工具时codex-做了什么&#34;&gt;模型调用 MCP 工具时，Codex 做了什么
 &lt;/h2&gt;&lt;p&gt;当模型选中一个 MCP 工具，&lt;code&gt;McpHandler&lt;/code&gt; 先把模型参数交给 &lt;code&gt;handle_mcp_tool_call&lt;/code&gt;。后者解析 JSON，检查该服务和工具仍可用，发出“工具调用开始”的 Turn 事件，然后决定是否需要审批。&lt;/p&gt;
 &lt;pre class=&#34;mermaid&#34;&gt;flowchart TD

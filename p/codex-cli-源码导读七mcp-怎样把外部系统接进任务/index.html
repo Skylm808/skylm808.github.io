@@ -253,7 +253,7 @@
     <li><a href="#再看它解决的缺口">再看它解决的缺口</a></li>
     <li><a href="#配置先描述要连谁">配置先描述“要连谁”</a></li>
     <li><a href="#连接成功后先发现工具">连接成功后，先发现工具</a></li>
-    <li><a href="#发现不等于全部暴露">发现不等于全部暴露</a></li>
+    <li><a href="#发现不等于都能给模型用">发现不等于都能给模型用</a></li>
     <li><a href="#模型调用-mcp-工具时codex-做了什么">模型调用 MCP 工具时，Codex 做了什么</a></li>
     <li><a href="#外部能力仍要经过边界">外部能力仍要经过边界</a></li>
     <li><a href="#读源码时从这五处开始">读源码时从这五处开始</a></li>
@@ -416,7 +416,36 @@
 <p>命令行里的 <code>codex mcp add</code> 会把服务定义写入 Codex 的全局配置。<code>codex-rs/cli/src/mcp_cmd.rs</code> 在创建配置时还记录了服务是否必需、启动和调用超时、默认审批方式，以及每个工具的覆盖配置。MCP 服务由运行时配置管理，而不是靠一段临时提示词维持。</p>
 <p>有两个设置值得在读源码时先记住。<code>enabled = false</code> 会让 Codex 跳过该服务的初始化；<code>required = true</code> 则会让 <code>codex exec</code> 在该服务启动失败时返回错误。前者适合暂时关闭一个集成，后者适合任务离开某个外部系统就无法继续的场景。</p>
 <h2 id="连接成功后先发现工具">连接成功后，先发现工具
-</h2><p>每个 Thread 都有自己的 MCP 运行时快照。这里的 Thread 是一条持续任务的会话容器，第三篇已经解释过。每轮任务还会取得一份 Step Context，也就是这轮环境、权限和可用能力的快照。<code>McpRuntime</code> 保存当前的连接集合；配置或可用环境变化时，运行时可以原子地替换这组连接，让正在使用旧快照的工作继续完成。</p>
+</h2><p>先把三个名字分开。它们常常一起出现，但不是同一件事：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>名称</th>
+					<th>它是什么</th>
+					<th>例子</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>MCP 服务</td>
+					<td>连接外部系统的服务</td>
+					<td>接入 Jira 的服务</td>
+			</tr>
+			<tr>
+					<td>MCP 工具</td>
+					<td>该服务提供的一个具体动作</td>
+					<td><code>search_issues</code></td>
+			</tr>
+			<tr>
+					<td>Plugin</td>
+					<td>可安装的能力包</td>
+					<td>可以带 Skill、Hook、MCP 配置或界面资源</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>一个 Plugin 可以带来 MCP 服务，但 Plugin 不等于 MCP；也有 Plugin 完全不连接外部系统。模型最终看到的是 MCP 工具，例如 <code>search_issues</code>，不是“Jira 插件”这个安装包。</p>
+<p>每个 Thread 都有自己的 MCP 运行时。一次模型请求开始时，Codex 会建立一份 <code>StepContext</code>：它记录这一步的环境、权限和连接状态。<code>StepContext</code> 第一次需要 MCP 工具时才调用 <code>list_all_tools</code>，并把结果缓存到这一步结束。模型在同一步里多次调用工具，不会反复向服务询问清单。</p>
+<p>新的 Turn 或新的执行步骤会重新取快照，但清单不一定变化。配置、权限、服务连接和可用环境都没有变化时，新的快照通常还是同一批工具。某个服务启停、登录权限变化、工具被启用或禁用，或者当前环境选择不同，模型才可能看到不同的清单。</p>
 <p><code>McpConnectionManager</code> 负责管理一组服务客户端。启动后，它通过 MCP 的初始化握手建立连接，并用 <code>tools/list</code> 读取每个可用服务提供的工具。<code>list_all_tools</code> 会汇总这些工具，跳过当前不可用的服务，再把工具名整理成模型可见的形式。</p>
 <pre class="mermaid">sequenceDiagram
     participant S as Step Context
@@ -434,12 +463,9 @@
     T--&gt;&gt;S: 本轮模型可见的工具</pre>
 <p>这里的 schema 是参数结构说明。例如 <code>search_issues</code> 可以声明 <code>project</code>、<code>status</code> 和 <code>query</code> 三个字段。模型据此生成参数；服务据此验证参数。模型只需要看到稳定的名称、说明和结构，不需要了解服务背后是 SQL、REST API 还是另一套 RPC。</p>
 <p>源码刻意区分“给协议路由用的原始名称”和“给模型看的名称”。<code>codex-rs/codex-mcp/src/tools.rs</code> 的 <code>ToolInfo</code> 同时保存服务名、原始工具名和规范化后的可调用名称。这样，模型侧的名称可以清理非法字符、解决重名；真正调用时仍会准确回到原服务的原工具名。</p>
-<h2 id="发现不等于全部暴露">发现不等于全部暴露
-</h2><p>外部服务报出十几个工具，不代表模型这一轮必然能看到十几个。Codex 还要过三道筛选。</p>
-<p>第一道是服务配置。<code>enabled_tools</code> 可以成为显式允许列表，<code>disabled_tools</code> 可以明确屏蔽工具。<code>ToolFilter</code> 在列工具和真正调用时都会检查这两项，所以不能只靠“模型没看到”来防止调用。</p>
-<p>第二道是模型可见性。<code>tool_is_model_visible</code> 会检查工具的协议元数据；<code>build_mcp_tool_runtimes</code> 只为可见工具创建处理器。若开启工具搜索，一部分 MCP 工具还会以延迟加载方式出现，模型先搜索能力，再取得具体工具规格。这和第五篇的 Tool Plan 是同一层机制。</p>
-<p>第三道是当前 Thread 的环境与配置。<code>Session::mcp_runtime_for_step</code> 会根据本轮可用环境、插件贡献和服务配置生成运行时投影。服务写在配置文件里，并不保证它此刻已经成功连接，也不保证它的工具会出现在本轮的列表中。</p>
-<p>因此，MCP 工具的可见性是一份运行时结果，不是一张静态清单。</p>
+<h2 id="发现不等于都能给模型用">发现不等于都能给模型用
+</h2><p>外部服务报出十几个工具，不代表模型这一步必然能看到十几个。<code>enabled_tools</code> 和 <code>disabled_tools</code> 先按配置筛选；工具元数据再决定它是否对模型可见；当前服务是否连通、权限是否有效也会影响结果。<code>ToolFilter</code> 在列工具和真正调用时都会检查配置，不能只靠“模型没看到”来防止调用。</p>
+<p>因此，MCP 工具清单是当前运行条件下的结果，不是配置文件里的固定名单。<code>Session::mcp_runtime_for_step</code> 会按本轮环境、Plugin 贡献和服务配置生成这份结果；开启工具搜索时，部分工具还会延迟到模型搜索能力后才出现。</p>
 <h2 id="模型调用-mcp-工具时codex-做了什么">模型调用 MCP 工具时，Codex 做了什么
 </h2><p>当模型选中一个 MCP 工具，<code>McpHandler</code> 先把模型参数交给 <code>handle_mcp_tool_call</code>。后者解析 JSON，检查该服务和工具仍可用，发出“工具调用开始”的 Turn 事件，然后决定是否需要审批。</p>
 <pre class="mermaid">flowchart TD
@@ -539,12 +565,12 @@
             
                 
 <article class="">
-    <a href="/p/codex-cli-agent-architecture-10/">
+    <a href="/p/codex-cli-agent-architecture-11/">
         
         
 
         <div class="article-details">
-            <h2 class="article-title">Codex CLI 源码导读（十一）：从一句任务到一次可验证的改动</h2>
+            <h2 class="article-title">Codex CLI 源码导读（十一）：一项任务怎样从输入走到验证</h2>
         </div>
     </a>
 </article>

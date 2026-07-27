@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Codex CLI 源码导读（十一）：一项任务怎样从输入走到验证 前十篇把 Codex 的会话、上下文、工具、权限、MCP、扩展、多 Agent 和界面拆开讲。这一篇不再追源码，而是把它们放回一项真实任务：用户给出一句要求，Codex 了解工作区、修改文件、验证结果，然后在该停的时候停下。\n">
+<title>Codex CLI 源码导读（十一）：一项任务怎样从输入走到验证</title>
+
+<link rel='canonical' href='https://skylm.top/p/codex-cli-agent-architecture-11/'>
+
+<link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="Codex CLI 源码导读（十一）：一项任务怎样从输入走到验证">
+<meta property='og:description' content="Codex CLI 源码导读（十一）：一项任务怎样从输入走到验证 前十篇把 Codex 的会话、上下文、工具、权限、MCP、扩展、多 Agent 和界面拆开讲。这一篇不再追源码，而是把它们放回一项真实任务：用户给出一句要求，Codex 了解工作区、修改文件、验证结果，然后在该停的时候停下。\n">
+<meta property='og:url' content='https://skylm.top/p/codex-cli-agent-architecture-11/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Codex' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='CLI' /><meta property='article:tag' content='源码导读' /><meta property='article:tag' content='Hugo' /><meta property='article:tag' content='Go' /><meta property='article:published_time' content='2026-07-22T10:06:00&#43;08:00'/><meta property='article:modified_time' content='2026-07-22T10:06:00&#43;08:00'/>
+<meta name="twitter:title" content="Codex CLI 源码导读（十一）：一项任务怎样从输入走到验证">
+<meta name="twitter:description" content="Codex CLI 源码导读（十一）：一项任务怎样从输入走到验证 前十篇把 Codex 的会话、上下文、工具、权限、MCP、扩展、多 Agent 和界面拆开讲。这一篇不再追源码，而是把它们放回一项真实任务：用户给出一句要求，Codex 了解工作区、修改文件、验证结果，然后在该停的时候停下。\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友链</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#先给-codex-一项说得清楚的任务">先给 Codex 一项说得清楚的任务</a></li>
+    <li><a href="#这一次任务里会反复出现的词">这一次任务里会反复出现的词</a></li>
+    <li><a href="#一次任务的全貌">一次任务的全貌</a></li>
+    <li><a href="#1-先找规则和材料而不是立刻写文章">1. 先找规则和材料，而不是立刻写文章</a>
+      <ol>
+        <li><a href="#rg先定位不靠猜路径"><code>rg</code>：先定位，不靠猜路径</a></li>
+        <li><a href="#sed只看当前需要的一段"><code>sed</code>：只看当前需要的一段</a></li>
+        <li><a href="#git-status---short先保护用户已有的工作"><code>git status --short</code>：先保护用户已有的工作</a></li>
+      </ol>
+    </li>
+    <li><a href="#2-再把文章写到明确的范围里">2. 再把文章写到明确的范围里</a>
+      <ol>
+        <li><a href="#apply_patch用补丁表达精确改动"><code>apply_patch</code>：用补丁表达精确改动</a></li>
+      </ol>
+    </li>
+    <li><a href="#3-用-hugo-验证文章而不是只检查-markdown-外观">3. 用 Hugo 验证文章，而不是只检查 Markdown 外观</a></li>
+    <li><a href="#4-构建成功后还要看改了什么">4. 构建成功后，还要看改了什么</a></li>
+    <li><a href="#5-把结果交还给用户然后停止">5. 把结果交还给用户，然后停止</a></li>
+    <li><a href="#换成修改-go-代码流程还一样吗">换成修改 Go 代码，流程还一样吗？</a></li>
+    <li><a href="#用同一条原则结束整个系列">用同一条原则结束整个系列</a></li>
+    <li><a href="#参考资料">参考资料</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/ai/" >
+                AI
+            </a>
+        
+            <a href="/categories/%E5%BC%80%E6%BA%90/" >
+                开源
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/codex-cli-agent-architecture-11/">Codex CLI 源码导读（十一）：一项任务怎样从输入走到验证</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Jul 22, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 8 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="codex-cli-源码导读十一一项任务怎样从输入走到验证">Codex CLI 源码导读（十一）：一项任务怎样从输入走到验证
+</h1><p>前十篇把 Codex 的会话、上下文、工具、权限、MCP、扩展、多 Agent 和界面拆开讲。这一篇不再追源码，而是把它们放回一项真实任务：用户给出一句要求，Codex 了解工作区、修改文件、验证结果，然后在该停的时候停下。</p>
+<p>我们先用本系列所在的 Hugo 博客做例子，再看同一套方法怎样用于修改 Go 代码。读完这一篇，应该能回答三个问题：怎样把任务说清楚？Codex 在每一步实际会用什么工具？为什么“构建通过”后还不能擅自提交或发布？</p>
+<h2 id="先给-codex-一项说得清楚的任务">先给 Codex 一项说得清楚的任务
+</h2><p>假设用户输入：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>在 content/post/ai/ 新增一篇文章，介绍如何为 Hugo 博客写文章。
+</span></span><span style="display:flex;"><span>参考相邻文章的文件名和 front matter；不要改动已有文章；
+</span></span><span style="display:flex;"><span>完成后验证站点可以构建，只汇报结果，不要提交、推送或发布。
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这不是一句“帮我写篇博客”的泛泛要求。它已经给出了五类信息：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>用户给出的信息</th>
+					<th>Codex 据此确认的完成条件</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>目标</td>
+					<td>新增一篇面向博客读者的文章。</td>
+			</tr>
+			<tr>
+					<td>位置</td>
+					<td>文件应在 <code>content/post/ai/</code>。</td>
+			</tr>
+			<tr>
+					<td>约定</td>
+					<td>文件名和 front matter 要参考相邻文章。</td>
+			</tr>
+			<tr>
+					<td>验证</td>
+					<td>Hugo 必须能渲染站点。</td>
+			</tr>
+			<tr>
+					<td>边界</td>
+					<td>不修改既有文章，不提交、不推送、不发布。</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>把目标、范围、验证和禁止动作写进输入，Codex 才能判断何时完成。否则它只能猜测“写好”是什么意思，也无法知道是否该继续提交或部署。</p>
+<h2 id="这一次任务里会反复出现的词">这一次任务里会反复出现的词
+</h2><p>不必先背定义，只要把它们放到这次任务中理解：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>名词</th>
+					<th>在本例中的意思</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>Thread</strong></td>
+					<td>这段持续对话，保存用户的要求、工具结果和最终回复。</td>
+			</tr>
+			<tr>
+					<td><strong>Turn</strong></td>
+					<td>用户提交这条任务后，由这条输入触发的一段连续工作。</td>
+			</tr>
+			<tr>
+					<td><strong>上下文</strong></td>
+					<td>Codex 当前已经掌握的证据，例如项目规则、相邻文章、Git 状态和构建输出。</td>
+			</tr>
+			<tr>
+					<td><strong>工具</strong></td>
+					<td>搜索、读取、编辑文件和运行命令的能力。模型提出下一步，工具在本机实际执行。</td>
+			</tr>
+			<tr>
+					<td><strong>验证</strong></td>
+					<td>用命令输出和文件差异证明完成条件，而不是凭“看起来没问题”结束。</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>模型决定下一步值得做什么；Codex 在已有权限范围内执行这一步、记录结果并展示给用户。模型不会自动拥有整个仓库、网络或发布权限。</p>
+<h2 id="一次任务的全貌">一次任务的全貌
+</h2><pre class="mermaid">flowchart LR
+    A[&#34;用户给出目标和边界&#34;] --&gt; B[&#34;理解完成条件&#34;]
+    B --&gt; C[&#34;搜索并读取必要材料&#34;]
+    C --&gt; D[&#34;检查 Git 状态&#34;]
+    D --&gt; E[&#34;精确修改文件&#34;]
+    E --&gt; F[&#34;运行对应验证&#34;]
+    F --&gt; G{&#34;验证通过？&#34;}
+    G -- &#34;否&#34; --&gt; H[&#34;读取报错，修正后重试&#34;]
+    H --&gt; F
+    G -- &#34;是&#34; --&gt; I[&#34;检查差异和范围&#34;]
+    I --&gt; J[&#34;汇报并结束&#34;]
+
+    P[&#34;权限与审批&#34;] -.约束每一步.-&gt; C
+    P -.约束每一步.-&gt; E
+    P -.约束每一步.-&gt; F</pre>
+<p>下面按这条顺序走一遍。工具的输出会进入下一步的上下文，所以这不是一份预先写死的命令清单：读到什么、构建是否失败，都会改变后续动作。</p>
+<h2 id="1-先找规则和材料而不是立刻写文章">1. 先找规则和材料，而不是立刻写文章
+</h2><p>进入陌生仓库时，Codex 不会假定自己知道目录结构或写作约定。它先需要回答几个具体问题：站点如何识别文章？同系列文章放在哪里？工作区里是否已有用户的未提交改动？</p>
+<p>此时常见的动作如下：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>rg --files -g <span style="color:#f1fa8c">&#39;AGENTS.md&#39;</span> -g <span style="color:#f1fa8c">&#39;hugo.yaml&#39;</span> -g <span style="color:#f1fa8c">&#39;*.md&#39;</span>
+</span></span><span style="display:flex;"><span>sed -n <span style="color:#f1fa8c">&#39;1,100p&#39;</span> hugo.yaml
+</span></span><span style="display:flex;"><span>sed -n <span style="color:#f1fa8c">&#39;1,80p&#39;</span> content/post/ai/codex-cli-agent-architecture-10.md
+</span></span><span style="display:flex;"><span>git status --short
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="rg先定位不靠猜路径"><code>rg</code>：先定位，不靠猜路径
+</h3><p><code>rg</code> 是 ripgrep 的命令名，它是用 Rust 编写的快速文本搜索工具。<code>rg --files</code> 列出受 Git 忽略规则影响的文件；带上关键词时，它可以找出某个配置项、标题、函数名或测试名出现的位置。</p>
+<p>这里用它寻找 <code>AGENTS.md</code>、<code>hugo.yaml</code> 和文章文件，不是为了把整个仓库都读一遍，而是为了先定位值得读取的少量文件。比如找到相邻的第十篇文章后，才知道应该从哪份 front matter 参考格式。</p>
+<h3 id="sed只看当前需要的一段"><code>sed</code>：只看当前需要的一段
+</h3><p><code>sed</code> 是文本流编辑器。<code>sed -n '1,80p' &lt;文件&gt;</code> 在这里并不修改文件，而是只输出前 80 行。对 Hugo 文章来说，开头通常就能看到标题、日期、分类、标签和正文结构；对源代码来说，它也适合读取命中搜索结果附近的函数。</p>
+<p>限制读取范围有两个好处：输出更容易检查，也不会让无关内容淹没当前任务。若前 80 行不够，再按需要扩展范围即可。</p>
+<h3 id="git-status---short先保护用户已有的工作"><code>git status --short</code>：先保护用户已有的工作
+</h3><p>这个命令用紧凑格式列出已修改和未跟踪的文件。它不是“提交前才需要”的命令，而是修改前就应收集的上下文：若列表里已有用户正在编辑的文章，Codex 不能为了获得干净工作区而还原、删除或覆盖它。</p>
+<p>从这些材料中，Codex 可以得出一个明确结论：Hugo 文章需要由 <code>+++</code> 包住的 TOML front matter，新的内容应放在 <code>content/post/ai/</code>，并且后续只能触及任务所需的文件。</p>
+<h2 id="2-再把文章写到明确的范围里">2. 再把文章写到明确的范围里
+</h2><p>现在才创建新文件，例如：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>content/post/ai/how-to-write-hugo-post.md
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>一篇文章至少有两层内容：正文，以及开头的 front matter。front matter 是 Hugo 用来组织页面的元数据；本仓库使用 TOML 语法，通常会包含日期、标题、slug、分类和标签。参考相邻文章，不表示复制它的正文，而是复用仓库已经采用的文件结构和写作约定。</p>
+<h3 id="apply_patch用补丁表达精确改动"><code>apply_patch</code>：用补丁表达精确改动
+</h3><p><code>apply_patch</code> 是 Codex 的文件编辑工具。它用“新增这一段、替换这几行、删除这部分”的补丁描述修改，而不是让 Shell 把整份文件重定向覆盖。对于新增 Markdown，它可以明确创建一个文件；对于已有文件，它会根据补丁附近的原文确认修改位置。</p>
+<p>它的意义不是要求读者在终端手写补丁，而是让改动范围可见、可检查。若任务只要求新增文章，补丁不应顺手改主题配置、相邻文章或生成目录。写入前，Codex 还会按当前的工作区权限检查这项操作能否执行；超出可写范围、需要联网或副作用更大的动作可能需要审批，或直接被拒绝。</p>
+<h2 id="3-用-hugo-验证文章而不是只检查-markdown-外观">3. 用 Hugo 验证文章，而不是只检查 Markdown 外观
+</h2><p>文章能够打开，不代表站点一定能渲染。错误的日期格式、遗漏的 front matter 分隔符、模板不接受的字段，都可能在构建时才暴露。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>hugo --renderToMemory
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>hugo</code> 是静态站点生成器。<code>--renderToMemory</code> 要求它完成渲染检查，但不把生成页面写进发布目录，适合验证内容改动。退出状态为 <code>0</code> 表示当前站点可以由这套本地配置渲染；失败时，错误输出通常会给出文件名、行号或无法解析的字段。</p>
+<p>若命令失败，正确的下一步不是报“失败”就结束，也不是盲目重跑，而是读取报错、定位到文章或配置、修正后再次运行。验证结果是下一步选择的证据。</p>
+<h2 id="4-构建成功后还要看改了什么">4. 构建成功后，还要看改了什么
+</h2><p>Hugo 构建成功只能证明站点能渲染，不能证明 Codex 只改了预期文件。因此最后还要检查差异：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>git diff --check
+</span></span><span style="display:flex;"><span>git status --short
+</span></span><span style="display:flex;"><span>git diff -- content/post/ai/how-to-write-hugo-post.md
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>git diff --check</code> 检查已跟踪改动中的常见空白错误；<code>git status --short</code> 再次列出新文件和原有改动；<code>git diff -- &lt;路径&gt;</code> 让人或 Codex 聚焦某个文件的实际差异。新建且尚未跟踪的文件不会出现在普通 <code>git diff</code> 中，需要直接读取它，或使用 <code>git diff --no-index --check /dev/null &lt;新文件&gt;</code> 检查空白格式。后一个命令发现两份文件不同可能返回 <code>1</code>，因此要看输出中是否有格式错误，不能把任何非零状态都误判为失败。</p>
+<p>这时可以得到几类不同的证据：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>证据</th>
+					<th>能证明什么</th>
+					<th>不能证明什么</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>新文件位于目标目录</td>
+					<td>修改位置正确</td>
+					<td>正文技术事实完全正确</td>
+			</tr>
+			<tr>
+					<td>front matter 与相邻文章一致</td>
+					<td>Hugo 能按仓库约定识别文章</td>
+					<td>远程部署会成功</td>
+			</tr>
+			<tr>
+					<td><code>hugo --renderToMemory</code> 成功</td>
+					<td>当前站点可以渲染</td>
+					<td>远程发布已完成</td>
+			</tr>
+			<tr>
+					<td>差异和 Git 状态符合预期</td>
+					<td>没有擅自清理或扩大改动范围</td>
+					<td>改动已经提交</td>
+			</tr>
+	</tbody>
+</table></div>
+<h2 id="5-把结果交还给用户然后停止">5. 把结果交还给用户，然后停止
+</h2><p>最终回复不必复述全部命令，但应交代改动、验证和边界：</p>
+<blockquote>
+<p>已新增 <code>content/post/ai/how-to-write-hugo-post.md</code>，并沿用现有文章的 TOML front matter。<code>hugo --renderToMemory</code> 已通过，差异检查未发现空白错误。原有未提交改动仍保留；未执行提交、推送或发布。</p>
+</blockquote>
+<p>“未执行提交、推送或发布”不是多余的客套话。构建通过只完成了用户要求的本地验证；提交、推送和部署会改变版本历史或远程环境，属于需要明确授权的下一步。达到完成条件后停止，是可靠工作流的一部分。</p>
+<h2 id="换成修改-go-代码流程还一样吗">换成修改 Go 代码，流程还一样吗？
+</h2><p>核心流程完全一样：明确目标和边界，先读证据，再做最小改动，用与任务相符的验证检查结果，最后确认差异并汇报。不同的是，文章的主要证据是 Hugo 渲染，而代码的主要证据是行为测试。</p>
+<p>例如，用户提出：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>修复用户注册时空邮箱没有被拒绝的问题。
+</span></span><span style="display:flex;"><span>先阅读现有测试和校验逻辑；补充回归测试；只修改相关 Go 包；
+</span></span><span style="display:flex;"><span>运行受影响包的测试，不要提交。
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>对应的动作会变成：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>Hugo 写文章</th>
+					<th>Go 修复问题</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>rg</code> 找相邻文章和配置</td>
+					<td><code>rg</code> 找注册逻辑、错误文案和相关测试</td>
+			</tr>
+			<tr>
+					<td><code>sed</code> 读取 front matter 和文章结构</td>
+					<td><code>sed</code> 读取测试、目标函数和调用方附近的代码</td>
+			</tr>
+			<tr>
+					<td><code>apply_patch</code> 新增 Markdown</td>
+					<td><code>apply_patch</code> 修改实现，并新增或更新回归测试</td>
+			</tr>
+			<tr>
+					<td><code>hugo --renderToMemory</code> 检查渲染</td>
+					<td><code>go test ./目标包</code> 检查行为</td>
+			</tr>
+			<tr>
+					<td>检查文章差异和 Git 状态</td>
+					<td>检查实现、测试和 Git 状态是否都在预期范围</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>Go 的例子还会多两个常用命令：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>gofmt -w path/to/file.go
+</span></span><span style="display:flex;"><span>go <span style="color:#8be9fd;font-style:italic">test</span> ./path/to/package
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>gofmt</code> 是 Go 的标准格式化工具。它解决的是代码排版一致性，不证明功能正确；<code>go test</code> 执行测试并给出行为证据。通常应先跑受影响包，既能快速定位失败，也避免无关测试拖慢反馈；若项目规则或改动范围要求，再扩大到更多包或整个仓库。</p>
+<p>对 Go 代码而言，“补充回归测试”尤其重要：测试应先能表达空邮箱被拒绝这个预期，再由实现改动让它通过。这样验证的不是“代码看起来合理”，而是用户报告的具体问题不会再次出现。</p>
+<h2 id="用同一条原则结束整个系列">用同一条原则结束整个系列
+</h2><p>无论是写一篇 Hugo 文章，还是修一处 Go 代码，Codex 的工作方式都不是自动连续地产生改动。它应在每一步收集证据，并让证据决定下一步：</p>
+<ol>
+<li>说清目标、范围、验证方式和禁止动作。</li>
+<li>先搜索和读取必要材料，确认项目约定与已有状态。</li>
+<li>用小而明确的补丁完成改动。</li>
+<li>运行与任务类型对应的验证；失败就根据输出修正并重试。</li>
+<li>检查最终差异，报告结果与未执行的外部动作，然后结束。</li>
+</ol>
+<p>这就是前十篇里 Thread、上下文、工具、权限和事件在日常任务中的共同位置：它们不是需要分别记住的名词，而是让一次改动可控、可验证、可交还给用户的条件。</p>
+<h2 id="参考资料">参考资料
+</h2><ul>
+<li><a class="link" href="https://developers.openai.com/codex/cli/reference"  target="_blank" rel="noopener"
+    >Codex CLI 参考文档</a></li>
+</ul>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/codex/">Codex</a>
+        
+            <a href="/tags/agent/">Agent</a>
+        
+            <a href="/tags/cli/">CLI</a>
+        
+            <a href="/tags/%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB/">源码导读</a>
+        
+            <a href="/tags/hugo/">Hugo</a>
+        
+            <a href="/tags/go/">Go</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/codex-cli-agent-architecture-09/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（十）：任务进度怎样送到终端和富客户端</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-agent-architecture-multi-agent/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（九）：多 Agent 怎样拆分任务、通信与收束</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%ABskillpluginhook-%E4%B8%8E-memory-%E5%90%84%E6%94%BE%E5%9C%A8%E5%93%AA%E9%87%8C/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%83mcp-%E6%80%8E%E6%A0%B7%E6%8A%8A%E5%A4%96%E9%83%A8%E7%B3%BB%E7%BB%9F%E6%8E%A5%E8%BF%9B%E4%BB%BB%E5%8A%A1/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%AD%E5%B7%A5%E5%85%B7%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E8%83%BD%E7%9B%B4%E6%8E%A5%E8%B7%91%E5%91%BD%E4%BB%A4/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（六）：工具为什么不能直接跑命令</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+		<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+		<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+	
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm.top\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+<style>
+    .article-content .mermaid {
+        display: block;
+        overflow-x: auto;
+        padding: 1rem;
+        text-align: center;
+    }
+</style>
+<script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+    });
+    mermaid.run({ nodes: document.querySelectorAll(".article-content .mermaid") });
+</script>
+
+    </body>
+</html>
