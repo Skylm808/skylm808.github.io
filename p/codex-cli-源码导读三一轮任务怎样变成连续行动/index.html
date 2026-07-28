@@ -6,7 +6,7 @@
 
 <link rel='canonical' href='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%89%E4%B8%80%E8%BD%AE%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E5%8F%98%E6%88%90%E8%BF%9E%E7%BB%AD%E8%A1%8C%E5%8A%A8/'>
 
-<link rel="stylesheet" href="/scss/style.min.932c54f4a98a8118f3e0909827ad4cab982b8144aae179de920055a99a8fc814.css"><meta property='og:title' content="Codex CLI 源码导读（三）：一轮任务怎样变成连续行动">
+<link rel="stylesheet" href="/scss/style.min.e86668d58f97e0c7c1fc9c6b63e2f02a6dd8b19416200d91265490995e047741.css"><meta property='og:title' content="Codex CLI 源码导读（三）：一轮任务怎样变成连续行动">
 <meta property='og:description' content="Codex CLI 源码导读（三）：一轮任务怎样变成连续行动 现在给 Codex 一项具体任务：运行某个测试，找出第一个失败点，修复后再运行一次。\n任务不会在你按下回车时立刻结束。它通常会经历几步：先读测试，再搜索相关代码，接着修改，最后运行验证。每一步的结果都会影响下一步。这一章要看的就是这段连续过程怎样在 Codex 中被保存、推进和显示。\n">
 <meta property='og:url' content='https://skylm.top/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%89%E4%B8%80%E8%BD%AE%E4%BB%BB%E5%8A%A1%E6%80%8E%E6%A0%B7%E5%8F%98%E6%88%90%E8%BF%9E%E7%BB%AD%E8%A1%8C%E5%8A%A8/'>
 <meta property='og:site_name' content='Skylm'>
