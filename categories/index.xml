@@ -7,7 +7,17 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Wed, 22 Jul 2026 10:06:00 +0800</lastBuildDate><atom:link href="https://skylm.top/categories/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Wed, 29 Jul 2026 08:00:00 +0800</lastBuildDate><atom:link href="https://skylm.top/categories/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Go</title>
+        <link>https://skylm.top/categories/go/</link>
+        <pubDate>Wed, 29 Jul 2026 08:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/categories/go/</guid>
+        <description>&lt;h2 id=&#34;go-语言&#34;&gt;Go 语言
+&lt;/h2&gt;&lt;p&gt;Go 语言的学习笔记、项目实践和技术分享。&lt;/p&gt;
+</description>
+        </item>
+        <item>
         <title>AI</title>
         <link>https://skylm.top/categories/ai/</link>
         <pubDate>Wed, 22 Jul 2026 10:06:00 +0800</pubDate>
@@ -22,16 +32,6 @@
         
         <guid>https://skylm.top/categories/%E5%BC%80%E6%BA%90/</guid>
         <description></description>
-        </item>
-        <item>
-        <title>Go</title>
-        <link>https://skylm.top/categories/go/</link>
-        <pubDate>Sun, 19 Jul 2026 22:21:53 +0800</pubDate>
-        
-        <guid>https://skylm.top/categories/go/</guid>
-        <description>&lt;h2 id=&#34;go-语言&#34;&gt;Go 语言
-&lt;/h2&gt;&lt;p&gt;Go 语言的学习笔记、项目实践和技术分享。&lt;/p&gt;
-</description>
         </item>
         <item>
         <title>Harness</title>
