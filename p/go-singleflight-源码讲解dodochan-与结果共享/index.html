@@ -6,7 +6,7 @@
 
 <link rel='canonical' href='https://skylm.top/p/go-singleflight-%E6%BA%90%E7%A0%81%E8%AE%B2%E8%A7%A3dodochan-%E4%B8%8E%E7%BB%93%E6%9E%9C%E5%85%B1%E4%BA%AB/'>
 
-<link rel="stylesheet" href="/scss/style.min.e86668d58f97e0c7c1fc9c6b63e2f02a6dd8b19416200d91265490995e047741.css"><meta property='og:title' content="Go singleflight 源码讲解：Do、DoChan 与结果共享">
+<link rel="stylesheet" href="/scss/style.min.6721d1ad1674f36f1d1fc4f72db64056f3ecbc804c01969066d7b28619fb6ba7.css"><meta property='og:title' content="Go singleflight 源码讲解：Do、DoChan 与结果共享">
 <meta property='og:description' content="结合请求合并场景拆解 golang.org/x/sync/singleflight 的 Group、call、Do 和 DoChan 实现。">
 <meta property='og:url' content='https://skylm.top/p/go-singleflight-%E6%BA%90%E7%A0%81%E8%AE%B2%E8%A7%A3dodochan-%E4%B8%8E%E7%BB%93%E6%9E%9C%E5%85%B1%E4%BA%AB/'>
 <meta property='og:site_name' content='Skylm'>
@@ -249,8 +249,18 @@
         <div class="widget--toc">
             <nav id="TableOfContents">
   <ol>
+    <li><a href="#channel-基础先看懂箭头">Channel 基础：先看懂箭头</a>
+      <ol>
+        <li><a href="#三种-channel-类型">三种 channel 类型</a></li>
+        <li><a href="#两种-channel-操作">两种 channel 操作</a></li>
+      </ol>
+    </li>
     <li><a href="#1-先看一个实际场景">1. 先看一个实际场景</a></li>
-    <li><a href="#2-核心数据结构">2. 核心数据结构</a></li>
+    <li><a href="#2-核心数据结构">2. 核心数据结构</a>
+      <ol>
+        <li><a href="#21-把核心方法放在一起">2.1 把核心方法放在一起</a></li>
+      </ol>
+    </li>
     <li><a href="#3-do同步等待并返回">3. <code>Do</code>：同步等待并返回</a>
       <ol>
         <li><a href="#31-第一次调用">3.1 第一次调用</a></li>
@@ -349,7 +359,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 9 分钟
+                    阅读时长: 12 分钟
                 </time>
             </div>
         
@@ -373,6 +383,82 @@
 <li><code>call</code> 是如何表示一次正在执行的请求的？</li>
 <li><code>DoChan</code> 是如何把第一次调用的结果发送给所有 <code>[]chan&lt;- Result</code> 的？</li>
 </ol>
+<h2 id="channel-基础先看懂箭头">Channel 基础：先看懂箭头
+</h2><p>singleflight 的 <code>DoChan</code> 同时用到了 channel 类型和 channel 操作。先把它们分开看：</p>
+<h3 id="三种-channel-类型">三种 channel 类型
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">chan</span> <span style="color:#8be9fd">int</span>      <span style="color:#6272a4">// 双向：既能发送，也能接收</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">&lt;-</span><span style="color:#8be9fd;font-style:italic">chan</span> <span style="color:#8be9fd">int</span>    <span style="color:#6272a4">// 只接收：只能从 channel 取值</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">chan</span><span style="color:#ff79c6">&lt;-</span> <span style="color:#8be9fd">int</span>    <span style="color:#6272a4">// 只发送：只能向 channel 写值</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="两种-channel-操作">两种 channel 操作
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>ch <span style="color:#ff79c6">&lt;-</span> <span style="color:#bd93f9">10</span>       <span style="color:#6272a4">// 把 10 发送到 ch</span>
+</span></span><span style="display:flex;"><span>value <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">&lt;-</span>ch  <span style="color:#6272a4">// 从 ch 接收一个值，赋给 value</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>&lt;-chan int</code> 表示“这个变量只有接收权限”，并不表示 channel 里的数据不能被别人发送：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">receiver</span>(input <span style="color:#ff79c6">&lt;-</span><span style="color:#8be9fd;font-style:italic">chan</span> <span style="color:#8be9fd">int</span>) {
+</span></span><span style="display:flex;"><span>	value <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">&lt;-</span>input
+</span></span><span style="display:flex;"><span>	fmt.<span style="color:#50fa7b">Println</span>(value)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">main</span>() {
+</span></span><span style="display:flex;"><span>	ch <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">make</span>(<span style="color:#8be9fd;font-style:italic">chan</span> <span style="color:#8be9fd">int</span>, <span style="color:#bd93f9">1</span>) <span style="color:#6272a4">// main 中的 ch 是双向 channel</span>
+</span></span><span style="display:flex;"><span>	ch <span style="color:#ff79c6">&lt;-</span> <span style="color:#bd93f9">10</span>                <span style="color:#6272a4">// 先把 10 放进 channel</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#50fa7b">receiver</span>(ch)            <span style="color:#6272a4">// 把同一个 channel 传给 receiver</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>函数参数 <code>input</code> 和外部的 <code>ch</code> 指向同一个底层 channel，只是函数内部的 <code>input</code> 被限制为只接收，因此 <code>value</code> 最后得到的是 <code>10</code>。</p>
+<p>singleflight 里也是同样的关系：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>ch <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">make</span>(<span style="color:#8be9fd;font-style:italic">chan</span> Result, <span style="color:#bd93f9">1</span>) <span style="color:#6272a4">// 创建时是双向 channel</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 返回给调用者时变成只接收</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">DoChan</span>(<span style="color:#ff79c6">...</span>) <span style="color:#ff79c6">&lt;-</span><span style="color:#8be9fd;font-style:italic">chan</span> Result
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 保存到 singleflight 内部时变成只发送</span>
+</span></span><span style="display:flex;"><span>chans []<span style="color:#8be9fd;font-style:italic">chan</span><span style="color:#ff79c6">&lt;-</span> Result
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>也就是说，调用者只能执行 <code>result := &lt;-ch</code>，singleflight 内部只能执行 <code>ch &lt;- result</code>。它们操作的是同一个 channel，只是各自拿到的权限不同。</p>
 <h2 id="1-先看一个实际场景">1. 先看一个实际场景
 </h2><p>假设商品详情缓存刚好过期，100 个请求同时查询商品 <code>sku-1001</code>：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
@@ -485,6 +571,250 @@
 <li><code>m</code> 是懒初始化的，而且只保存进行中的调用，不保存历史结果。</li>
 </ul>
 <p><code>call</code> 不是每个调用者各自创建一份，而是<strong>同一个 key 共用一份</strong>。这正是结果能够被复用的基础。</p>
+<h3 id="21-把核心方法放在一起">2.1 把核心方法放在一起
+</h3><p>为了看清 <code>Do</code>、<code>DoChan</code> 和 <code>call</code> 的关系，可以先看一个省略 panic 处理、只保留核心流程的版本：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">  1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">  2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">  3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">  4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">  5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">  6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">  7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">  8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">  9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 28
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 29
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 30
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 31
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 32
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 33
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 34
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 35
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 36
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 37
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 38
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 39
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 40
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 41
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 42
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 43
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 44
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 45
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 46
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 47
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 48
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 49
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 50
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 51
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 52
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 53
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 54
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 55
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 56
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 57
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 58
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 59
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 60
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 61
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 62
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 63
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 64
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 65
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 66
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 67
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 68
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 69
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 70
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 71
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 72
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 73
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 74
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 75
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 76
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 77
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 78
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 79
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 80
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 81
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 82
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 83
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 84
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 85
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 86
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 87
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 88
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 89
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 90
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 91
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 92
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 93
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 94
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 95
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 96
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 97
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 98
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 99
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">100
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">101
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">102
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">103
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">104
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">105
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">type</span> call <span style="color:#8be9fd;font-style:italic">struct</span> {
+</span></span><span style="display:flex;"><span>	wg sync.WaitGroup
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	val   <span style="color:#8be9fd">any</span>
+</span></span><span style="display:flex;"><span>	err   <span style="color:#8be9fd">error</span>
+</span></span><span style="display:flex;"><span>	dups  <span style="color:#8be9fd">int</span>
+</span></span><span style="display:flex;"><span>	chans []<span style="color:#8be9fd;font-style:italic">chan</span><span style="color:#ff79c6">&lt;-</span> Result
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">type</span> Group <span style="color:#8be9fd;font-style:italic">struct</span> {
+</span></span><span style="display:flex;"><span>	mu sync.Mutex
+</span></span><span style="display:flex;"><span>	m  <span style="color:#8be9fd;font-style:italic">map</span>[<span style="color:#8be9fd">string</span>]<span style="color:#ff79c6">*</span>call
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">type</span> Result <span style="color:#8be9fd;font-style:italic">struct</span> {
+</span></span><span style="display:flex;"><span>	Val    <span style="color:#8be9fd">any</span>
+</span></span><span style="display:flex;"><span>	Err    <span style="color:#8be9fd">error</span>
+</span></span><span style="display:flex;"><span>	Shared <span style="color:#8be9fd">bool</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> (g <span style="color:#ff79c6">*</span>Group) <span style="color:#50fa7b">Do</span>(
+</span></span><span style="display:flex;"><span>	key <span style="color:#8be9fd">string</span>,
+</span></span><span style="display:flex;"><span>	fn <span style="color:#8be9fd;font-style:italic">func</span>() (<span style="color:#8be9fd">any</span>, <span style="color:#8be9fd">error</span>),
+</span></span><span style="display:flex;"><span>) (<span style="color:#8be9fd">any</span>, <span style="color:#8be9fd">error</span>, <span style="color:#8be9fd">bool</span>) {
+</span></span><span style="display:flex;"><span>	g.mu.<span style="color:#50fa7b">Lock</span>()
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">if</span> g.m <span style="color:#ff79c6">==</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>		g.m = <span style="color:#8be9fd;font-style:italic">make</span>(<span style="color:#8be9fd;font-style:italic">map</span>[<span style="color:#8be9fd">string</span>]<span style="color:#ff79c6">*</span>call)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// 重复的 Do：等待已有 call 完成，然后读取它的结果。</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">if</span> c, ok <span style="color:#ff79c6">:=</span> g.m[key]; ok {
+</span></span><span style="display:flex;"><span>		c.dups<span style="color:#ff79c6">++</span>
+</span></span><span style="display:flex;"><span>		g.mu.<span style="color:#50fa7b">Unlock</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>		c.wg.<span style="color:#50fa7b">Wait</span>()
+</span></span><span style="display:flex;"><span>		<span style="color:#ff79c6">return</span> c.val, c.err, <span style="color:#ff79c6">true</span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// 第一个 Do：创建 call 并登记。</span>
+</span></span><span style="display:flex;"><span>	c <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">new</span>(call)
+</span></span><span style="display:flex;"><span>	c.wg.<span style="color:#50fa7b">Add</span>(<span style="color:#bd93f9">1</span>)
+</span></span><span style="display:flex;"><span>	g.m[key] = c
+</span></span><span style="display:flex;"><span>	g.mu.<span style="color:#50fa7b">Unlock</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// Do 同步执行 doCall，执行完成后才返回。</span>
+</span></span><span style="display:flex;"><span>	g.<span style="color:#50fa7b">doCall</span>(c, key, fn)
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">return</span> c.val, c.err, c.dups &gt; <span style="color:#bd93f9">0</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> (g <span style="color:#ff79c6">*</span>Group) <span style="color:#50fa7b">DoChan</span>(
+</span></span><span style="display:flex;"><span>	key <span style="color:#8be9fd">string</span>,
+</span></span><span style="display:flex;"><span>	fn <span style="color:#8be9fd;font-style:italic">func</span>() (<span style="color:#8be9fd">any</span>, <span style="color:#8be9fd">error</span>),
+</span></span><span style="display:flex;"><span>) <span style="color:#ff79c6">&lt;-</span><span style="color:#8be9fd;font-style:italic">chan</span> Result {
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// 每个 DoChan 调用者都有自己的容量为 1 的 channel。</span>
+</span></span><span style="display:flex;"><span>	ch <span style="color:#ff79c6">:=</span> <span style="color:#8be9fd;font-style:italic">make</span>(<span style="color:#8be9fd;font-style:italic">chan</span> Result, <span style="color:#bd93f9">1</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	g.mu.<span style="color:#50fa7b">Lock</span>()
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">if</span> g.m <span style="color:#ff79c6">==</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>		g.m = <span style="color:#8be9fd;font-style:italic">make</span>(<span style="color:#8be9fd;font-style:italic">map</span>[<span style="color:#8be9fd">string</span>]<span style="color:#ff79c6">*</span>call)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// 重复的 DoChan：把自己的 channel 追加到同一个 call。</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">if</span> c, ok <span style="color:#ff79c6">:=</span> g.m[key]; ok {
+</span></span><span style="display:flex;"><span>		c.dups<span style="color:#ff79c6">++</span>
+</span></span><span style="display:flex;"><span>		c.chans = <span style="color:#8be9fd;font-style:italic">append</span>(c.chans, ch)
+</span></span><span style="display:flex;"><span>		g.mu.<span style="color:#50fa7b">Unlock</span>()
+</span></span><span style="display:flex;"><span>		<span style="color:#ff79c6">return</span> ch
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// 第一个 DoChan：自己的 channel 也要登记进去。</span>
+</span></span><span style="display:flex;"><span>	c <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">&amp;</span>call{chans: []<span style="color:#8be9fd;font-style:italic">chan</span><span style="color:#ff79c6">&lt;-</span> Result{ch}}
+</span></span><span style="display:flex;"><span>	c.wg.<span style="color:#50fa7b">Add</span>(<span style="color:#bd93f9">1</span>)
+</span></span><span style="display:flex;"><span>	g.m[key] = c
+</span></span><span style="display:flex;"><span>	g.mu.<span style="color:#50fa7b">Unlock</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// DoChan 异步执行，先把 channel 返回给调用者。</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">go</span> g.<span style="color:#50fa7b">doCall</span>(c, key, fn)
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">return</span> ch
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> (g <span style="color:#ff79c6">*</span>Group) <span style="color:#50fa7b">doCall</span>(
+</span></span><span style="display:flex;"><span>	c <span style="color:#ff79c6">*</span>call,
+</span></span><span style="display:flex;"><span>	key <span style="color:#8be9fd">string</span>,
+</span></span><span style="display:flex;"><span>	fn <span style="color:#8be9fd;font-style:italic">func</span>() (<span style="color:#8be9fd">any</span>, <span style="color:#8be9fd">error</span>),
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// 只有第一个进入这个 key 的调用者会执行 fn。</span>
+</span></span><span style="display:flex;"><span>	c.val, c.err = <span style="color:#50fa7b">fn</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	g.mu.<span style="color:#50fa7b">Lock</span>()
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">defer</span> g.mu.<span style="color:#50fa7b">Unlock</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// 通知 Do 调用者：Wait 可以结束了。</span>
+</span></span><span style="display:flex;"><span>	c.wg.<span style="color:#50fa7b">Done</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// call 只在执行期间存在，不是永久缓存。</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">if</span> g.m[key] <span style="color:#ff79c6">==</span> c {
+</span></span><span style="display:flex;"><span>		<span style="color:#8be9fd;font-style:italic">delete</span>(g.m, key)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#6272a4">// 通知所有 DoChan 调用者：各自的 channel 都收到一份结果。</span>
+</span></span><span style="display:flex;"><span>	result <span style="color:#ff79c6">:=</span> Result{Val: c.val, Err: c.err, Shared: c.dups &gt; <span style="color:#bd93f9">0</span>}
+</span></span><span style="display:flex;"><span>	<span style="color:#ff79c6">for</span> _, ch <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> c.chans {
+</span></span><span style="display:flex;"><span>		ch <span style="color:#ff79c6">&lt;-</span> result
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这段代码里最重要的对应关系是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>call.val / call.err
+</span></span><span style="display:flex;"><span>        ├── Do：Wait 后直接读取
+</span></span><span style="display:flex;"><span>        └── DoChan：组装 Result 后发送到每个 channel
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>call.wg
+</span></span><span style="display:flex;"><span>        └── 负责等待 Do 调用者
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>call.chans
+</span></span><span style="display:flex;"><span>        └── 负责保存 DoChan 调用者的 channel
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>同一个 key 也可以混用两种调用方式。比如 A 用 <code>Do</code>、B 用 <code>DoChan</code>：A 等 <code>call.wg</code>，B 把 <code>chB</code> 放入 <code>call.chans</code>；<code>fn</code> 完成后，<code>wg.Done()</code> 通知 A，<code>chB &lt;- Result</code> 通知 B。它们共享的是同一个 <code>call</code>，只是等待结果的方式不同。</p>
 <h2 id="3-do同步等待并返回">3. <code>Do</code>：同步等待并返回
 </h2><p><code>Do</code> 的公开接口如下：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
@@ -724,7 +1054,7 @@
 <ol>
 <li>每次调用 <code>DoChan</code> 都创建自己的容量为 1 的 channel。</li>
 <li>这些 channel 都被追加到同一个 <code>call.chans</code>。</li>
-<li>第一次调用执行 <code>fn</code>，把返回值写入同一个 <code>call.val</code> 和 <code>call.err</code>。</li>
+<li>第一个进入这个 key 的调用执行 <code>fn</code>，把返回值写入同一个 <code>call.val</code> 和 <code>call.err</code>。</li>
 <li><code>doCall</code> 的收尾逻辑遍历 <code>call.chans</code>，向每个 channel 发送一个 <code>Result</code>。</li>
 </ol>
 <p>简化后的核心逻辑如下：</p>
