@@ -353,7 +353,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 10 分钟
+                    阅读时长: 12 分钟
                 </time>
             </div>
         
@@ -402,7 +402,7 @@
 			</tr>
 			<tr>
 					<td><strong>type</strong></td>
-					<td>访问类型（性能从好到坏：system &gt; const &gt; eq_ref &gt; ref &gt; range &gt; index &gt; ALL）</td>
+					<td>访问方式（通常从精确访问到全扫描：system、const、eq_ref、ref、range、index、ALL）</td>
 			</tr>
 			<tr>
 					<td><strong>possible_keys</strong></td>
@@ -431,7 +431,7 @@
 	</tbody>
 </table></div>
 <h3 id="12-type-字段详解重点">1.2 type 字段详解（重点）
-</h3><p><strong>type</strong> 是判断查询性能的关键指标，从最优到最差：</p>
+</h3><p><code>type</code> 描述访问方式，不是绝对性能排名。它可以帮助判断扫描范围，但必须结合 <code>rows</code>、数据分布和实际耗时。</p>
 <ol>
 <li><strong>system</strong>：表只有一行记录（系统表），这是 const 的特例</li>
 <li><strong>const</strong>：通过主键或唯一索引查询，最多返回一条记录</li>
@@ -439,11 +439,12 @@
 <li><strong>ref</strong>：非唯一索引扫描，返回匹配某个单独值的所有行</li>
 <li><strong>range</strong>：索引范围扫描（使用 &gt;、&lt;、BETWEEN、IN 等）</li>
 <li><strong>index</strong>：全索引扫描（扫描整个索引树）</li>
-<li><strong>ALL</strong>：全表扫描（最差，需要优化）</li>
+<li><strong>ALL</strong>：全表扫描（数据量大时需要重点关注；小表或低选择性条件下也可能是最优计划）</li>
 </ol>
 <blockquote>
-<p><strong>优化目标</strong>：至少达到 <strong>range</strong> 级别，最好是 <strong>ref</strong> 或更好。</p>
+<p><strong>判断原则</strong>：不要为了把 <code>ALL</code> 变成 <code>range</code> 而盲目建索引。例：<code>age &gt; 25</code> 命中表中大多数行且查询 <code>SELECT *</code> 时，走二级索引再回表可能比全表扫描更慢。</p>
 </blockquote>
+<p>下文的 <code>EXPLAIN</code> 表格均为<strong>示意</strong>；<code>rows</code>、<code>key_len</code> 和最终计划会随字段类型、统计信息、数据分布及 MySQL 版本变化。<code>EXPLAIN ANALYZE</code> 需要 MySQL 8.0.18 及以上版本；较低版本可结合慢查询日志和实际耗时判断。</p>
 <hr>
 <h2 id="二实战案例分析">二、实战案例分析
 </h2><h3 id="案例-1全表扫描优化">案例 1：全表扫描优化
@@ -486,12 +487,12 @@
 </div>
 </div><p><strong>问题诊断</strong>：</p>
 <ul>
-<li><code>type = ALL</code>：全表扫描，性能最差</li>
+<li><code>type = ALL</code>：全表扫描；对于 10 万行且需要返回少量结果时值得分析</li>
 <li><code>rows = 100000</code>：需要扫描 10 万行</li>
 <li><code>key = NULL</code>：没有使用任何索引</li>
 <li><code>Extra = Using where</code>：在 Server 层进行过滤</li>
 </ul>
-<p><strong>优化方案</strong>：为 <code>age</code> 字段添加索引</p>
+<p><strong>优化方案</strong>：先确认 <code>age &gt; 25</code> 是否足够有选择性；只有命中比例较低、或查询能被索引覆盖时，<code>age</code> 索引才更可能有收益。</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
@@ -525,11 +526,11 @@
 </span></span><span style="display:flex;"><span>+----+-------------+-------+-------+---------------+---------+---------+------+-------+-----------------------+
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p><strong>优化效果</strong>：</p>
+</div><p><strong>如何判断是否真的更好</strong>：</p>
 <ul>
-<li><code>type</code> 从 <code>ALL</code> 提升到 <code>range</code></li>
-<li>使用了 <code>idx_age</code> 索引</li>
-<li>预计扫描行数减少到 5 万行（实际执行会更快）</li>
+<li>计划可能从 <code>ALL</code> 变成 <code>range</code>，但不等于一定更快。</li>
+<li>若仍要扫描 5 万行并回表，优化器也可能继续选择 <code>ALL</code>。</li>
+<li>用 <code>EXPLAIN ANALYZE</code> 对比实际扫描行数和执行时间，再决定是否保留索引。</li>
 </ul>
 <hr>
 <h3 id="案例-2索引失效问题">案例 2：索引失效问题
@@ -563,7 +564,7 @@
 </div>
 </div><p><strong>问题诊断</strong>：</p>
 <ul>
-<li>即使 <code>name</code> 字段有索引，但 <code>LIKE '%张%'</code> 导致索引失效</li>
+<li><code>LIKE '%张%'</code> 不能利用 B+Tree 的左前缀有序性来缩小 <code>name</code> 的扫描范围</li>
 <li>原因：前缀通配符 <code>%</code> 无法利用 B+Tree 索引的有序性</li>
 </ul>
 <p><strong>优化方案</strong>：</p>
@@ -699,7 +700,7 @@
 <li><code>status</code> 和 <code>create_time</code> 条件在 Server 层过滤（Using where）</li>
 <li>需要扫描 5000 行后再过滤</li>
 </ul>
-<p><strong>优化方案</strong>：创建联合索引（遵循最左前缀原则）</p>
+<p><strong>优化方案</strong>：为这条查询创建联合索引</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
@@ -739,16 +740,16 @@
 </span></span><span style="display:flex;"><span>+----+-------------+--------+-------+----------------------+----------------------+---------+------+------+-----------------------+
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p><strong>优化效果</strong>：</p>
+</div><p><strong>如何理解这个计划</strong>：</p>
 <ul>
-<li>预计扫描行数从 5000 降到 100</li>
-<li>三个条件都在索引中完成过滤</li>
+<li><code>user_id</code>、<code>status</code> 是等值条件，<code>create_time</code> 是范围条件，因此该索引可以构造较窄的索引范围。</li>
+<li>示例中的 <code>rows = 100</code> 只是估算值；是否比原计划快，要用真实数据执行 <code>EXPLAIN ANALYZE</code> 验证。</li>
 </ul>
 <p><strong>联合索引顺序原则</strong>：</p>
 <ol>
 <li><strong>等值条件优先</strong>：<code>user_id = 1001</code>（精确匹配）</li>
-<li><strong>范围条件靠后</strong>：<code>create_time &gt; '2026-01-01'</code>（范围查询会终止索引使用）</li>
-<li><strong>区分度高的字段优先</strong>：如果都是等值，选择区分度高的</li>
+<li><strong>范围条件通常靠后</strong>：范围列之后的列通常不能继续参与索引范围边界，但仍可能参与 ICP 过滤。</li>
+<li><strong>按查询组合决定顺序</strong>：等值条件、排序/分组需求和选择性都要一起考虑；不存在所有查询通用的固定顺序。</li>
 </ol>
 <hr>
 <h3 id="案例-4覆盖索引优化">案例 4：覆盖索引优化
@@ -964,12 +965,13 @@
 </span></span><span style="display:flex;"><span>+----+--------------------+--------+------+------------------------+-------------+---------+-------------+-------+-------------+
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p><strong>问题诊断</strong>：</p>
+</div><p><strong>如何判断</strong>：</p>
 <ul>
-<li><code>select_type = DEPENDENT SUBQUERY</code>：相关子查询，性能差</li>
-<li>外层查询每一行都会触发一次子查询（约 10000 次）</li>
+<li><code>DEPENDENT SUBQUERY</code> 表示子查询依赖外层行；外层行很多时可能产生大量索引查找。</li>
+<li>但 <code>EXISTS</code> 可以被 MySQL 改写为半连接并提前停止匹配，不能只看到子查询就断言它慢。</li>
+<li>先为子查询建立匹配索引，例如 <code>orders(user_id, status)</code>，然后用 <code>EXPLAIN ANALYZE</code> 验证。</li>
 </ul>
-<p><strong>优化方案</strong>：改用 JOIN</p>
+<p><strong>可比较的改写</strong>：如果执行计划没有做半连接优化，且实际测量显示相关子查询是瓶颈，再比较等价 JOIN：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
@@ -986,7 +988,7 @@
 </span></span><span style="display:flex;"><span><span style="color:#ff79c6">WHERE</span> o.status <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#39;paid&#39;</span>;
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p><strong>优化后结果</strong>：</p>
+</div><p><strong>注意</strong>：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
@@ -1005,10 +1007,9 @@
 </span></span><span style="display:flex;"><span><span style="color:#ff79c6">+----+-------------+-------+------+---------------+------------+---------+----------------+-----+----------+</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p><strong>优化效果</strong>：</p>
-<ul>
-<li>消除了子查询，改为高效的 JOIN</li>
-<li>执行次数从 10000 次降到 100 次</li>
+</div><ul>
+<li><code>JOIN + DISTINCT</code> 可能引入重复消除和临时表，不保证一定更快。</li>
+<li>保留语义正确且实际耗时更低的版本；不要只根据 <code>select_type</code> 做改写。</li>
 </ul>
 <hr>
 <h2 id="三extra-字段详解">三、Extra 字段详解
@@ -1035,13 +1036,13 @@
 <ul>
 <li>含义：索引下推（ICP），把一部分 <code>WHERE</code> 条件下推到存储引擎层过滤。</li>
 <li>何时出现：范围扫描或联合索引中，部分条件可在索引层先过滤。</li>
-<li>优化意义：比单纯 <code>Using where</code> 更好，可减少回表次数。</li>
+<li>优化意义：可能减少回表次数；是否更快仍取决于扫描量和选择性。</li>
 </ul>
 </li>
 <li>
 <p><strong>Using where</strong></p>
 <ul>
-<li>含义：MySQL Server 层还需要再做条件过滤。</li>
+<li>含义：仍有 <code>WHERE</code> 条件需要过滤。</li>
 <li>何时出现：条件不能完全靠索引完成，或本来就没有可用索引。</li>
 <li>说明：它本身不是“坏信号”，要结合 <code>rows</code> 一起看；<code>rows</code> 大才危险。</li>
 </ul>
@@ -1155,7 +1156,7 @@
 <li>
 <p><code>Using index condition; Using where</code></p>
 <ul>
-<li>表示先 ICP 过滤，再做部分 Server 层过滤，通常比只有 <code>Using where</code> 好。</li>
+<li>表示先使用 ICP 过滤，再处理剩余条件；通常可减少回表，但仍应看实际扫描量。</li>
 </ul>
 </li>
 <li>
@@ -1241,9 +1242,9 @@
 <h2 id="五性能调优检查清单">五、性能调优检查清单
 </h2><h3 id="51-索引优化">5.1 索引优化
 </h3><ul>
-<li><input disabled="" type="checkbox"> 为 WHERE、JOIN、ORDER BY、GROUP BY 字段创建索引</li>
+<li><input disabled="" type="checkbox"> 根据高频查询组合设计索引，并评估写入成本；不是所有 WHERE/JOIN/ORDER BY/GROUP BY 列都应单独建索引</li>
 <li><input disabled="" type="checkbox"> 使用联合索引，遵循最左前缀原则</li>
-<li><input disabled="" type="checkbox"> 避免索引失效：不使用函数、不使用 <code>!=</code>、不使用前缀通配符 <code>%</code></li>
+<li><input disabled="" type="checkbox"> 避免在索引列上直接使用函数；前缀通配符无法用左前缀缩小范围；<code>!=</code> 是否走索引取决于选择性和成本</li>
 <li><input disabled="" type="checkbox"> 利用覆盖索引，减少回表</li>
 <li><input disabled="" type="checkbox"> 定期删除冗余索引</li>
 </ul>
@@ -1251,20 +1252,20 @@
 </h3><ul>
 <li><input disabled="" type="checkbox"> 避免 <code>SELECT *</code>，只查询需要的字段</li>
 <li><input disabled="" type="checkbox"> 使用 LIMIT 限制返回行数</li>
-<li><input disabled="" type="checkbox"> 子查询改 JOIN</li>
+<li><input disabled="" type="checkbox"> 不预设“子查询改 JOIN”；先看优化器是否已做半连接/物化改写，再测量</li>
 <li><input disabled="" type="checkbox"> 避免在 WHERE 中使用函数：<code>WHERE DATE(create_time) = '2026-01-01'</code> → <code>WHERE create_time &gt;= '2026-01-01' AND create_time &lt; '2026-01-02'</code></li>
 <li><input disabled="" type="checkbox"> 使用 UNION ALL 代替 UNION（如果不需要去重）</li>
 </ul>
 <h3 id="53-表结构优化">5.3 表结构优化
 </h3><ul>
-<li><input disabled="" type="checkbox"> 选择合适的数据类型（INT 比 VARCHAR 快）</li>
-<li><input disabled="" type="checkbox"> 使用 NOT NULL + DEFAULT（避免 NULL 值）</li>
-<li><input disabled="" type="checkbox"> 大字段（TEXT、BLOB）拆分到单独的表</li>
-<li><input disabled="" type="checkbox"> 垂直分表、水平分表（数据量大时）</li>
+<li><input disabled="" type="checkbox"> 选择符合业务语义且长度合适的数据类型，不要用“INT 一定比 VARCHAR 快”替代建模判断</li>
+<li><input disabled="" type="checkbox"> 仅在业务允许时使用 NOT NULL 和 DEFAULT，优先保证语义正确</li>
+<li><input disabled="" type="checkbox"> 依据访问模式决定是否拆分 TEXT/BLOB，拆分会减少主表宽度但可能增加 JOIN</li>
+<li><input disabled="" type="checkbox"> 分表前先确认单表、索引和查询已成为瓶颈</li>
 </ul>
 <h3 id="54-配置优化">5.4 配置优化
 </h3><ul>
-<li><input disabled="" type="checkbox"> 调整 <code>innodb_buffer_pool_size</code>（建议设置为物理内存的 70-80%）</li>
+<li><input disabled="" type="checkbox"> 按专用数据库实例的可用内存设置 <code>innodb_buffer_pool_size</code>，还要为连接、排序、系统和其他服务预留空间；70-80% 只是常见经验值</li>
 <li><input disabled="" type="checkbox"> 调整 <code>max_connections</code>（根据并发量）</li>
 <li><input disabled="" type="checkbox"> 查询缓存仅适用于 MySQL 5.7 及以下，且高并发场景通常不建议开启（MySQL 8.0 已移除）</li>
 </ul>
@@ -1320,18 +1321,18 @@
 <h2 id="七总结">七、总结
 </h2><p><strong>Explain 核心关注点</strong>：</p>
 <ol>
-<li><strong>type</strong>：至少达到 range，最好 ref 或 eq_ref</li>
-<li><strong>key</strong>：确保使用了索引</li>
-<li><strong>rows</strong>：预计扫描行数越少越好</li>
-<li><strong>Extra</strong>：避免 Using filesort 和 Using temporary</li>
+<li><strong>type</strong>：识别访问范围，不把它当作唯一的性能分数</li>
+<li><strong>key</strong>：确认索引是否符合查询组合</li>
+<li><strong>rows</strong>：结合返回行数判断扫描是否合理</li>
+<li><strong>Extra</strong>：理解 <code>filesort</code>、<code>temporary</code> 的来源，再决定是否优化</li>
 </ol>
 <p><strong>优化思路</strong>：</p>
 <ol>
 <li>先用 Explain 分析执行计划</li>
-<li>找出全表扫描（type = ALL）和大量扫描行（rows 大）</li>
-<li>为过滤、排序、分组字段创建索引</li>
-<li>优化 SQL 写法（子查询改 JOIN、避免函数等）</li>
-<li>再次 Explain 验证优化效果</li>
+<li>找出扫描量异常、排序或临时表代价高的计划</li>
+<li>按查询组合设计或调整索引</li>
+<li>改写 SQL 前先确认语义等价并比较成本</li>
+<li>用 <code>EXPLAIN ANALYZE</code> 和实际耗时验证优化效果</li>
 </ol>
 <p><strong>记住</strong>：索引不是越多越好，每个索引都会增加写入成本。根据实际查询场景，创建合适的索引才是关键。</p>
 

@@ -274,7 +274,7 @@
         <li><a href="#31-锁的类型">3.1 锁的类型</a></li>
         <li><a href="#32-锁的算法-核心">3.2 锁的算法 (核心)</a>
           <ol>
-            <li><a href="#-灾难警示没有索引--锁全表">⚠️ 灾难警示：没有索引 = 锁全表</a></li>
+            <li><a href="#-灾难警示没有合适索引可能锁住大量记录">⚠️ 灾难警示：没有合适索引可能锁住大量记录</a></li>
             <li><a href="#a-record-lock-记录锁">A. Record Lock (记录锁)</a></li>
             <li><a href="#b-gap-lock-间隙锁">B. Gap Lock (间隙锁)</a></li>
             <li><a href="#c-next-key-lock-临键锁">C. Next-Key Lock (临键锁)</a></li>
@@ -407,14 +407,14 @@
 ></p>
 <ol>
 <li><strong>连接 (Connection)</strong>：客户端与服务器的物理 TCP 通道。</li>
-<li><strong>线程 (Thread/Session)</strong>：MySQL 为每个连接分配一个线程。<strong>表锁 (<code>lock tables</code>)</strong> 通常与会话绑定，连接不断，锁可能不释放。</li>
-<li><strong>事务 (Transaction)</strong>：逻辑操作单元。<strong>MDL 锁</strong> 和 <strong>InnoDB 行锁</strong> 都是与事务绑定的。<strong>只有事务提交 (Commit) 后，这些锁才会释放</strong>。</li>
+<li><strong>线程 (Thread/Session)</strong>：传统模式通常是一个连接对应一个线程，线程池等插件可能改变这个实现。<strong>表锁 (<code>LOCK TABLES</code>)</strong> 通常与会话绑定，连接不断，锁可能不释放。</li>
+<li><strong>事务 (Transaction)</strong>：逻辑操作单元。<strong>InnoDB 行锁</strong>通常跟随事务，MDL 也常在事务结束时释放；autocommit 语句的事务结束后，锁也会随之释放。</li>
 </ol>
 <blockquote>
 <p><strong>⚠️ 核心认知</strong>：MDL 锁的危险之处在于，它不是 SQL 执行完就释放，而是<strong>事务提交才释放</strong>。如果一个长事务查了一次表后就挂起了，它会一直持有 MDL 读锁，导致后续的表结构修改（DDL）被阻塞，进而阻塞所有查询。</p>
 <ol>
 <li>表锁 是 会话（线程）级 的。</li>
-<li>MDL 和 行锁 是 事务级 的（这是重点，事务不提交，MDL 就不释放）。</li>
+<li>MDL 和行锁通常跟随事务（这是重点，长事务不提交可能长期占用锁）。</li>
 </ol>
 </blockquote>
 <hr>
@@ -444,7 +444,7 @@
 <li><strong>从库备份</strong>：从库不能执行主库同步过来的 binlog，导致主从延迟。</li>
 </ul>
 <blockquote>
-<p><strong>优化方案</strong>：如果使用的是 InnoDB 引擎，由于其支持 MVCC（多版本并发控制），可以使用 <code>mysqldump --single-transaction</code> 参数。这会在备份开始时启动一个事务，拿到一致性视图，从而在不阻塞更新的情况下实现备份。</p>
+<p><strong>优化方案</strong>：如果表主要使用 InnoDB，可以使用 <code>mysqldump --single-transaction</code> 获取一致性视图，通常不阻塞 DML。它不保证非事务表的一致性，备份期间也应避免 DDL。</p>
 </blockquote>
 <hr>
 <h2 id="二表级锁">二、表级锁
@@ -481,7 +481,7 @@
 <blockquote>
 <p><strong>🔍 深度理解：锁、线程与事务的关系</strong></p>
 <ul>
-<li><strong>线程即会话</strong>：这里的“线程”指的是<strong>客户端连接 (Session)</strong>。MySQL 为每个连接分配一个线程，锁的所有权属于这个连接。</li>
+<li><strong>会话与执行线程</strong>：这里讨论的是客户端连接（Session）。传统实现常为连接分配执行线程，但线程池可复用线程；锁的所有权仍属于会话/事务。</li>
 <li><strong>隐式提交 (Implicit Commit)</strong>：这是一个关键点。执行 <code>LOCK TABLES</code> 时，如果当前会话中有未提交的事务，MySQL 会先自动执行 <code>COMMIT</code>。
 &gt;   - 这意味着：<strong>显式表锁不能在一个事务的中间使用</strong>，否则会打断原有的事务逻辑。它是会话级别的资源控制，独立于 InnoDB 的事务机制之外。</li>
 </ul>
@@ -703,19 +703,19 @@
 </blockquote>
 <h3 id="32-锁的算法-核心">3.2 锁的算法 (核心)
 </h3><p>InnoDB 的行锁是<strong>锁住索引</strong>，而不是锁住记录本身。这是一个颠覆性的概念。</p>
-<h4 id="-灾难警示没有索引--锁全表">⚠️ 灾难警示：没有索引 = 锁全表
+<h4 id="-灾难警示没有合适索引可能锁住大量记录">⚠️ 灾难警示：没有合适索引可能锁住大量记录
 </h4><p>如果你的 update/delete/for update 语句<strong>没有用到索引</strong>，InnoDB 只能进行全表扫描。</p>
 <ul>
 <li>
 <p><strong>机制</strong>：MySQL 会挨个扫描每一行记录，并给<strong>每一行</strong>都加上锁。</p>
 </li>
 <li>
-<p><strong>后果</strong>：虽然你只改了一行数据，但整张表几百万行数据全被锁死了！这在效果上等同于表锁，并发量瞬间降为 0。</p>
+<p><strong>后果</strong>：虽然你可能只改一行数据，但扫描范围可能很大，导致大量记录被锁住；在 RR 的当前读场景下，效果可能接近表锁。它不是字面意义上的表锁，普通快照读和已提交事务仍要按具体场景判断。</p>
 </li>
 <li>
 <p><strong>案例</strong>：<code>UPDATE user SET age=20 WHERE name='ZhangSan';</code></p>
 <ul>
-<li>如果 <code>name</code> 字段没索引，全表所有人的记录都会被锁住，其他人连 <code>UPDATE user SET age=21 WHERE id=1</code> 都做不了。</li>
+<li>如果 <code>name</code> 字段没索引，语句可能扫描并锁住大量记录；例如另一个事务更新已被锁住的 <code>id=1</code> 时会等待。锁持续多久还取决于事务是否提交。</li>
 </ul>
 </li>
 </ul>
@@ -727,14 +727,14 @@
 <h4 id="b-gap-lock-间隙锁">B. Gap Lock (间隙锁)
 </h4><ul>
 <li>锁住索引记录之间的<strong>间隙</strong>（不包含记录本身），确保索引记录的间隙不变。</li>
-<li><strong>目的</strong>：防止其他事务在这个范围内插入数据，从而解决<strong>幻读</strong>问题。</li>
-<li><strong>注意</strong>：Gap Lock 只在 <strong>可重复读 (RR)</strong> 隔离级别下有效。</li>
+<li><strong>目的</strong>：在当前读的扫描范围内防止插入数据，从而避免该范围的幻读。</li>
+<li><strong>注意</strong>：Gap Lock 主要出现在 RR 的当前读范围扫描中；RC 通常禁用间隙锁，但外键检查、重复键检查等场景仍可能使用。</li>
 </ul>
 <h4 id="c-next-key-lock-临键锁">C. Next-Key Lock (临键锁)
 </h4><ul>
 <li><strong>Record Lock + Gap Lock</strong> 的组合。</li>
 <li>锁住一个左开右闭的区间 <code>(negative_infinity, record]</code>。</li>
-<li><strong>默认行为</strong>：InnoDB 在 RR 隔离级别下，默认使用 Next-Key Lock。只有在某些特定场景下（如唯一索引等值查询且记录存在），才会退化为 Record Lock。</li>
+<li><strong>常见行为</strong>：InnoDB 在 RR 的当前读范围扫描中常使用 Next-Key Lock；唯一索引等值查询且记录存在时，通常可以退化为 Record Lock。具体结果取决于语句和访问路径。</li>
 </ul>
 <h3 id="33-加锁规则实战-图解-rr-级别">3.3 加锁规则实战 (图解 RR 级别)
 </h3><p>为了理解透彻，我们用具体数字来演示。</p>
@@ -929,20 +929,10 @@
 <h2 id="五进阶隔离级别mvcc-与锁的关系">五、进阶：隔离级别、MVCC 与锁的关系
 </h2><p>这是一个极易混淆的高频面试点，必须厘清。</p>
 <h3 id="51-锁在不同隔离级别的区别">5.1 锁在不同隔离级别的区别
-</h3><p>虽然 RC（读已提交）和 RR（可重复读）都会加行锁，但加锁的**范围（算法）**截然不同：</p>
+</h3><p>RC 和 RR 都会使用行锁，但要区分<strong>快照读</strong>和<strong>当前读</strong>：</p>
 <ul>
-<li><strong>RC 级别</strong>：只有 <strong>Record Lock</strong>。
-<ul>
-<li>只锁住存在的记录。<strong>不加 Gap Lock</strong>（外键检查等特殊情况除外）。</li>
-<li><strong>后果</strong>：允许其他事务在间隙插入数据，所以 RC 会出现<strong>幻读</strong>。</li>
-</ul>
-</li>
-<li><strong>RR 级别</strong>：默认使用 <strong>Next-Key Lock</strong>。
-<ul>
-<li>锁住记录 + 间隙。</li>
-<li><strong>目的</strong>：严防死守，禁止插入，<strong>解决幻读</strong>。</li>
-</ul>
-</li>
+<li><strong>RC 的当前读</strong>：通常只锁住命中的记录；Gap Lock 通常关闭，但外键检查、重复键检查等例外仍可能使用。每次快照读会创建新 Read View，因此下一次普通 <code>SELECT</code> 可能看到新提交的行。</li>
+<li><strong>RR 的当前读</strong>：范围扫描常使用 Next-Key Lock，锁住记录和相关间隙；唯一索引等值命中通常只需 Record Lock。RR 的普通快照读则通过复用 Read View 保持稳定结果。</li>
 </ul>
 <h3 id="52-mvcc-是用的临键锁吗">5.2 MVCC 是用的临键锁吗？
 </h3><p><strong>绝对不是！</strong> 它们是两套互补的机制。</p>
@@ -962,7 +952,7 @@
 					<td>多版本并发控制</td>
 					<td><strong>普通 SELECT</strong> (快照读)</td>
 					<td>通过 Undo Log 维护数据的历史版本</td>
-					<td>解决<strong>读写冲突</strong>，实现无锁的非阻塞读。</td>
+					<td>避免快照读持有行锁，通常减少读写阻塞。</td>
 			</tr>
 			<tr>
 					<td><strong>Next-Key Lock</strong></td>
@@ -974,7 +964,7 @@
 	</tbody>
 </table></div>
 <blockquote>
-<p><strong>结论</strong>：MySQL InnoDB 在 RR 级别下解决幻读采用了“双保险”策略：</p>
+<p><strong>结论</strong>：MySQL InnoDB 在 RR 级别下针对两类读取使用不同机制：</p>
 <ol>
 <li>对于<strong>快照读</strong>，靠 <strong>MVCC</strong> 解决（看老版本）。</li>
 <li>对于<strong>当前读</strong>，靠 <strong>Next-Key Lock</strong> 解决（锁住间隙不让插）。</li>
@@ -1055,7 +1045,7 @@
 			</tr>
 	</tbody>
 </table></div>
-<p>理解 MySQL 锁机制的核心在于理解 <strong>InnoDB 的行锁是基于索引实现的</strong>，以及 <strong>Next-Key Lock 是解决幻读的关键</strong>。在实际开发中，合理设计索引和事务大小，是避免锁性能问题的关键。</p>
+<p>理解 MySQL 锁机制的核心在于理解 <strong>InnoDB 的行锁是基于索引实现的</strong>，以及 Next-Key Lock 主要用于<strong>当前读范围扫描</strong>。在实际开发中，合理设计索引和事务大小，是避免锁性能问题的关键。</p>
 
 </section>
 

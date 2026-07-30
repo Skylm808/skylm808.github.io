@@ -7383,7 +7383,7 @@
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;strong&gt;type&lt;/strong&gt;&lt;/td&gt;
-					&lt;td&gt;访问类型（性能从好到坏：system &amp;gt; const &amp;gt; eq_ref &amp;gt; ref &amp;gt; range &amp;gt; index &amp;gt; ALL）&lt;/td&gt;
+					&lt;td&gt;访问方式（通常从精确访问到全扫描：system、const、eq_ref、ref、range、index、ALL）&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;strong&gt;possible_keys&lt;/strong&gt;&lt;/td&gt;
@@ -7412,7 +7412,7 @@
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;h3 id=&#34;12-type-字段详解重点&#34;&gt;1.2 type 字段详解（重点）
-&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;type&lt;/strong&gt; 是判断查询性能的关键指标，从最优到最差：&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;type&lt;/code&gt; 描述访问方式，不是绝对性能排名。它可以帮助判断扫描范围，但必须结合 &lt;code&gt;rows&lt;/code&gt;、数据分布和实际耗时。&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;system&lt;/strong&gt;：表只有一行记录（系统表），这是 const 的特例&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;const&lt;/strong&gt;：通过主键或唯一索引查询，最多返回一条记录&lt;/li&gt;
@@ -7420,11 +7420,12 @@
 &lt;li&gt;&lt;strong&gt;ref&lt;/strong&gt;：非唯一索引扫描，返回匹配某个单独值的所有行&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;range&lt;/strong&gt;：索引范围扫描（使用 &amp;gt;、&amp;lt;、BETWEEN、IN 等）&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;index&lt;/strong&gt;：全索引扫描（扫描整个索引树）&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;ALL&lt;/strong&gt;：全表扫描（最差，需要优化）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;ALL&lt;/strong&gt;：全表扫描（数据量大时需要重点关注；小表或低选择性条件下也可能是最优计划）&lt;/li&gt;
 &lt;/ol&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&lt;strong&gt;优化目标&lt;/strong&gt;：至少达到 &lt;strong&gt;range&lt;/strong&gt; 级别，最好是 &lt;strong&gt;ref&lt;/strong&gt; 或更好。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;判断原则&lt;/strong&gt;：不要为了把 &lt;code&gt;ALL&lt;/code&gt; 变成 &lt;code&gt;range&lt;/code&gt; 而盲目建索引。例：&lt;code&gt;age &amp;gt; 25&lt;/code&gt; 命中表中大多数行且查询 &lt;code&gt;SELECT *&lt;/code&gt; 时，走二级索引再回表可能比全表扫描更慢。&lt;/p&gt;
 &lt;/blockquote&gt;
+&lt;p&gt;下文的 &lt;code&gt;EXPLAIN&lt;/code&gt; 表格均为&lt;strong&gt;示意&lt;/strong&gt;；&lt;code&gt;rows&lt;/code&gt;、&lt;code&gt;key_len&lt;/code&gt; 和最终计划会随字段类型、统计信息、数据分布及 MySQL 版本变化。&lt;code&gt;EXPLAIN ANALYZE&lt;/code&gt; 需要 MySQL 8.0.18 及以上版本；较低版本可结合慢查询日志和实际耗时判断。&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2 id=&#34;二实战案例分析&#34;&gt;二、实战案例分析
 &lt;/h2&gt;&lt;h3 id=&#34;案例-1全表扫描优化&#34;&gt;案例 1：全表扫描优化
@@ -7467,12 +7468,12 @@
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;&lt;strong&gt;问题诊断&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;code&gt;type = ALL&lt;/code&gt;：全表扫描，性能最差&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;type = ALL&lt;/code&gt;：全表扫描；对于 10 万行且需要返回少量结果时值得分析&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;rows = 100000&lt;/code&gt;：需要扫描 10 万行&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;key = NULL&lt;/code&gt;：没有使用任何索引&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;Extra = Using where&lt;/code&gt;：在 Server 层进行过滤&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;&lt;strong&gt;优化方案&lt;/strong&gt;：为 &lt;code&gt;age&lt;/code&gt; 字段添加索引&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;优化方案&lt;/strong&gt;：先确认 &lt;code&gt;age &amp;gt; 25&lt;/code&gt; 是否足够有选择性；只有命中比例较低、或查询能被索引覆盖时，&lt;code&gt;age&lt;/code&gt; 索引才更可能有收益。&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
 &lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
@@ -7506,11 +7507,11 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;+----+-------------+-------+-------+---------------+---------+---------+------+-------+-----------------------+
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;strong&gt;优化效果&lt;/strong&gt;：&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;如何判断是否真的更好&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;code&gt;type&lt;/code&gt; 从 &lt;code&gt;ALL&lt;/code&gt; 提升到 &lt;code&gt;range&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;使用了 &lt;code&gt;idx_age&lt;/code&gt; 索引&lt;/li&gt;
-&lt;li&gt;预计扫描行数减少到 5 万行（实际执行会更快）&lt;/li&gt;
+&lt;li&gt;计划可能从 &lt;code&gt;ALL&lt;/code&gt; 变成 &lt;code&gt;range&lt;/code&gt;，但不等于一定更快。&lt;/li&gt;
+&lt;li&gt;若仍要扫描 5 万行并回表，优化器也可能继续选择 &lt;code&gt;ALL&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;用 &lt;code&gt;EXPLAIN ANALYZE&lt;/code&gt; 对比实际扫描行数和执行时间，再决定是否保留索引。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;hr&gt;
 &lt;h3 id=&#34;案例-2索引失效问题&#34;&gt;案例 2：索引失效问题
@@ -7544,7 +7545,7 @@
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;&lt;strong&gt;问题诊断&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;即使 &lt;code&gt;name&lt;/code&gt; 字段有索引，但 &lt;code&gt;LIKE &#39;%张%&#39;&lt;/code&gt; 导致索引失效&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;LIKE &#39;%张%&#39;&lt;/code&gt; 不能利用 B+Tree 的左前缀有序性来缩小 &lt;code&gt;name&lt;/code&gt; 的扫描范围&lt;/li&gt;
 &lt;li&gt;原因：前缀通配符 &lt;code&gt;%&lt;/code&gt; 无法利用 B+Tree 索引的有序性&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;&lt;strong&gt;优化方案&lt;/strong&gt;：&lt;/p&gt;
@@ -7680,7 +7681,7 @@
 &lt;li&gt;&lt;code&gt;status&lt;/code&gt; 和 &lt;code&gt;create_time&lt;/code&gt; 条件在 Server 层过滤（Using where）&lt;/li&gt;
 &lt;li&gt;需要扫描 5000 行后再过滤&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;&lt;strong&gt;优化方案&lt;/strong&gt;：创建联合索引（遵循最左前缀原则）&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;优化方案&lt;/strong&gt;：为这条查询创建联合索引&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
 &lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
@@ -7720,16 +7721,16 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;+----+-------------+--------+-------+----------------------+----------------------+---------+------+------+-----------------------+
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;strong&gt;优化效果&lt;/strong&gt;：&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;如何理解这个计划&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;预计扫描行数从 5000 降到 100&lt;/li&gt;
-&lt;li&gt;三个条件都在索引中完成过滤&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;user_id&lt;/code&gt;、&lt;code&gt;status&lt;/code&gt; 是等值条件，&lt;code&gt;create_time&lt;/code&gt; 是范围条件，因此该索引可以构造较窄的索引范围。&lt;/li&gt;
+&lt;li&gt;示例中的 &lt;code&gt;rows = 100&lt;/code&gt; 只是估算值；是否比原计划快，要用真实数据执行 &lt;code&gt;EXPLAIN ANALYZE&lt;/code&gt; 验证。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;&lt;strong&gt;联合索引顺序原则&lt;/strong&gt;：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;等值条件优先&lt;/strong&gt;：&lt;code&gt;user_id = 1001&lt;/code&gt;（精确匹配）&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;范围条件靠后&lt;/strong&gt;：&lt;code&gt;create_time &amp;gt; &#39;2026-01-01&#39;&lt;/code&gt;（范围查询会终止索引使用）&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;区分度高的字段优先&lt;/strong&gt;：如果都是等值，选择区分度高的&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;范围条件通常靠后&lt;/strong&gt;：范围列之后的列通常不能继续参与索引范围边界，但仍可能参与 ICP 过滤。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;按查询组合决定顺序&lt;/strong&gt;：等值条件、排序/分组需求和选择性都要一起考虑；不存在所有查询通用的固定顺序。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;hr&gt;
 &lt;h3 id=&#34;案例-4覆盖索引优化&#34;&gt;案例 4：覆盖索引优化
@@ -7945,12 +7946,13 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;+----+--------------------+--------+------+------------------------+-------------+---------+-------------+-------+-------------+
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;strong&gt;问题诊断&lt;/strong&gt;：&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;如何判断&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;code&gt;select_type = DEPENDENT SUBQUERY&lt;/code&gt;：相关子查询，性能差&lt;/li&gt;
-&lt;li&gt;外层查询每一行都会触发一次子查询（约 10000 次）&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;DEPENDENT SUBQUERY&lt;/code&gt; 表示子查询依赖外层行；外层行很多时可能产生大量索引查找。&lt;/li&gt;
+&lt;li&gt;但 &lt;code&gt;EXISTS&lt;/code&gt; 可以被 MySQL 改写为半连接并提前停止匹配，不能只看到子查询就断言它慢。&lt;/li&gt;
+&lt;li&gt;先为子查询建立匹配索引，例如 &lt;code&gt;orders(user_id, status)&lt;/code&gt;，然后用 &lt;code&gt;EXPLAIN ANALYZE&lt;/code&gt; 验证。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;&lt;strong&gt;优化方案&lt;/strong&gt;：改用 JOIN&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;可比较的改写&lt;/strong&gt;：如果执行计划没有做半连接优化，且实际测量显示相关子查询是瓶颈，再比较等价 JOIN：&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
 &lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
@@ -7967,7 +7969,7 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;WHERE&lt;/span&gt; o.status &lt;span style=&#34;color:#ff79c6&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#39;paid&amp;#39;&lt;/span&gt;;
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;strong&gt;优化后结果&lt;/strong&gt;：&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;注意&lt;/strong&gt;：&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
 &lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
@@ -7986,10 +7988,9 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;+----+-------------+-------+------+---------------+------------+---------+----------------+-----+----------+&lt;/span&gt;
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;strong&gt;优化效果&lt;/strong&gt;：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;消除了子查询，改为高效的 JOIN&lt;/li&gt;
-&lt;li&gt;执行次数从 10000 次降到 100 次&lt;/li&gt;
+&lt;/div&gt;&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;JOIN + DISTINCT&lt;/code&gt; 可能引入重复消除和临时表，不保证一定更快。&lt;/li&gt;
+&lt;li&gt;保留语义正确且实际耗时更低的版本；不要只根据 &lt;code&gt;select_type&lt;/code&gt; 做改写。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;hr&gt;
 &lt;h2 id=&#34;三extra-字段详解&#34;&gt;三、Extra 字段详解
@@ -8016,13 +8017,13 @@
 &lt;ul&gt;
 &lt;li&gt;含义：索引下推（ICP），把一部分 &lt;code&gt;WHERE&lt;/code&gt; 条件下推到存储引擎层过滤。&lt;/li&gt;
 &lt;li&gt;何时出现：范围扫描或联合索引中，部分条件可在索引层先过滤。&lt;/li&gt;
-&lt;li&gt;优化意义：比单纯 &lt;code&gt;Using where&lt;/code&gt; 更好，可减少回表次数。&lt;/li&gt;
+&lt;li&gt;优化意义：可能减少回表次数；是否更快仍取决于扫描量和选择性。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;Using where&lt;/strong&gt;&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;含义：MySQL Server 层还需要再做条件过滤。&lt;/li&gt;
+&lt;li&gt;含义：仍有 &lt;code&gt;WHERE&lt;/code&gt; 条件需要过滤。&lt;/li&gt;
 &lt;li&gt;何时出现：条件不能完全靠索引完成，或本来就没有可用索引。&lt;/li&gt;
 &lt;li&gt;说明：它本身不是“坏信号”，要结合 &lt;code&gt;rows&lt;/code&gt; 一起看；&lt;code&gt;rows&lt;/code&gt; 大才危险。&lt;/li&gt;
 &lt;/ul&gt;
@@ -8136,7 +8137,7 @@
 &lt;li&gt;
 &lt;p&gt;&lt;code&gt;Using index condition; Using where&lt;/code&gt;&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;表示先 ICP 过滤，再做部分 Server 层过滤，通常比只有 &lt;code&gt;Using where&lt;/code&gt; 好。&lt;/li&gt;
+&lt;li&gt;表示先使用 ICP 过滤，再处理剩余条件；通常可减少回表，但仍应看实际扫描量。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;li&gt;
@@ -8222,9 +8223,9 @@
 &lt;h2 id=&#34;五性能调优检查清单&#34;&gt;五、性能调优检查清单
 &lt;/h2&gt;&lt;h3 id=&#34;51-索引优化&#34;&gt;5.1 索引优化
 &lt;/h3&gt;&lt;ul&gt;
-&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 为 WHERE、JOIN、ORDER BY、GROUP BY 字段创建索引&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 根据高频查询组合设计索引，并评估写入成本；不是所有 WHERE/JOIN/ORDER BY/GROUP BY 列都应单独建索引&lt;/li&gt;
 &lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 使用联合索引，遵循最左前缀原则&lt;/li&gt;
-&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 避免索引失效：不使用函数、不使用 &lt;code&gt;!=&lt;/code&gt;、不使用前缀通配符 &lt;code&gt;%&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 避免在索引列上直接使用函数；前缀通配符无法用左前缀缩小范围；&lt;code&gt;!=&lt;/code&gt; 是否走索引取决于选择性和成本&lt;/li&gt;
 &lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 利用覆盖索引，减少回表&lt;/li&gt;
 &lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 定期删除冗余索引&lt;/li&gt;
 &lt;/ul&gt;
@@ -8232,20 +8233,20 @@
 &lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 避免 &lt;code&gt;SELECT *&lt;/code&gt;，只查询需要的字段&lt;/li&gt;
 &lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 使用 LIMIT 限制返回行数&lt;/li&gt;
-&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 子查询改 JOIN&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 不预设“子查询改 JOIN”；先看优化器是否已做半连接/物化改写，再测量&lt;/li&gt;
 &lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 避免在 WHERE 中使用函数：&lt;code&gt;WHERE DATE(create_time) = &#39;2026-01-01&#39;&lt;/code&gt; → &lt;code&gt;WHERE create_time &amp;gt;= &#39;2026-01-01&#39; AND create_time &amp;lt; &#39;2026-01-02&#39;&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 使用 UNION ALL 代替 UNION（如果不需要去重）&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3 id=&#34;53-表结构优化&#34;&gt;5.3 表结构优化
 &lt;/h3&gt;&lt;ul&gt;
-&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 选择合适的数据类型（INT 比 VARCHAR 快）&lt;/li&gt;
-&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 使用 NOT NULL + DEFAULT（避免 NULL 值）&lt;/li&gt;
-&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 大字段（TEXT、BLOB）拆分到单独的表&lt;/li&gt;
-&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 垂直分表、水平分表（数据量大时）&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 选择符合业务语义且长度合适的数据类型，不要用“INT 一定比 VARCHAR 快”替代建模判断&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 仅在业务允许时使用 NOT NULL 和 DEFAULT，优先保证语义正确&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 依据访问模式决定是否拆分 TEXT/BLOB，拆分会减少主表宽度但可能增加 JOIN&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 分表前先确认单表、索引和查询已成为瓶颈&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3 id=&#34;54-配置优化&#34;&gt;5.4 配置优化
 &lt;/h3&gt;&lt;ul&gt;
-&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 调整 &lt;code&gt;innodb_buffer_pool_size&lt;/code&gt;（建议设置为物理内存的 70-80%）&lt;/li&gt;
+&lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 按专用数据库实例的可用内存设置 &lt;code&gt;innodb_buffer_pool_size&lt;/code&gt;，还要为连接、排序、系统和其他服务预留空间；70-80% 只是常见经验值&lt;/li&gt;
 &lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 调整 &lt;code&gt;max_connections&lt;/code&gt;（根据并发量）&lt;/li&gt;
 &lt;li&gt;&lt;input disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; 查询缓存仅适用于 MySQL 5.7 及以下，且高并发场景通常不建议开启（MySQL 8.0 已移除）&lt;/li&gt;
 &lt;/ul&gt;
@@ -8301,18 +8302,18 @@
 &lt;h2 id=&#34;七总结&#34;&gt;七、总结
 &lt;/h2&gt;&lt;p&gt;&lt;strong&gt;Explain 核心关注点&lt;/strong&gt;：&lt;/p&gt;
 &lt;ol&gt;
-&lt;li&gt;&lt;strong&gt;type&lt;/strong&gt;：至少达到 range，最好 ref 或 eq_ref&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;key&lt;/strong&gt;：确保使用了索引&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;rows&lt;/strong&gt;：预计扫描行数越少越好&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Extra&lt;/strong&gt;：避免 Using filesort 和 Using temporary&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;type&lt;/strong&gt;：识别访问范围，不把它当作唯一的性能分数&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;key&lt;/strong&gt;：确认索引是否符合查询组合&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;rows&lt;/strong&gt;：结合返回行数判断扫描是否合理&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Extra&lt;/strong&gt;：理解 &lt;code&gt;filesort&lt;/code&gt;、&lt;code&gt;temporary&lt;/code&gt; 的来源，再决定是否优化&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;优化思路&lt;/strong&gt;：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;先用 Explain 分析执行计划&lt;/li&gt;
-&lt;li&gt;找出全表扫描（type = ALL）和大量扫描行（rows 大）&lt;/li&gt;
-&lt;li&gt;为过滤、排序、分组字段创建索引&lt;/li&gt;
-&lt;li&gt;优化 SQL 写法（子查询改 JOIN、避免函数等）&lt;/li&gt;
-&lt;li&gt;再次 Explain 验证优化效果&lt;/li&gt;
+&lt;li&gt;找出扫描量异常、排序或临时表代价高的计划&lt;/li&gt;
+&lt;li&gt;按查询组合设计或调整索引&lt;/li&gt;
+&lt;li&gt;改写 SQL 前先确认语义等价并比较成本&lt;/li&gt;
+&lt;li&gt;用 &lt;code&gt;EXPLAIN ANALYZE&lt;/code&gt; 和实际耗时验证优化效果&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;记住&lt;/strong&gt;：索引不是越多越好，每个索引都会增加写入成本。根据实际查询场景，创建合适的索引才是关键。&lt;/p&gt;
 </description>
@@ -10138,7 +10139,7 @@
 &lt;li&gt;&lt;strong&gt;写入方式&lt;/strong&gt;：&lt;strong&gt;追加写&lt;/strong&gt;。文件写满后会切换到下一个新文件。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h4 id=&#34;-binlog-如何实现主从一致-replication&#34;&gt;❓ Binlog 如何实现主从一致 (Replication)？
-&lt;/h4&gt;&lt;p&gt;主从复制本质上就是让从库（Slave）把主库（Master）做过的事情再做一遍。整个过程分为三步（&lt;strong&gt;3个线程&lt;/strong&gt;）：&lt;/p&gt;
+&lt;/h4&gt;&lt;p&gt;经典异步主从复制可以理解为让副本把主库的变更再执行一遍，通常包含三个角色（现代版本还可能配置并行复制工作线程）：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;Dump 线程 (Master)&lt;/strong&gt;：&lt;/li&gt;
 &lt;/ol&gt;
@@ -10193,11 +10194,11 @@
 &lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;归属&lt;/strong&gt;：InnoDB 引擎层。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;作用&lt;/strong&gt;：事务回滚、MVCC。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;写入方式&lt;/strong&gt;：Insert 提交即删，Update/Delete 提交后放入 History List 待清理。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;写入方式&lt;/strong&gt;：Insert undo 主要用于回滚，事务提交后即可不再保留；Update/Delete undo 还可能被快照读使用，会进入 History List，等待 purge 在安全时机清理。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;hr&gt;
 &lt;h2 id=&#34;2-核心机制辨析&#34;&gt;2. 核心机制辨析
-&lt;/h2&gt;&lt;h3 id=&#34;31-redo-log-vs-undo-log&#34;&gt;3.1 Redo Log vs Undo Log
+&lt;/h2&gt;&lt;h3 id=&#34;21-redo-log-vs-undo-log&#34;&gt;2.1 Redo Log vs Undo Log
 &lt;/h3&gt;&lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
@@ -10208,23 +10209,23 @@
 	&lt;/thead&gt;
 	&lt;tbody&gt;
 			&lt;tr&gt;
-					&lt;td&gt;&lt;strong&gt;记录的数据状态&lt;/strong&gt;&lt;/td&gt;
-					&lt;td&gt;&lt;strong&gt;事务开始前&lt;/strong&gt; (更新之前的值)&lt;/td&gt;
-					&lt;td&gt;&lt;strong&gt;事务完成后&lt;/strong&gt; (更新之后的值)&lt;/td&gt;
+					&lt;td&gt;&lt;strong&gt;主要记录&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;回滚所需的信息和历史版本&lt;/td&gt;
+					&lt;td&gt;数据页物理变更的重做信息&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;strong&gt;主要目的&lt;/strong&gt;&lt;/td&gt;
-					&lt;td&gt;撤销操作 (回滚)&lt;/td&gt;
-					&lt;td&gt;重做操作 (恢复)&lt;/td&gt;
+					&lt;td&gt;回滚事务、构造 MVCC 版本&lt;/td&gt;
+					&lt;td&gt;崩溃后把已写入的变更重新应用&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
-					&lt;td&gt;&lt;strong&gt;崩溃恢复&lt;/strong&gt;&lt;/td&gt;
-					&lt;td&gt;提交&lt;strong&gt;前&lt;/strong&gt;崩溃 -&amp;gt; &lt;strong&gt;回滚&lt;/strong&gt;&lt;/td&gt;
-					&lt;td&gt;提交&lt;strong&gt;后&lt;/strong&gt;崩溃 -&amp;gt; &lt;strong&gt;恢复&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;&lt;strong&gt;生命周期&lt;/strong&gt;&lt;/td&gt;
+					&lt;td&gt;事务提交后仍可能保留，直到不再被快照读需要&lt;/td&gt;
+					&lt;td&gt;循环复用，旧内容需等 checkpoint 推进后覆盖&lt;/td&gt;
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
-&lt;h3 id=&#34;32-redo-log-vs-binlog&#34;&gt;3.2 Redo Log vs Binlog
+&lt;h3 id=&#34;22-redo-log-vs-binlog&#34;&gt;2.2 Redo Log vs Binlog
 &lt;/h3&gt;&lt;table&gt;
 	&lt;thead&gt;
 			&lt;tr&gt;
@@ -10249,23 +10250,24 @@
 &lt;hr&gt;
 &lt;h2 id=&#34;3-事务执行与日志写入时序&#34;&gt;3. 事务执行与日志写入时序
 &lt;/h2&gt;&lt;ol&gt;
-&lt;li&gt;&lt;strong&gt;写入 Undo Log&lt;/strong&gt; (记录“更新前”)。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;执行 Update&lt;/strong&gt; (修改内存)。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;写入 Redo Log (Prepare)&lt;/strong&gt; (记录“更新后”，标记 Prepare)。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;写入 Binlog&lt;/strong&gt; (Server 层持久化)。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;提交 Redo Log (Commit)&lt;/strong&gt; (标记 Commit)。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;写入 Undo Log&lt;/strong&gt;，保留回滚和版本链所需的信息。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;修改 Buffer Pool 中的数据页&lt;/strong&gt;，同时生成相应的 Redo 记录。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;提交时写入 Redo Log 的 Prepare 标记&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;写入 Binlog&lt;/strong&gt;，是否立即刷盘取决于 &lt;code&gt;sync_binlog&lt;/code&gt; 等配置。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;写入 Redo Log 的 Commit 标记&lt;/strong&gt;，完成引擎侧提交。&lt;/li&gt;
 &lt;/ol&gt;
+&lt;p&gt;这就是 InnoDB 与 Binlog 配合使用的两阶段提交思路；Redo 刷盘策略还受 &lt;code&gt;innodb_flush_log_at_trx_commit&lt;/code&gt; 影响。&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2 id=&#34;4-两阶段提交与崩溃恢复&#34;&gt;4. 两阶段提交与崩溃恢复
 &lt;/h2&gt;&lt;h3 id=&#34;崩溃恢复逻辑&#34;&gt;崩溃恢复逻辑
-&lt;/h3&gt;&lt;p&gt;MySQL 重启时检查 Redo Log 状态：&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;MySQL 重启时会处理 Redo Log 中处于 Prepare 状态的事务，并检查是否存在匹配的 Binlog 事务标识：&lt;/p&gt;
 &lt;ol&gt;
-&lt;li&gt;&lt;strong&gt;Binlog 未写入&lt;/strong&gt; (Redo Log 处于 Prepare)：-&amp;gt; &lt;strong&gt;回滚事务 (Undo)&lt;/strong&gt;。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Binlog 已写入&lt;/strong&gt; (Redo Log 处于 Prepare)：-&amp;gt; &lt;strong&gt;提交事务 (Redo)&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;找不到匹配的 Binlog 事务标识：回滚该事务。&lt;/li&gt;
+&lt;li&gt;找到匹配的 Binlog 事务标识：提交该事务。&lt;/li&gt;
 &lt;/ol&gt;
+&lt;p&gt;这里的判断依赖两阶段提交；&lt;code&gt;sync_binlog&lt;/code&gt; 和 &lt;code&gt;innodb_flush_log_at_trx_commit&lt;/code&gt; 又决定日志在崩溃时的持久化强度，不能简单理解为“提交前一定回滚”。&lt;/p&gt;
 &lt;h3 id=&#34;-疑难解答为什么-binlog-没写就要回滚&#34;&gt;❓ 疑难解答：为什么 Binlog 没写就要回滚？
-&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;答案&lt;/strong&gt;：&lt;strong&gt;为了保证主从数据一致性。&lt;/strong&gt;
-Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（没票也拿货），但因为没写 Binlog 导致从库没收到数据，就会导致主库有数据、从库没数据。为了集群一致，主库必须回滚。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;答案&lt;/strong&gt;：为了让引擎恢复结果和 Binlog 复制结果保持一致。Binlog 是副本重放变更的重要依据；如果只有 Redo Log 恢复出一笔没有对应 Binlog 的变更，主库和副本可能出现分歧，因此恢复时通常回滚这类未完成事务。&lt;/p&gt;
 </description>
         </item>
         <item>
@@ -10293,14 +10295,14 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
 &gt;&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;连接 (Connection)&lt;/strong&gt;：客户端与服务器的物理 TCP 通道。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;线程 (Thread/Session)&lt;/strong&gt;：MySQL 为每个连接分配一个线程。&lt;strong&gt;表锁 (&lt;code&gt;lock tables&lt;/code&gt;)&lt;/strong&gt; 通常与会话绑定，连接不断，锁可能不释放。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;事务 (Transaction)&lt;/strong&gt;：逻辑操作单元。&lt;strong&gt;MDL 锁&lt;/strong&gt; 和 &lt;strong&gt;InnoDB 行锁&lt;/strong&gt; 都是与事务绑定的。&lt;strong&gt;只有事务提交 (Commit) 后，这些锁才会释放&lt;/strong&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;线程 (Thread/Session)&lt;/strong&gt;：传统模式通常是一个连接对应一个线程，线程池等插件可能改变这个实现。&lt;strong&gt;表锁 (&lt;code&gt;LOCK TABLES&lt;/code&gt;)&lt;/strong&gt; 通常与会话绑定，连接不断，锁可能不释放。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;事务 (Transaction)&lt;/strong&gt;：逻辑操作单元。&lt;strong&gt;InnoDB 行锁&lt;/strong&gt;通常跟随事务，MDL 也常在事务结束时释放；autocommit 语句的事务结束后，锁也会随之释放。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;blockquote&gt;
 &lt;p&gt;&lt;strong&gt;⚠️ 核心认知&lt;/strong&gt;：MDL 锁的危险之处在于，它不是 SQL 执行完就释放，而是&lt;strong&gt;事务提交才释放&lt;/strong&gt;。如果一个长事务查了一次表后就挂起了，它会一直持有 MDL 读锁，导致后续的表结构修改（DDL）被阻塞，进而阻塞所有查询。&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;表锁 是 会话（线程）级 的。&lt;/li&gt;
-&lt;li&gt;MDL 和 行锁 是 事务级 的（这是重点，事务不提交，MDL 就不释放）。&lt;/li&gt;
+&lt;li&gt;MDL 和行锁通常跟随事务（这是重点，长事务不提交可能长期占用锁）。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;/blockquote&gt;
 &lt;hr&gt;
@@ -10330,7 +10332,7 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
 &lt;li&gt;&lt;strong&gt;从库备份&lt;/strong&gt;：从库不能执行主库同步过来的 binlog，导致主从延迟。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&lt;strong&gt;优化方案&lt;/strong&gt;：如果使用的是 InnoDB 引擎，由于其支持 MVCC（多版本并发控制），可以使用 &lt;code&gt;mysqldump --single-transaction&lt;/code&gt; 参数。这会在备份开始时启动一个事务，拿到一致性视图，从而在不阻塞更新的情况下实现备份。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;优化方案&lt;/strong&gt;：如果表主要使用 InnoDB，可以使用 &lt;code&gt;mysqldump --single-transaction&lt;/code&gt; 获取一致性视图，通常不阻塞 DML。它不保证非事务表的一致性，备份期间也应避免 DDL。&lt;/p&gt;
 &lt;/blockquote&gt;
 &lt;hr&gt;
 &lt;h2 id=&#34;二表级锁&#34;&gt;二、表级锁
@@ -10367,7 +10369,7 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
 &lt;blockquote&gt;
 &lt;p&gt;&lt;strong&gt;🔍 深度理解：锁、线程与事务的关系&lt;/strong&gt;&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;线程即会话&lt;/strong&gt;：这里的“线程”指的是&lt;strong&gt;客户端连接 (Session)&lt;/strong&gt;。MySQL 为每个连接分配一个线程，锁的所有权属于这个连接。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;会话与执行线程&lt;/strong&gt;：这里讨论的是客户端连接（Session）。传统实现常为连接分配执行线程，但线程池可复用线程；锁的所有权仍属于会话/事务。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;隐式提交 (Implicit Commit)&lt;/strong&gt;：这是一个关键点。执行 &lt;code&gt;LOCK TABLES&lt;/code&gt; 时，如果当前会话中有未提交的事务，MySQL 会先自动执行 &lt;code&gt;COMMIT&lt;/code&gt;。
 &amp;gt;   - 这意味着：&lt;strong&gt;显式表锁不能在一个事务的中间使用&lt;/strong&gt;，否则会打断原有的事务逻辑。它是会话级别的资源控制，独立于 InnoDB 的事务机制之外。&lt;/li&gt;
 &lt;/ul&gt;
@@ -10589,19 +10591,19 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
 &lt;/blockquote&gt;
 &lt;h3 id=&#34;32-锁的算法-核心&#34;&gt;3.2 锁的算法 (核心)
 &lt;/h3&gt;&lt;p&gt;InnoDB 的行锁是&lt;strong&gt;锁住索引&lt;/strong&gt;，而不是锁住记录本身。这是一个颠覆性的概念。&lt;/p&gt;
-&lt;h4 id=&#34;-灾难警示没有索引--锁全表&#34;&gt;⚠️ 灾难警示：没有索引 = 锁全表
+&lt;h4 id=&#34;-灾难警示没有合适索引可能锁住大量记录&#34;&gt;⚠️ 灾难警示：没有合适索引可能锁住大量记录
 &lt;/h4&gt;&lt;p&gt;如果你的 update/delete/for update 语句&lt;strong&gt;没有用到索引&lt;/strong&gt;，InnoDB 只能进行全表扫描。&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;机制&lt;/strong&gt;：MySQL 会挨个扫描每一行记录，并给&lt;strong&gt;每一行&lt;/strong&gt;都加上锁。&lt;/p&gt;
 &lt;/li&gt;
 &lt;li&gt;
-&lt;p&gt;&lt;strong&gt;后果&lt;/strong&gt;：虽然你只改了一行数据，但整张表几百万行数据全被锁死了！这在效果上等同于表锁，并发量瞬间降为 0。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;后果&lt;/strong&gt;：虽然你可能只改一行数据，但扫描范围可能很大，导致大量记录被锁住；在 RR 的当前读场景下，效果可能接近表锁。它不是字面意义上的表锁，普通快照读和已提交事务仍要按具体场景判断。&lt;/p&gt;
 &lt;/li&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;案例&lt;/strong&gt;：&lt;code&gt;UPDATE user SET age=20 WHERE name=&#39;ZhangSan&#39;;&lt;/code&gt;&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;如果 &lt;code&gt;name&lt;/code&gt; 字段没索引，全表所有人的记录都会被锁住，其他人连 &lt;code&gt;UPDATE user SET age=21 WHERE id=1&lt;/code&gt; 都做不了。&lt;/li&gt;
+&lt;li&gt;如果 &lt;code&gt;name&lt;/code&gt; 字段没索引，语句可能扫描并锁住大量记录；例如另一个事务更新已被锁住的 &lt;code&gt;id=1&lt;/code&gt; 时会等待。锁持续多久还取决于事务是否提交。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;/ul&gt;
@@ -10613,14 +10615,14 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
 &lt;h4 id=&#34;b-gap-lock-间隙锁&#34;&gt;B. Gap Lock (间隙锁)
 &lt;/h4&gt;&lt;ul&gt;
 &lt;li&gt;锁住索引记录之间的&lt;strong&gt;间隙&lt;/strong&gt;（不包含记录本身），确保索引记录的间隙不变。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;目的&lt;/strong&gt;：防止其他事务在这个范围内插入数据，从而解决&lt;strong&gt;幻读&lt;/strong&gt;问题。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;注意&lt;/strong&gt;：Gap Lock 只在 &lt;strong&gt;可重复读 (RR)&lt;/strong&gt; 隔离级别下有效。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;目的&lt;/strong&gt;：在当前读的扫描范围内防止插入数据，从而避免该范围的幻读。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;注意&lt;/strong&gt;：Gap Lock 主要出现在 RR 的当前读范围扫描中；RC 通常禁用间隙锁，但外键检查、重复键检查等场景仍可能使用。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h4 id=&#34;c-next-key-lock-临键锁&#34;&gt;C. Next-Key Lock (临键锁)
 &lt;/h4&gt;&lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Record Lock + Gap Lock&lt;/strong&gt; 的组合。&lt;/li&gt;
 &lt;li&gt;锁住一个左开右闭的区间 &lt;code&gt;(negative_infinity, record]&lt;/code&gt;。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;默认行为&lt;/strong&gt;：InnoDB 在 RR 隔离级别下，默认使用 Next-Key Lock。只有在某些特定场景下（如唯一索引等值查询且记录存在），才会退化为 Record Lock。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;常见行为&lt;/strong&gt;：InnoDB 在 RR 的当前读范围扫描中常使用 Next-Key Lock；唯一索引等值查询且记录存在时，通常可以退化为 Record Lock。具体结果取决于语句和访问路径。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3 id=&#34;33-加锁规则实战-图解-rr-级别&#34;&gt;3.3 加锁规则实战 (图解 RR 级别)
 &lt;/h3&gt;&lt;p&gt;为了理解透彻，我们用具体数字来演示。&lt;/p&gt;
@@ -10815,20 +10817,10 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
 &lt;h2 id=&#34;五进阶隔离级别mvcc-与锁的关系&#34;&gt;五、进阶：隔离级别、MVCC 与锁的关系
 &lt;/h2&gt;&lt;p&gt;这是一个极易混淆的高频面试点，必须厘清。&lt;/p&gt;
 &lt;h3 id=&#34;51-锁在不同隔离级别的区别&#34;&gt;5.1 锁在不同隔离级别的区别
-&lt;/h3&gt;&lt;p&gt;虽然 RC（读已提交）和 RR（可重复读）都会加行锁，但加锁的**范围（算法）**截然不同：&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;RC 和 RR 都会使用行锁，但要区分&lt;strong&gt;快照读&lt;/strong&gt;和&lt;strong&gt;当前读&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;RC 级别&lt;/strong&gt;：只有 &lt;strong&gt;Record Lock&lt;/strong&gt;。
-&lt;ul&gt;
-&lt;li&gt;只锁住存在的记录。&lt;strong&gt;不加 Gap Lock&lt;/strong&gt;（外键检查等特殊情况除外）。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;后果&lt;/strong&gt;：允许其他事务在间隙插入数据，所以 RC 会出现&lt;strong&gt;幻读&lt;/strong&gt;。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;RR 级别&lt;/strong&gt;：默认使用 &lt;strong&gt;Next-Key Lock&lt;/strong&gt;。
-&lt;ul&gt;
-&lt;li&gt;锁住记录 + 间隙。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;目的&lt;/strong&gt;：严防死守，禁止插入，&lt;strong&gt;解决幻读&lt;/strong&gt;。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;RC 的当前读&lt;/strong&gt;：通常只锁住命中的记录；Gap Lock 通常关闭，但外键检查、重复键检查等例外仍可能使用。每次快照读会创建新 Read View，因此下一次普通 &lt;code&gt;SELECT&lt;/code&gt; 可能看到新提交的行。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;RR 的当前读&lt;/strong&gt;：范围扫描常使用 Next-Key Lock，锁住记录和相关间隙；唯一索引等值命中通常只需 Record Lock。RR 的普通快照读则通过复用 Read View 保持稳定结果。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3 id=&#34;52-mvcc-是用的临键锁吗&#34;&gt;5.2 MVCC 是用的临键锁吗？
 &lt;/h3&gt;&lt;p&gt;&lt;strong&gt;绝对不是！&lt;/strong&gt; 它们是两套互补的机制。&lt;/p&gt;
@@ -10848,7 +10840,7 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
 					&lt;td&gt;多版本并发控制&lt;/td&gt;
 					&lt;td&gt;&lt;strong&gt;普通 SELECT&lt;/strong&gt; (快照读)&lt;/td&gt;
 					&lt;td&gt;通过 Undo Log 维护数据的历史版本&lt;/td&gt;
-					&lt;td&gt;解决&lt;strong&gt;读写冲突&lt;/strong&gt;，实现无锁的非阻塞读。&lt;/td&gt;
+					&lt;td&gt;避免快照读持有行锁，通常减少读写阻塞。&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;strong&gt;Next-Key Lock&lt;/strong&gt;&lt;/td&gt;
@@ -10860,7 +10852,7 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;blockquote&gt;
-&lt;p&gt;&lt;strong&gt;结论&lt;/strong&gt;：MySQL InnoDB 在 RR 级别下解决幻读采用了“双保险”策略：&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;结论&lt;/strong&gt;：MySQL InnoDB 在 RR 级别下针对两类读取使用不同机制：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;对于&lt;strong&gt;快照读&lt;/strong&gt;，靠 &lt;strong&gt;MVCC&lt;/strong&gt; 解决（看老版本）。&lt;/li&gt;
 &lt;li&gt;对于&lt;strong&gt;当前读&lt;/strong&gt;，靠 &lt;strong&gt;Next-Key Lock&lt;/strong&gt; 解决（锁住间隙不让插）。&lt;/li&gt;
@@ -10941,7 +10933,7 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
 			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
-&lt;p&gt;理解 MySQL 锁机制的核心在于理解 &lt;strong&gt;InnoDB 的行锁是基于索引实现的&lt;/strong&gt;，以及 &lt;strong&gt;Next-Key Lock 是解决幻读的关键&lt;/strong&gt;。在实际开发中，合理设计索引和事务大小，是避免锁性能问题的关键。&lt;/p&gt;
+&lt;p&gt;理解 MySQL 锁机制的核心在于理解 &lt;strong&gt;InnoDB 的行锁是基于索引实现的&lt;/strong&gt;，以及 Next-Key Lock 主要用于&lt;strong&gt;当前读范围扫描&lt;/strong&gt;。在实际开发中，合理设计索引和事务大小，是避免锁性能问题的关键。&lt;/p&gt;
 </description>
         </item>
         <item>
@@ -10952,13 +10944,13 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
         <guid>https://skylm.top/p/mysql-innodb-%E5%9C%A8-rr-%E7%BA%A7%E5%88%AB%E4%B8%8B%E8%A7%A3%E5%86%B3%E5%B9%BB%E8%AF%BB%E7%9A%84%E4%B8%A4%E7%A7%8D%E6%96%B9%E6%A1%88%E8%AF%A6%E8%A7%A3/</guid>
         <description>&lt;h1 id=&#34;mysql-innodb-在-rr-级别下解决幻读的两种方案详解&#34;&gt;MySQL InnoDB 在 RR 级别下解决幻读的两种方案详解
 &lt;/h1&gt;&lt;p&gt;关于 &lt;strong&gt;幻读 (Phantom Read)&lt;/strong&gt;，很多人的理解仅停留在“插入了一条新数据”，但更深入的问题是：&lt;strong&gt;MySQL 默认的 Repeatable Read (RR) 到底有没有完全解决幻读？&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;答案是：&lt;strong&gt;大部分解决了，但没完全解决。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;答案要按读取类型区分：&lt;strong&gt;快照读靠 MVCC 保持同一视图；当前读靠锁保护扫描范围。&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;InnoDB 使用了两套不同的机制来应对不同的读取场景（快照读 vs 当前读）。&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2 id=&#34;1-场景一快照读-snapshot-read&#34;&gt;1. 场景一：快照读 (Snapshot Read)
 &lt;/h2&gt;&lt;p&gt;&lt;strong&gt;SQL 语句&lt;/strong&gt;：普通的 &lt;code&gt;SELECT * FROM table ...&lt;/code&gt;（不加锁）&lt;/p&gt;
 &lt;h3 id=&#34;机制mvcc-多版本并发控制&#34;&gt;机制：MVCC (多版本并发控制)
-&lt;/h3&gt;&lt;p&gt;在 RR 级别下，事务启动后的&lt;strong&gt;第一次查询&lt;/strong&gt;会生成一个 &lt;strong&gt;Read View (一致性视图)&lt;/strong&gt;，后续所有的查询都复用这个视图。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;在 RR 级别下，事务中的&lt;strong&gt;第一次一致性读&lt;/strong&gt;会生成一个 &lt;strong&gt;Read View (一致性视图)&lt;/strong&gt;，后续快照读复用这个视图。&lt;code&gt;BEGIN&lt;/code&gt; 本身不会创建 Read View。&lt;/p&gt;
 &lt;h3 id=&#34;为什么能解决幻读&#34;&gt;为什么能解决幻读？
 &lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;就像拍了一张照片。&lt;/li&gt;
@@ -10966,33 +10958,23 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
 &lt;li&gt;事务 A 再次查询时，拿着手里的 Read View 一比对，发现这些新数据的事务 ID (&lt;code&gt;DB_TRX_ID&lt;/code&gt;) 比自己的 Read View 还大（属于未来数据）。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;结果&lt;/strong&gt;：事务 A 根本看不见这些新数据。对它来说，幻读从未发生。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;&lt;strong&gt;结论&lt;/strong&gt;：在纯粹的快照读场景下，&lt;strong&gt;MVCC 完美解决了幻读&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;结论&lt;/strong&gt;：在纯粹的快照读场景下，MVCC 会让事务看不到其他事务之后提交的新行，因此不会出现“外部插入导致结果集变多”的幻读现象。&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2 id=&#34;2-场景二当前读-current-read&#34;&gt;2. 场景二：当前读 (Current Read)
 &lt;/h2&gt;&lt;p&gt;&lt;strong&gt;SQL 语句&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;SELECT ... FOR UPDATE&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;SELECT ... LOCK IN SHARE MODE&lt;/code&gt;&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;UPDATE ...&lt;/code&gt; / &lt;code&gt;DELETE ...&lt;/code&gt; / &lt;code&gt;INSERT ...&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;SELECT ... FOR SHARE&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;UPDATE ...&lt;/code&gt; / &lt;code&gt;DELETE ...&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;&lt;strong&gt;注意&lt;/strong&gt;：这些操作需要读取数据库&lt;strong&gt;最新、最真实&lt;/strong&gt;的数据，不能看老照片，否则会覆盖别人的更新，导致数据错乱。&lt;/p&gt;
 &lt;h3 id=&#34;机制next-key-lock-临键锁&#34;&gt;机制：Next-Key Lock (临键锁)
 &lt;/h3&gt;&lt;p&gt;&lt;strong&gt;Next-Key Lock = Record Lock (行锁) + Gap Lock (间隙锁)&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;InnoDB 不仅锁住扫描到的&lt;strong&gt;行&lt;/strong&gt;，还会锁住行与行之间的&lt;strong&gt;间隙&lt;/strong&gt;，彻底杜绝别人在这个范围内“插队”。&lt;/p&gt;
+&lt;p&gt;InnoDB 不仅可能锁住扫描到的&lt;strong&gt;行&lt;/strong&gt;，还可能锁住行与行之间的&lt;strong&gt;间隙&lt;/strong&gt;，阻止其他事务在当前读扫描范围内插入。&lt;/p&gt;
 &lt;h3 id=&#34;案例演示如何锁死幻读&#34;&gt;案例演示：如何锁死幻读？
 &lt;/h3&gt;&lt;p&gt;&lt;strong&gt;Next-Key Lock&lt;/strong&gt; 的核心在于“左开右闭”区间。&lt;/p&gt;
-&lt;p&gt;假设表里现有数据：&lt;code&gt;id = 3, 5&lt;/code&gt;。&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;事务 A 执行&lt;/strong&gt;：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
-&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
-&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
-&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;FROM&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;table&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;WHERE&lt;/span&gt; id &lt;span style=&#34;color:#ff79c6&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;3&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;FOR&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;UPDATE&lt;/span&gt;;
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;em&gt;注：虽然这里是等值查询，但如果 id 不是主键/唯一索引，或者查询条件是范围，InnoDB 依然会加间隙锁。为了方便理解范围锁，我们假设这是一个范围查询或者非唯一索引查询。&lt;/em&gt;&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;更典型的范围查询例子&lt;/strong&gt;：&lt;/p&gt;
+&lt;p&gt;假设 &lt;code&gt;id&lt;/code&gt; 是主键，表里现有数据：&lt;code&gt;id = 3, 5&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;事务 A 执行范围当前读&lt;/strong&gt;：&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
 &lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
@@ -11001,15 +10983,12 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
 &lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;SELECT&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;*&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;FROM&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;table&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;WHERE&lt;/span&gt; id &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;3&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;FOR&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;UPDATE&lt;/span&gt;;
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;strong&gt;InnoDB 的锁定范围 (Next-Key Lock)&lt;/strong&gt;：&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;在 RR 下，这类范围当前读可以近似理解为锁住以下 Next-Key 区间：&lt;/p&gt;
 &lt;ol&gt;
-&lt;li&gt;&lt;strong&gt;记录锁&lt;/strong&gt;：锁住 &lt;code&gt;id = 5&lt;/code&gt;。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;间隙锁&lt;/strong&gt;：&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;(3, 5]&lt;/code&gt;：包含记录 &lt;code&gt;id=5&lt;/code&gt; 及其前面的间隙。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;(5, +∞)&lt;/code&gt;：&lt;code&gt;id=5&lt;/code&gt; 之后的间隙。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;ul&gt;
-&lt;li&gt;锁住 &lt;code&gt;(3, 5]&lt;/code&gt;：即 3 到 5 之间的空隙（含 5）。&lt;/li&gt;
-&lt;li&gt;锁住 &lt;code&gt;(5, +∞)&lt;/code&gt;：5 之后的无限空间。&lt;/li&gt;
-&lt;/ul&gt;
+&lt;p&gt;具体锁区间还会受到索引、优化器和隔离级别影响，以上是帮助理解的示意。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;结果&lt;/strong&gt;：
 此时，如果事务 B 尝试操作：&lt;/p&gt;
 &lt;ol&gt;
@@ -11018,10 +10997,10 @@ Binlog 是主从同步的凭证。如果主库利用 Redo Log 恢复了数据（
 &lt;li&gt;&lt;strong&gt;INSERT 1&lt;/strong&gt;：落在 &lt;code&gt;(-∞, 3]&lt;/code&gt; 区间（没被锁） -&amp;gt; &lt;strong&gt;✅ 成功插入！&lt;/strong&gt;&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;&lt;strong&gt;结论&lt;/strong&gt;：
-Next-Key Lock 精准地锁住了&lt;strong&gt;查询条件覆盖的范围及其后续间隙&lt;/strong&gt;。它并没有锁住全表，不相关的区间（比如 id=1）依然可以自由插入，既防止了幻读，又保留了一定的并发性能。&lt;/p&gt;
+Next-Key Lock 可以近似理解为锁住&lt;strong&gt;当前读扫描的范围及相关间隙&lt;/strong&gt;。它没有锁住全表，所以不相关的区间（比如 &lt;code&gt;id=1&lt;/code&gt;）仍可能插入。&lt;/p&gt;
 &lt;hr&gt;
 &lt;h3 id=&#34;3-特殊场景幻读在哪里露馅了&#34;&gt;3. 特殊场景：幻读在哪里“露馅”了？
-&lt;/h3&gt;&lt;p&gt;虽然 MVCC 和 Next-Key Lock 守卫森严，但在一种极其刁钻的“先查后改”场景下，幻读依然会发生。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;一个重要边界是：快照读和当前读使用的可见性规则不同。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;欺骗场景复现&lt;/strong&gt;：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;strong&gt;初始状态&lt;/strong&gt;：表中无 &lt;code&gt;id=3&lt;/code&gt;。&lt;/li&gt;
@@ -11055,33 +11034,20 @@ Next-Key Lock 精准地锁住了&lt;strong&gt;查询条件覆盖的范围及其�
 &lt;ul&gt;
 &lt;li&gt;数据的 &lt;code&gt;DB_TRX_ID&lt;/code&gt; 是事务 A 自己。&lt;/li&gt;
 &lt;li&gt;符合 MVCC 规则一：&lt;strong&gt;“我自己修改的数据可见”&lt;/strong&gt;。&lt;/li&gt;
-&lt;li&gt;所以，幻读发生了。&lt;/li&gt;
+&lt;li&gt;因此这次快照读能看到自己更新后的行，结果与最初快照不同。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;/ul&gt;
 &lt;p&gt;&lt;strong&gt;总结&lt;/strong&gt;：
-这并不是 Bug，而是 MVCC 的规则逻辑自洽的结果。这也提醒我们：&lt;strong&gt;不要在同一个事务里混用快照读和当前读来处理同一批数据&lt;/strong&gt;。如果业务逻辑需要“先查后改”，第一次查询就必须使用 &lt;code&gt;FOR UPDATE&lt;/code&gt; 加锁。&lt;/p&gt;
+这并不是 Bug，而是 MVCC 的可见性规则：事务自己的修改通常对自己可见。如果业务逻辑是“先查后改”，通常应从第一次查询就使用 &lt;code&gt;FOR UPDATE&lt;/code&gt;，让检查和修改都基于当前读和锁定范围。&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2 id=&#34;4-最终结论&#34;&gt;4. 最终结论
 &lt;/h2&gt;&lt;p&gt;&lt;strong&gt;“MySQL 的 RR 级别有没有解决幻读？”&lt;/strong&gt;&lt;/p&gt;
 &lt;ol&gt;
-&lt;li&gt;&lt;strong&gt;对于普通查询 (快照读)&lt;/strong&gt;：&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;普通查询 (快照读)&lt;/strong&gt;：靠 &lt;strong&gt;MVCC&lt;/strong&gt; 复用 Read View，屏蔽其他事务之后提交的版本。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;加锁查询/修改 (当前读)&lt;/strong&gt;：在 RR 的适用场景下靠 &lt;strong&gt;Next-Key Lock&lt;/strong&gt; 锁住记录和间隙。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;混合读写&lt;/strong&gt;：事务自己的修改通常对自己可见，所以快照读、当前读混用时，结果可能和最初快照不同。这是可见性规则，不是 MVCC 失效。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;ul&gt;
-&lt;li&gt;靠 &lt;strong&gt;MVCC&lt;/strong&gt; 解决。通过复用 Read View，像看老照片一样屏蔽了外界的插入。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;ol start=&#34;2&#34;&gt;
-&lt;li&gt;&lt;strong&gt;对于加锁查询/修改 (当前读)&lt;/strong&gt;：&lt;/li&gt;
-&lt;/ol&gt;
-&lt;ul&gt;
-&lt;li&gt;靠 &lt;strong&gt;Next-Key Lock&lt;/strong&gt; 解决。通过锁住行和间隙，物理上阻止了新数据的插入。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;ol start=&#34;3&#34;&gt;
-&lt;li&gt;&lt;strong&gt;例外情况&lt;/strong&gt;：&lt;/li&gt;
-&lt;/ol&gt;
-&lt;ul&gt;
-&lt;li&gt;如果一个事务先进行快照读，然后进行当前读（UPDATE/DELETE），再进行快照读，可能会因为自己更新了别事务插入的数据，导致幻读显形。&lt;/li&gt;
-&lt;/ul&gt;
 </description>
         </item>
         <item>
@@ -11119,10 +11085,10 @@ Next-Key Lock 精准地锁住了&lt;strong&gt;查询条件覆盖的范围及其�
 &lt;/ul&gt;
 &lt;blockquote&gt;
 &lt;p&gt;&lt;strong&gt;💡 核心区别辨析：不可重复读 vs 幻读&lt;/strong&gt;
-很多人容易混淆这两个概念，关键区别在于 &lt;strong&gt;“变的是什么”&lt;/strong&gt;：&lt;/p&gt;
+两者都可能由并发事务造成，区别在于查询结果发生了什么变化：&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;不可重复读&lt;/strong&gt; 关注的是 &lt;strong&gt;修改 (UPDATE)&lt;/strong&gt;。即：&lt;strong&gt;以前读到的数据变了&lt;/strong&gt;。解决它通常只需要锁住行（行锁）。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;幻读&lt;/strong&gt; 关注的是 &lt;strong&gt;插入 (INSERT)&lt;/strong&gt;。即：&lt;strong&gt;以前没读到的数据突然冒出来了&lt;/strong&gt;（或者原本有的消失了）。解决它需要锁住行之间的空隙（间隙锁）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;不可重复读&lt;/strong&gt;：同一行的列值前后不一致，常见原因是其他事务 &lt;code&gt;UPDATE&lt;/code&gt; 后提交。普通快照读在 RR 下依靠 MVCC 避免它；当前读则可以使用行锁。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;幻读&lt;/strong&gt;：同一个范围前后出现了不同的记录，常见原因是其他事务插入或删除了满足条件的行。快照读依靠 Read View，当前读依靠 Gap Lock / Next-Key Lock。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/blockquote&gt;
 &lt;hr&gt;
@@ -11153,31 +11119,31 @@ Next-Key Lock 精准地锁住了&lt;strong&gt;查询条件覆盖的范围及其�
 &lt;/ul&gt;
 &lt;h3 id=&#34;23-repeatable-read-可重复读--rr--mysql-默认级别&#34;&gt;2.3 REPEATABLE READ (可重复读 / RR) —— &lt;strong&gt;MySQL 默认级别&lt;/strong&gt;
 &lt;/h3&gt;&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;含义&lt;/strong&gt;：确保在同一个事务中，多次读取同样的数据结果是一样的。即使其他事务提交了修改，本事务看到的依然是事务开始时的状态（快照）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;含义&lt;/strong&gt;：在同一个事务中，普通快照读会复用同一个 Read View，因此多次读取通常看到同一份已提交数据快照。这个视图通常在第一次一致性读时建立，不是 &lt;code&gt;BEGIN&lt;/code&gt; 执行的瞬间建立。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;通俗解释&lt;/strong&gt;：
 &lt;ul&gt;
-&lt;li&gt;你（事务 A）打开账本开始查账（开启事务），此时余额 100 元。这就好比你对账本拍了一张&lt;strong&gt;照片&lt;/strong&gt;。无论你老婆（事务 B）怎么花钱、怎么提交，你盯着照片看，余额永远是 100 元。直到你自己结束查账（提交/回滚），放下照片。&lt;/li&gt;
+&lt;li&gt;你（事务 A）第一次查账时拍下一张&lt;strong&gt;照片&lt;/strong&gt;。之后其他事务怎么提交修改，你的普通 &lt;code&gt;SELECT&lt;/code&gt; 仍然按照这张照片判断可见性，直到事务结束。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;底层机制&lt;/strong&gt;：InnoDB 主要通过 &lt;strong&gt;MVCC (多版本并发控制)&lt;/strong&gt; 来实现。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;关于幻读&lt;/strong&gt;：
 &lt;ul&gt;
-&lt;li&gt;SQL 标准规定 RR 级别无法解决幻读。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;但是&lt;/strong&gt;，MySQL 的 InnoDB 引擎非常强大，它在 RR 级别下通过 &lt;strong&gt;Next-Key Lock (间隙锁)&lt;/strong&gt; 机制，在很大程度上避免了幻读的发生。&lt;/li&gt;
+&lt;li&gt;对普通快照读，复用 Read View 可以屏蔽其他事务后来提交的插入或删除。&lt;/li&gt;
+&lt;li&gt;对 &lt;code&gt;FOR UPDATE&lt;/code&gt;、&lt;code&gt;UPDATE&lt;/code&gt;、&lt;code&gt;DELETE&lt;/code&gt; 等当前读，InnoDB 在适用场景下通过 Gap Lock / Next-Key Lock 锁住扫描范围。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;解决了&lt;/strong&gt;：脏读、不可重复读。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3 id=&#34;24-serializable-串行化&#34;&gt;2.4 SERIALIZABLE (串行化)
 &lt;/h3&gt;&lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;含义&lt;/strong&gt;：最高的隔离级别。它强制事务串行执行（排队），通过强制对读取的数据加锁，避免一切冲突。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;含义&lt;/strong&gt;：最高的隔离级别。在关闭 autocommit 的事务中，InnoDB 会把普通 &lt;code&gt;SELECT&lt;/code&gt; 转为锁定读，使读写冲突更严格；它不等于所有事务都严格一个接一个执行。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;通俗解释&lt;/strong&gt;：
 &lt;ul&gt;
-&lt;li&gt;你（事务 A）要查账，系统直接把账本锁进保险柜，钥匙给你。你老婆（事务 B）想花钱？对不起，排队等着，直到你查完把钥匙还回去。&lt;/li&gt;
+&lt;li&gt;你（事务 A）查账时先拿到读锁。你老婆（事务 B）想修改账本，需要等读锁释放；多个兼容的读操作仍可能并发。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;存在问题&lt;/strong&gt;：性能极差，并发度极低。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;解决了&lt;/strong&gt;：所有并发问题（脏读、不可重复读、幻读）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;代价&lt;/strong&gt;：读写冲突更多，吞吐量通常低于 RR/RC，具体还取决于 SQL 和索引。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;解决了&lt;/strong&gt;：标准隔离级别定义的脏读、不可重复读、幻读；业务层仍需正确设计条件更新、重试和死锁处理。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;hr&gt;
 &lt;h2 id=&#34;3-总结与对比&#34;&gt;3. 总结与对比
@@ -11254,7 +11220,7 @@ Next-Key Lock 精准地锁住了&lt;strong&gt;查询条件覆盖的范围及其�
 &lt;li&gt;买家 B 进入购买页面（开启事务），看到库存是 1。&lt;/li&gt;
 &lt;li&gt;此时买家 A 抢先买走并付款（库存变 0）。&lt;/li&gt;
 &lt;li&gt;买家 B 只要不刷新退出，怎么看库存都是 1（看的是快照）。&lt;/li&gt;
-&lt;li&gt;&lt;em&gt;注：虽然看到的还是 1，但如果买家 B 尝试下单，数据库锁机制会告诉他其实没货了。&lt;/em&gt;&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;注：快照读本身不保证不会超卖。扣库存应使用条件更新，例如 &lt;code&gt;UPDATE product SET stock = stock - 1 WHERE id = 1 AND stock &amp;gt; 0&lt;/code&gt;，再检查受影响行数是否为 1。&lt;/em&gt;&lt;/li&gt;
 &lt;/ul&gt;
 &lt;ol start=&#34;4&#34;&gt;
 &lt;li&gt;&lt;strong&gt;串行化&lt;/strong&gt;：&lt;/li&gt;
@@ -11270,9 +11236,9 @@ Next-Key Lock 精准地锁住了&lt;strong&gt;查询条件覆盖的范围及其�
 &lt;h3 id=&#34;51-什么是-mvcc&#34;&gt;5.1 什么是 MVCC？
 &lt;/h3&gt;&lt;p&gt;简单来说，MVCC 就是让每行数据都拥有&lt;strong&gt;多个版本&lt;/strong&gt;。&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;读不加锁&lt;/strong&gt;：读取数据时，不加锁，而是去读符合当前事务时间点的那个“旧版本”。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;写加锁&lt;/strong&gt;：写入数据时，会生成一个新的版本。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;目的&lt;/strong&gt;：最大程度提高数据库的并发性能，实现“读写不冲突”。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;普通快照读不加行锁&lt;/strong&gt;：读取数据时，根据 Read View 选择符合可见性规则的版本。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;当前读和写会加锁&lt;/strong&gt;：&lt;code&gt;FOR UPDATE&lt;/code&gt;、&lt;code&gt;UPDATE&lt;/code&gt; 等需要读取最新版本并参与并发控制。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;目的&lt;/strong&gt;：让普通读尽量不阻塞写；这不代表所有读都不等待，MDL 等其他锁仍可能影响读。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;blockquote&gt;
 &lt;p&gt;📸 &lt;strong&gt;比喻&lt;/strong&gt;：就像给文档做“版本控制”（如 Git）。你正在编辑 v2 版，别人可以放心读 v1 版，互不干扰。&lt;/p&gt;
@@ -11312,7 +11278,7 @@ Next-Key Lock 精准地锁住了&lt;strong&gt;查询条件覆盖的范围及其�
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;li&gt;
-&lt;p&gt;&lt;strong&gt;&lt;code&gt;DB_ROW_ID&lt;/code&gt; (行 ID)&lt;/strong&gt;：如果你没设主键，InnoDB 就用它自动生成主键。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;&lt;code&gt;DB_ROW_ID&lt;/code&gt; (行 ID)&lt;/strong&gt;：如果没有合适的主键或唯一非空索引，InnoDB 会生成隐藏的聚簇索引键；它不是可以直接查询的业务主键。&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ul&gt;
 &lt;h4 id=&#34;2-undo-log-回滚日志--数据的版本链&#34;&gt;2. Undo Log (回滚日志) —— 数据的“版本链”
@@ -11505,13 +11471,13 @@ Next-Key Lock 精准地锁住了&lt;strong&gt;查询条件覆盖的范围及其�
 &lt;h4 id=&#34;2-在-rr-可重复读--mysql-默认级别下&#34;&gt;2. 在 RR (可重复读) —— MySQL 默认级别下
 &lt;/h4&gt;&lt;ul&gt;
 &lt;li&gt;
-&lt;p&gt;&lt;strong&gt;时机&lt;/strong&gt;：&lt;strong&gt;只在事务第一次执行 &lt;code&gt;SELECT&lt;/code&gt; 时生成一个 Read View&lt;/strong&gt;，后续所有的查询都&lt;strong&gt;复用&lt;/strong&gt;这同一个 Read View。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;时机&lt;/strong&gt;：&lt;strong&gt;只在事务第一次执行一致性读时生成一个 Read View&lt;/strong&gt;，后续快照读复用这个 Read View；锁定读不使用这张快照。&lt;/p&gt;
 &lt;/li&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;结果&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;
-&lt;p&gt;不管外部世界怎么变，你手里拿的永远是事务刚开始时的那张“旧照片”。&lt;/p&gt;
+&lt;p&gt;不管外部世界怎么变，你手里拿的都是第一次快照读建立的那张“旧照片”。&lt;/p&gt;
 &lt;/li&gt;
 &lt;li&gt;
 &lt;p&gt;在照片里，那些当时没提交的事务，永远都是“没提交”的状态（依然在 &lt;code&gt;m_ids&lt;/code&gt; 里）。&lt;/p&gt;
@@ -11546,8 +11512,8 @@ Next-Key Lock 精准地锁住了&lt;strong&gt;查询条件覆盖的范围及其�
 &lt;h3 id=&#34;55-总结&#34;&gt;5.5 总结
 &lt;/h3&gt;&lt;p&gt;&lt;strong&gt;MVCC = 隐藏字段 + Undo Log (版本链) + Read View (可见性判断)&lt;/strong&gt;&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;它让 MySQL 在 RR 级别下，读操作不需要加锁，极大提升了并发性能。&lt;/li&gt;
-&lt;li&gt;它像一个时光机，让事务只能看到属于它那个时刻的数据快照。&lt;/li&gt;
+&lt;li&gt;它让 MySQL 在 RR 级别下的普通快照读不需要行锁，通常能减少读写阻塞。&lt;/li&gt;
+&lt;li&gt;它让事务按照 Read View 读取可见版本；锁定读和写操作仍然遵循锁规则。&lt;/li&gt;
 &lt;/ul&gt;
 </description>
         </item>

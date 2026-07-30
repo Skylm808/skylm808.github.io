@@ -395,10 +395,10 @@
 </ul>
 <blockquote>
 <p><strong>💡 核心区别辨析：不可重复读 vs 幻读</strong>
-很多人容易混淆这两个概念，关键区别在于 <strong>“变的是什么”</strong>：</p>
+两者都可能由并发事务造成，区别在于查询结果发生了什么变化：</p>
 <ul>
-<li><strong>不可重复读</strong> 关注的是 <strong>修改 (UPDATE)</strong>。即：<strong>以前读到的数据变了</strong>。解决它通常只需要锁住行（行锁）。</li>
-<li><strong>幻读</strong> 关注的是 <strong>插入 (INSERT)</strong>。即：<strong>以前没读到的数据突然冒出来了</strong>（或者原本有的消失了）。解决它需要锁住行之间的空隙（间隙锁）。</li>
+<li><strong>不可重复读</strong>：同一行的列值前后不一致，常见原因是其他事务 <code>UPDATE</code> 后提交。普通快照读在 RR 下依靠 MVCC 避免它；当前读则可以使用行锁。</li>
+<li><strong>幻读</strong>：同一个范围前后出现了不同的记录，常见原因是其他事务插入或删除了满足条件的行。快照读依靠 Read View，当前读依靠 Gap Lock / Next-Key Lock。</li>
 </ul>
 </blockquote>
 <hr>
@@ -429,31 +429,31 @@
 </ul>
 <h3 id="23-repeatable-read-可重复读--rr--mysql-默认级别">2.3 REPEATABLE READ (可重复读 / RR) —— <strong>MySQL 默认级别</strong>
 </h3><ul>
-<li><strong>含义</strong>：确保在同一个事务中，多次读取同样的数据结果是一样的。即使其他事务提交了修改，本事务看到的依然是事务开始时的状态（快照）。</li>
+<li><strong>含义</strong>：在同一个事务中，普通快照读会复用同一个 Read View，因此多次读取通常看到同一份已提交数据快照。这个视图通常在第一次一致性读时建立，不是 <code>BEGIN</code> 执行的瞬间建立。</li>
 <li><strong>通俗解释</strong>：
 <ul>
-<li>你（事务 A）打开账本开始查账（开启事务），此时余额 100 元。这就好比你对账本拍了一张<strong>照片</strong>。无论你老婆（事务 B）怎么花钱、怎么提交，你盯着照片看，余额永远是 100 元。直到你自己结束查账（提交/回滚），放下照片。</li>
+<li>你（事务 A）第一次查账时拍下一张<strong>照片</strong>。之后其他事务怎么提交修改，你的普通 <code>SELECT</code> 仍然按照这张照片判断可见性，直到事务结束。</li>
 </ul>
 </li>
 <li><strong>底层机制</strong>：InnoDB 主要通过 <strong>MVCC (多版本并发控制)</strong> 来实现。</li>
 <li><strong>关于幻读</strong>：
 <ul>
-<li>SQL 标准规定 RR 级别无法解决幻读。</li>
-<li><strong>但是</strong>，MySQL 的 InnoDB 引擎非常强大，它在 RR 级别下通过 <strong>Next-Key Lock (间隙锁)</strong> 机制，在很大程度上避免了幻读的发生。</li>
+<li>对普通快照读，复用 Read View 可以屏蔽其他事务后来提交的插入或删除。</li>
+<li>对 <code>FOR UPDATE</code>、<code>UPDATE</code>、<code>DELETE</code> 等当前读，InnoDB 在适用场景下通过 Gap Lock / Next-Key Lock 锁住扫描范围。</li>
 </ul>
 </li>
 <li><strong>解决了</strong>：脏读、不可重复读。</li>
 </ul>
 <h3 id="24-serializable-串行化">2.4 SERIALIZABLE (串行化)
 </h3><ul>
-<li><strong>含义</strong>：最高的隔离级别。它强制事务串行执行（排队），通过强制对读取的数据加锁，避免一切冲突。</li>
+<li><strong>含义</strong>：最高的隔离级别。在关闭 autocommit 的事务中，InnoDB 会把普通 <code>SELECT</code> 转为锁定读，使读写冲突更严格；它不等于所有事务都严格一个接一个执行。</li>
 <li><strong>通俗解释</strong>：
 <ul>
-<li>你（事务 A）要查账，系统直接把账本锁进保险柜，钥匙给你。你老婆（事务 B）想花钱？对不起，排队等着，直到你查完把钥匙还回去。</li>
+<li>你（事务 A）查账时先拿到读锁。你老婆（事务 B）想修改账本，需要等读锁释放；多个兼容的读操作仍可能并发。</li>
 </ul>
 </li>
-<li><strong>存在问题</strong>：性能极差，并发度极低。</li>
-<li><strong>解决了</strong>：所有并发问题（脏读、不可重复读、幻读）。</li>
+<li><strong>代价</strong>：读写冲突更多，吞吐量通常低于 RR/RC，具体还取决于 SQL 和索引。</li>
+<li><strong>解决了</strong>：标准隔离级别定义的脏读、不可重复读、幻读；业务层仍需正确设计条件更新、重试和死锁处理。</li>
 </ul>
 <hr>
 <h2 id="3-总结与对比">3. 总结与对比
@@ -530,7 +530,7 @@
 <li>买家 B 进入购买页面（开启事务），看到库存是 1。</li>
 <li>此时买家 A 抢先买走并付款（库存变 0）。</li>
 <li>买家 B 只要不刷新退出，怎么看库存都是 1（看的是快照）。</li>
-<li><em>注：虽然看到的还是 1，但如果买家 B 尝试下单，数据库锁机制会告诉他其实没货了。</em></li>
+<li><em>注：快照读本身不保证不会超卖。扣库存应使用条件更新，例如 <code>UPDATE product SET stock = stock - 1 WHERE id = 1 AND stock &gt; 0</code>，再检查受影响行数是否为 1。</em></li>
 </ul>
 <ol start="4">
 <li><strong>串行化</strong>：</li>
@@ -546,9 +546,9 @@
 <h3 id="51-什么是-mvcc">5.1 什么是 MVCC？
 </h3><p>简单来说，MVCC 就是让每行数据都拥有<strong>多个版本</strong>。</p>
 <ul>
-<li><strong>读不加锁</strong>：读取数据时，不加锁，而是去读符合当前事务时间点的那个“旧版本”。</li>
-<li><strong>写加锁</strong>：写入数据时，会生成一个新的版本。</li>
-<li><strong>目的</strong>：最大程度提高数据库的并发性能，实现“读写不冲突”。</li>
+<li><strong>普通快照读不加行锁</strong>：读取数据时，根据 Read View 选择符合可见性规则的版本。</li>
+<li><strong>当前读和写会加锁</strong>：<code>FOR UPDATE</code>、<code>UPDATE</code> 等需要读取最新版本并参与并发控制。</li>
+<li><strong>目的</strong>：让普通读尽量不阻塞写；这不代表所有读都不等待，MDL 等其他锁仍可能影响读。</li>
 </ul>
 <blockquote>
 <p>📸 <strong>比喻</strong>：就像给文档做“版本控制”（如 Git）。你正在编辑 v2 版，别人可以放心读 v1 版，互不干扰。</p>
@@ -588,7 +588,7 @@
 </ul>
 </li>
 <li>
-<p><strong><code>DB_ROW_ID</code> (行 ID)</strong>：如果你没设主键，InnoDB 就用它自动生成主键。</p>
+<p><strong><code>DB_ROW_ID</code> (行 ID)</strong>：如果没有合适的主键或唯一非空索引，InnoDB 会生成隐藏的聚簇索引键；它不是可以直接查询的业务主键。</p>
 </li>
 </ul>
 <h4 id="2-undo-log-回滚日志--数据的版本链">2. Undo Log (回滚日志) —— 数据的“版本链”
@@ -781,13 +781,13 @@
 <h4 id="2-在-rr-可重复读--mysql-默认级别下">2. 在 RR (可重复读) —— MySQL 默认级别下
 </h4><ul>
 <li>
-<p><strong>时机</strong>：<strong>只在事务第一次执行 <code>SELECT</code> 时生成一个 Read View</strong>，后续所有的查询都<strong>复用</strong>这同一个 Read View。</p>
+<p><strong>时机</strong>：<strong>只在事务第一次执行一致性读时生成一个 Read View</strong>，后续快照读复用这个 Read View；锁定读不使用这张快照。</p>
 </li>
 <li>
 <p><strong>结果</strong>：</p>
 <ul>
 <li>
-<p>不管外部世界怎么变，你手里拿的永远是事务刚开始时的那张“旧照片”。</p>
+<p>不管外部世界怎么变，你手里拿的都是第一次快照读建立的那张“旧照片”。</p>
 </li>
 <li>
 <p>在照片里，那些当时没提交的事务，永远都是“没提交”的状态（依然在 <code>m_ids</code> 里）。</p>
@@ -822,8 +822,8 @@
 <h3 id="55-总结">5.5 总结
 </h3><p><strong>MVCC = 隐藏字段 + Undo Log (版本链) + Read View (可见性判断)</strong></p>
 <ul>
-<li>它让 MySQL 在 RR 级别下，读操作不需要加锁，极大提升了并发性能。</li>
-<li>它像一个时光机，让事务只能看到属于它那个时刻的数据快照。</li>
+<li>它让 MySQL 在 RR 级别下的普通快照读不需要行锁，通常能减少读写阻塞。</li>
+<li>它让事务按照 Read View 读取可见版本；锁定读和写操作仍然遵循锁规则。</li>
 </ul>
 
 </section>
