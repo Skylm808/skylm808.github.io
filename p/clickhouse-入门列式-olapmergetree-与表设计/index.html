@@ -262,7 +262,14 @@
       </ol>
     </li>
     <li><a href="#7-稀疏索引granule-和-mark">7. 稀疏索引、Granule 和 Mark</a></li>
-    <li><a href="#8-跳数索引和-lowcardinality-怎么用">8. 跳数索引和 LowCardinality 怎么用</a></li>
+    <li><a href="#8-跳数索引和-lowcardinality-怎么用">8. 跳数索引和 LowCardinality 怎么用</a>
+      <ol>
+        <li><a href="#81-granularity-4一个索引记录管多大范围">8.1 <code>GRANULARITY 4</code>：一个索引记录管多大范围</a></li>
+        <li><a href="#82-minmax一块数据的最小值和最大值">8.2 <code>minmax</code>：一块数据的最小值和最大值</a></li>
+        <li><a href="#83-bloom-filter一块数据可能有没有某个值">8.3 Bloom Filter：一块数据可能有没有某个值</a></li>
+        <li><a href="#84-lowcardinality-不是索引">8.4 <code>LowCardinality</code> 不是索引</a></li>
+      </ol>
+    </li>
     <li><a href="#9-一条查询如何执行">9. 一条查询如何执行</a></li>
     <li><a href="#10-更新去重与集群">10. 更新、去重与集群</a></li>
     <li><a href="#11-记住这条主线">11. 记住这条主线</a></li>
@@ -330,7 +337,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 8 分钟
+                    阅读时长: 9 分钟
                 </time>
             </div>
         
@@ -681,9 +688,76 @@
 <p>每一列都有独立的数据文件。Mark 记录某个 Granule 在列文件中的读取位置。查询流程是：主键索引选择 Granule，Mark 定位列文件，最后只读取需要的列。</p>
 <hr>
 <h2 id="8-跳数索引和-lowcardinality-怎么用">8. 跳数索引和 LowCardinality 怎么用
-</h2><p>稀疏主键索引依赖排序键。对于不适合放进排序键、但又经常过滤的列，可以考虑跳数索引；它的目标仍是“跳过数据块”，不是替代主键。</p>
-<p>例如金额范围经常筛选：</p>
+</h2><p>第 7 章的主键稀疏索引依赖 <code>ORDER BY</code>，是 MergeTree 的核心能力。跳数索引是补充：当一个高频过滤列不适合放进排序键时，用它判断某些数据块能否直接跳过。</p>
+<p>索引定义写在建表字段列表中，格式是：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>INDEX 索引名 被索引的列或表达式 TYPE 索引类型 GRANULARITY 粒度
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>例如：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#ff79c6">CREATE</span> <span style="color:#ff79c6">TABLE</span> user_events
+</span></span><span style="display:flex;"><span>(
+</span></span><span style="display:flex;"><span>    event_time DateTime,
+</span></span><span style="display:flex;"><span>    amount <span style="color:#8be9fd;font-style:italic">Decimal</span>(<span style="color:#bd93f9">18</span>, <span style="color:#bd93f9">2</span>),
+</span></span><span style="display:flex;"><span>    trace_id String,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">INDEX</span> idx_amount amount <span style="color:#ff79c6">TYPE</span> minmax GRANULARITY <span style="color:#bd93f9">4</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">INDEX</span> idx_trace trace_id <span style="color:#ff79c6">TYPE</span> bloom_filter(<span style="color:#bd93f9">0</span>.<span style="color:#bd93f9">01</span>) GRANULARITY <span style="color:#bd93f9">4</span>
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>ENGINE <span style="color:#ff79c6">=</span> MergeTree
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">ORDER</span> <span style="color:#ff79c6">BY</span> event_time;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="81-granularity-4一个索引记录管多大范围">8.1 <code>GRANULARITY 4</code>：一个索引记录管多大范围
+</h3><p>主键索引大约每 8192 行形成一个 Granule。<code>GRANULARITY 4</code> 表示一条跳数索引记录覆盖 4 个主键 Granule：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>主键 Granule 1: 约 8192 行
+</span></span><span style="display:flex;"><span>主键 Granule 2: 约 8192 行
+</span></span><span style="display:flex;"><span>主键 Granule 3: 约 8192 行
+</span></span><span style="display:flex;"><span>主键 Granule 4: 约 8192 行
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>一条跳数索引记录
+</span></span><span style="display:flex;"><span>  = 上面 4 个 Granule
+</span></span><span style="display:flex;"><span>  = 大约 32768 行
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>实际行数会受自适应粒度影响，但可以先用这个数量级理解。</p>
+<ul>
+<li><code>GRANULARITY 1</code>：索引更细，跳过更精确，但索引更大。</li>
+<li><code>GRANULARITY 4</code>：索引更粗，占用更小，但命中时可能多读一些行。</li>
+</ul>
+<h3 id="82-minmax一块数据的最小值和最大值">8.2 <code>minmax</code>：一块数据的最小值和最大值
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
 </span></code></pre></td>
@@ -691,9 +765,63 @@
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#ff79c6">INDEX</span> idx_amount amount <span style="color:#ff79c6">TYPE</span> minmax GRANULARITY <span style="color:#bd93f9">4</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>如果一个数据块的最大金额只有 200，查询 <code>WHERE amount &gt; 10000</code> 时，这个块可以跳过。</p>
-<p>对于 <code>trace_id</code>、<code>request_id</code> 这类高基数字符串等值过滤，可以考虑 Bloom Filter：</p>
+</div><p>这行的含义是：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>idx_amount       索引名
+</span></span><span style="display:flex;"><span>amount           为 amount 列建立索引
+</span></span><span style="display:flex;"><span>minmax           每个索引块只保存最小值和最大值
+</span></span><span style="display:flex;"><span>GRANULARITY 4    每个索引块覆盖约 4 个主键 Granule
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>假设三个索引块记录如下：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>块 A: amount 最小 10，最大 200
+</span></span><span style="display:flex;"><span>块 B: amount 最小 100，最大 800
+</span></span><span style="display:flex;"><span>块 C: amount 最小 9000，最大 20000
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>查询：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#ff79c6">SELECT</span> <span style="color:#ff79c6">*</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">FROM</span> user_events
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">WHERE</span> amount <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">10000</span>;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>ClickHouse 可以先判断：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>块 A: 最大值 200，不可能满足，跳过
+</span></span><span style="display:flex;"><span>块 B: 最大值 800，不可能满足，跳过
+</span></span><span style="display:flex;"><span>块 C: 最大值 20000，可能满足，读取后再逐行过滤
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>minmax</code> 适合块内数值范围比较集中的列。如果每个块中的金额都随机分布在 1 到 100000，几乎每块都“可能满足”，它就无法跳过多少数据。</p>
+<h3 id="83-bloom-filter一块数据可能有没有某个值">8.3 Bloom Filter：一块数据可能有没有某个值
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
 </span></code></pre></td>
@@ -701,9 +829,48 @@
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#ff79c6">INDEX</span> idx_trace trace_id <span style="color:#ff79c6">TYPE</span> bloom_filter(<span style="color:#bd93f9">0</span>.<span style="color:#bd93f9">01</span>) GRANULARITY <span style="color:#bd93f9">4</span>
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>Bloom Filter 判断“没有”时可以确认该块没有；判断“有”时仍需读取验证，因为可能误判。若过滤条件命中率很高，跳数索引也无法跳过多少数据，收益会很小。</p>
-<p><code>LowCardinality(String)</code> 则适合取值种类较少、重复较多的字符串，例如城市、渠道、事件名：</p>
+</div><p>这行的含义是：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>idx_trace           索引名
+</span></span><span style="display:flex;"><span>trace_id            为 trace_id 列建立索引
+</span></span><span style="display:flex;"><span>bloom_filter(0.01)  布隆过滤器，目标误判率约为 1%
+</span></span><span style="display:flex;"><span>GRANULARITY 4       每个过滤器覆盖约 4 个主键 Granule
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>它适合高基数标识的等值或 <code>IN</code> 查询，例如：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#ff79c6">SELECT</span> <span style="color:#ff79c6">*</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">FROM</span> user_events
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">WHERE</span> trace_id <span style="color:#ff79c6">=</span> <span style="color:#f1fa8c">&#39;trace-abc-123&#39;</span>;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>每个索引块会维护一个压缩集合。判断规则是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>判断不存在：这个块一定没有，可以跳过
+</span></span><span style="display:flex;"><span>判断存在：这个块可能有，也可能误判，仍需读取验证
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>0.01</code> 越小，误判通常越少，但索引占用和计算成本也越高。若查询值出现在绝大多数数据块中，Bloom Filter 同样没有多少跳过空间。</p>
+<h3 id="84-lowcardinality-不是索引">8.4 <code>LowCardinality</code> 不是索引
+</h3><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
 </span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
@@ -713,8 +880,36 @@
 </span></span><span style="display:flex;"><span>city LowCardinality(String)
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>它常能减少存储和处理成本，但不应机械用于所有字符串列。</p>
-<hr>
+</div><p><code>LowCardinality</code> 不负责定位或跳过数据块，而是把重复字符串做字典编码。比如：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>原始值: click, click, click, pay, pay, view
+</span></span><span style="display:flex;"><span>字典:   1=click, 2=pay, 3=view
+</span></span><span style="display:flex;"><span>存储值: 1, 1, 1, 2, 2, 3
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>它适合城市、渠道、事件名、设备类型这类“取值种类少、重复很多”的字符串列，主要用于减少存储和处理字符串的成本。</p>
+<p>最后记住：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>主键稀疏索引：排序键自带，负责跳过无关 Granule
+</span></span><span style="display:flex;"><span>minmax：判断一个块的数值范围是否可能命中
+</span></span><span style="display:flex;"><span>Bloom Filter：判断一个块是否可能包含某个值
+</span></span><span style="display:flex;"><span>LowCardinality：字典编码，不是索引
+</span></span></code></pre></td></tr></table>
+</div>
+</div><hr>
 <h2 id="9-一条查询如何执行">9. 一条查询如何执行
 </h2><p>继续查询容量小时表：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
