@@ -10959,7 +10959,7 @@
         <pubDate>Mon, 02 Feb 2026 11:54:09 +0800</pubDate>
         
         <guid>https://skylm.top/p/mysql-%E9%94%81%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3/</guid>
-        <description>&lt;p&gt;在数据库系统中，&lt;strong&gt;锁&lt;/strong&gt;是用于管理对共享资源并发访问的机制。MySQL 的锁机制设计非常精巧，主要为了保证数据的一致性和并发性。根据加锁的范围，MySQL 的锁大致可以分为三类：&lt;strong&gt;全局锁&lt;/strong&gt;、&lt;strong&gt;表级锁&lt;/strong&gt;和&lt;strong&gt;行级锁&lt;/strong&gt;。&lt;/p&gt;
+        <description>&lt;p&gt;在数据库系统中，&lt;strong&gt;锁&lt;/strong&gt;是用于管理对共享资源并发访问的机制。MySQL 的锁机制设计非常精巧，主要为了保证数据的一致性和并发性。按加锁范围，常见的分类是&lt;strong&gt;全局锁&lt;/strong&gt;、&lt;strong&gt;表级锁&lt;/strong&gt;和&lt;strong&gt;行级锁&lt;/strong&gt;；实际使用哪一类取决于存储引擎和语句。&lt;/p&gt;
 &lt;h2 id=&#34;前置知识连接线程与事务&#34;&gt;前置知识：连接、线程与事务
 &lt;/h2&gt;&lt;p&gt;在深入理解锁之前，必须先理清 MySQL 的架构层级，这就像“俄罗斯套娃”一样：&lt;/p&gt;
 &lt;p&gt;&lt;img src=&#34;https://skylm.top/p/mysql-%E9%94%81%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3/img.png&#34;
@@ -11001,12 +11001,13 @@
 &lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-sql&#34; data-lang=&#34;sql&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;Flush tables &lt;span style=&#34;color:#ff79c6&#34;&gt;with&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;read&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;lock&lt;/span&gt; (FTWRL);
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;执行后，整个库处于&lt;strong&gt;只读状态&lt;/strong&gt;。之后其他线程的以下语句会被阻塞：&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;执行后，会话会持有全局读锁，阻塞大多数会改变数据或表结构的操作；普通读通常仍可执行：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;数据更新语句（数据的增删改）。&lt;/li&gt;
 &lt;li&gt;数据定义语句（包括建表、修改表结构等）。&lt;/li&gt;
-&lt;li&gt;更新类事务的提交语句。&lt;/li&gt;
+&lt;li&gt;更新类事务的提交语句（提交可能需要等待全局锁释放）。&lt;/li&gt;
 &lt;/ul&gt;
+&lt;p&gt;&lt;code&gt;FLUSH TABLES WITH READ LOCK&lt;/code&gt; 不是把服务器变成绝对只读模式；管理员操作、临时表等仍有额外规则，具体以当前版本文档为准。&lt;/p&gt;
 &lt;h3 id=&#34;12-使用场景&#34;&gt;1.2 使用场景
 &lt;/h3&gt;&lt;p&gt;全局锁的主要应用场景是做&lt;strong&gt;全库逻辑备份&lt;/strong&gt;（mysqldump）。在备份过程中，为了保证所有表的数据在同一逻辑时间点上一致，需要冻结所有更新操作。&lt;/p&gt;
 &lt;h3 id=&#34;13-潜在风险&#34;&gt;1.3 潜在风险
@@ -11019,7 +11020,7 @@
 &lt;/blockquote&gt;
 &lt;hr&gt;
 &lt;h2 id=&#34;二表级锁&#34;&gt;二、表级锁
-&lt;/h2&gt;&lt;p&gt;表级锁是 MySQL 中最常用的锁策略。为了理解透彻，我们需要区分 &lt;strong&gt;显式锁&lt;/strong&gt; 和 &lt;strong&gt;隐式锁&lt;/strong&gt;：&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;表级锁是 MySQL 提供的一类并发控制手段；对 InnoDB 业务表，普通 DML 更常见的是行锁。为了理解透彻，我们需要区分 &lt;strong&gt;显式锁&lt;/strong&gt; 和 &lt;strong&gt;隐式锁&lt;/strong&gt;：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;显式表锁&lt;/strong&gt;：必须手动执行命令（&lt;code&gt;LOCK TABLES&lt;/code&gt;）才会生效。日常开发很少使用。&lt;/p&gt;
@@ -11080,9 +11081,9 @@
 &lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;误区&lt;/strong&gt;：“加了 MDL 读锁，别人就不能写数据了吗？” —— &lt;strong&gt;错！&lt;/strong&gt;&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;真相&lt;/strong&gt;：MDL 读锁之间是&lt;strong&gt;互不冲突&lt;/strong&gt;的。
-&amp;gt;   - 你 &lt;code&gt;UPDATE&lt;/code&gt;，我也 &lt;code&gt;UPDATE&lt;/code&gt;，我们都持有 MDL 读锁。我们可以并发执行（数据冲突由 InnoDB 行锁解决）。
 &lt;ul&gt;
-&lt;li&gt;MDL 读锁&lt;strong&gt;只防 DDL&lt;/strong&gt;（修改表结构）。它就像大门口的保安，只管防止有人来&lt;strong&gt;拆房子&lt;/strong&gt;，不管房子里的人怎么&lt;strong&gt;打架&lt;/strong&gt;（数据竞争）。&lt;/li&gt;
+&lt;li&gt;你 &lt;code&gt;UPDATE&lt;/code&gt;，我也 &lt;code&gt;UPDATE&lt;/code&gt;，我们都持有 MDL 读锁。我们可以并发执行（数据冲突由 InnoDB 行锁解决）。&lt;/li&gt;
+&lt;li&gt;MDL 读锁主要防止需要 MDL 写锁的元数据操作（例如修改表结构）。它不负责数据行之间的竞争，数据竞争由 InnoDB 行锁等机制处理。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;幻读谁管？&lt;/strong&gt; MDL 不管幻读。幻读由 InnoDB 的 &lt;strong&gt;Next-Key Lock&lt;/strong&gt; 和 &lt;strong&gt;MVCC&lt;/strong&gt; 负责。&lt;/li&gt;
@@ -11093,7 +11094,7 @@
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;li&gt;
-&lt;p&gt;&lt;strong&gt;坑&lt;/strong&gt;：给一个小表加字段（MDL 写锁），可能会阻塞后续所有的查询（MDL 读锁），导致数据库连接爆满。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;坑&lt;/strong&gt;：给一个小表加字段（MDL 写锁）时，如果前面有长事务持有 MDL 读锁，DDL 会等待；写锁排队期间，后续读请求也可能被排在后面，导致连接堆积。&lt;/p&gt;
 &lt;/li&gt;
 &lt;/ul&gt;
 &lt;blockquote&gt;
@@ -11189,7 +11190,7 @@
 &lt;/blockquote&gt;
 &lt;blockquote&gt;
 &lt;ol&gt;
-&lt;li&gt;意向锁之间是&lt;strong&gt;完全兼容&lt;/strong&gt;的（你亮灯我也亮灯，不冲突，大家各上各的厕所）。&lt;/li&gt;
+&lt;li&gt;IS 与 IX 彼此兼容，但它们并不与显式表级 S/X 锁全部兼容；最终是否等待要查表级锁兼容矩阵。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;/blockquote&gt;
 &lt;blockquote&gt;
@@ -11602,9 +11603,9 @@
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;strong&gt;表级锁&lt;/strong&gt;&lt;/td&gt;
-					&lt;td&gt;锁整张表&lt;/td&gt;
+					&lt;td&gt;锁整张表或元数据&lt;/td&gt;
 					&lt;td&gt;&lt;code&gt;LOCK TABLES&lt;/code&gt;, MDL&lt;/td&gt;
-					&lt;td&gt;开销小，无死锁&lt;/td&gt;
+					&lt;td&gt;管理开销小，但等待和死锁仍需处理&lt;/td&gt;
 					&lt;td&gt;并发度低&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
@@ -11644,12 +11645,13 @@
 &lt;p&gt;&lt;strong&gt;结论&lt;/strong&gt;：在纯粹的快照读场景下，MVCC 会让事务看不到其他事务之后提交的新行，因此不会出现“外部插入导致结果集变多”的幻读现象。&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2 id=&#34;2-场景二当前读-current-read&#34;&gt;2. 场景二：当前读 (Current Read)
-&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;SQL 语句&lt;/strong&gt;：&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;SQL 语句&lt;/strong&gt;（这些是当前读或写操作）：&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;SELECT ... FOR UPDATE&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;SELECT ... FOR SHARE&lt;/code&gt;&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;UPDATE ...&lt;/code&gt; / &lt;code&gt;DELETE ...&lt;/code&gt;&lt;/li&gt;
 &lt;/ul&gt;
+&lt;p&gt;&lt;code&gt;INSERT&lt;/code&gt; 是写操作，会获取插入记录及必要的间隙/冲突检查锁，但通常不称为“当前读”。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;注意&lt;/strong&gt;：这些操作需要读取数据库&lt;strong&gt;最新、最真实&lt;/strong&gt;的数据，不能看老照片，否则会覆盖别人的更新，导致数据错乱。&lt;/p&gt;
 &lt;h3 id=&#34;机制next-key-lock-临键锁&#34;&gt;机制：Next-Key Lock (临键锁)
 &lt;/h3&gt;&lt;p&gt;&lt;strong&gt;Next-Key Lock = Record Lock (行锁) + Gap Lock (间隙锁)&lt;/strong&gt;&lt;/p&gt;
@@ -11862,9 +11864,9 @@ Next-Key Lock 可以近似理解为锁住&lt;strong&gt;当前读扫描的范围�
 					&lt;td&gt;&lt;strong&gt;Repeatable Read&lt;/strong&gt;&lt;/td&gt;
 					&lt;td&gt;❌ 避免&lt;/td&gt;
 					&lt;td&gt;❌ 避免&lt;/td&gt;
-					&lt;td&gt;可能 (InnoDB 大部分避免)&lt;/td&gt;
+					&lt;td&gt;标准允许；InnoDB 对快照读及适用的当前读通常避免&lt;/td&gt;
 					&lt;td&gt;中&lt;/td&gt;
-					&lt;td&gt;&lt;strong&gt;MySQL 默认&lt;/strong&gt;，够用且安全&lt;/td&gt;
+					&lt;td&gt;&lt;strong&gt;MySQL 默认&lt;/strong&gt;，仍需正确设计事务和更新条件&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;strong&gt;Serializable&lt;/strong&gt;&lt;/td&gt;

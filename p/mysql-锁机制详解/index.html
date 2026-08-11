@@ -388,7 +388,7 @@
     <section class="article-content">
     
     
-    <p>在数据库系统中，<strong>锁</strong>是用于管理对共享资源并发访问的机制。MySQL 的锁机制设计非常精巧，主要为了保证数据的一致性和并发性。根据加锁的范围，MySQL 的锁大致可以分为三类：<strong>全局锁</strong>、<strong>表级锁</strong>和<strong>行级锁</strong>。</p>
+    <p>在数据库系统中，<strong>锁</strong>是用于管理对共享资源并发访问的机制。MySQL 的锁机制设计非常精巧，主要为了保证数据的一致性和并发性。按加锁范围，常见的分类是<strong>全局锁</strong>、<strong>表级锁</strong>和<strong>行级锁</strong>；实际使用哪一类取决于存储引擎和语句。</p>
 <h2 id="前置知识连接线程与事务">前置知识：连接、线程与事务
 </h2><p>在深入理解锁之前，必须先理清 MySQL 的架构层级，这就像“俄罗斯套娃”一样：</p>
 <p><img src="/p/mysql-%E9%94%81%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3/img.png"
@@ -430,12 +430,13 @@
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span>Flush tables <span style="color:#ff79c6">with</span> <span style="color:#ff79c6">read</span> <span style="color:#ff79c6">lock</span> (FTWRL);
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>执行后，整个库处于<strong>只读状态</strong>。之后其他线程的以下语句会被阻塞：</p>
+</div><p>执行后，会话会持有全局读锁，阻塞大多数会改变数据或表结构的操作；普通读通常仍可执行：</p>
 <ul>
 <li>数据更新语句（数据的增删改）。</li>
 <li>数据定义语句（包括建表、修改表结构等）。</li>
-<li>更新类事务的提交语句。</li>
+<li>更新类事务的提交语句（提交可能需要等待全局锁释放）。</li>
 </ul>
+<p><code>FLUSH TABLES WITH READ LOCK</code> 不是把服务器变成绝对只读模式；管理员操作、临时表等仍有额外规则，具体以当前版本文档为准。</p>
 <h3 id="12-使用场景">1.2 使用场景
 </h3><p>全局锁的主要应用场景是做<strong>全库逻辑备份</strong>（mysqldump）。在备份过程中，为了保证所有表的数据在同一逻辑时间点上一致，需要冻结所有更新操作。</p>
 <h3 id="13-潜在风险">1.3 潜在风险
@@ -448,7 +449,7 @@
 </blockquote>
 <hr>
 <h2 id="二表级锁">二、表级锁
-</h2><p>表级锁是 MySQL 中最常用的锁策略。为了理解透彻，我们需要区分 <strong>显式锁</strong> 和 <strong>隐式锁</strong>：</p>
+</h2><p>表级锁是 MySQL 提供的一类并发控制手段；对 InnoDB 业务表，普通 DML 更常见的是行锁。为了理解透彻，我们需要区分 <strong>显式锁</strong> 和 <strong>隐式锁</strong>：</p>
 <ol>
 <li>
 <p><strong>显式表锁</strong>：必须手动执行命令（<code>LOCK TABLES</code>）才会生效。日常开发很少使用。</p>
@@ -509,9 +510,9 @@
 <ul>
 <li><strong>误区</strong>：“加了 MDL 读锁，别人就不能写数据了吗？” —— <strong>错！</strong></li>
 <li><strong>真相</strong>：MDL 读锁之间是<strong>互不冲突</strong>的。
-&gt;   - 你 <code>UPDATE</code>，我也 <code>UPDATE</code>，我们都持有 MDL 读锁。我们可以并发执行（数据冲突由 InnoDB 行锁解决）。
 <ul>
-<li>MDL 读锁<strong>只防 DDL</strong>（修改表结构）。它就像大门口的保安，只管防止有人来<strong>拆房子</strong>，不管房子里的人怎么<strong>打架</strong>（数据竞争）。</li>
+<li>你 <code>UPDATE</code>，我也 <code>UPDATE</code>，我们都持有 MDL 读锁。我们可以并发执行（数据冲突由 InnoDB 行锁解决）。</li>
+<li>MDL 读锁主要防止需要 MDL 写锁的元数据操作（例如修改表结构）。它不负责数据行之间的竞争，数据竞争由 InnoDB 行锁等机制处理。</li>
 </ul>
 </li>
 <li><strong>幻读谁管？</strong> MDL 不管幻读。幻读由 InnoDB 的 <strong>Next-Key Lock</strong> 和 <strong>MVCC</strong> 负责。</li>
@@ -522,7 +523,7 @@
 </ul>
 </li>
 <li>
-<p><strong>坑</strong>：给一个小表加字段（MDL 写锁），可能会阻塞后续所有的查询（MDL 读锁），导致数据库连接爆满。</p>
+<p><strong>坑</strong>：给一个小表加字段（MDL 写锁）时，如果前面有长事务持有 MDL 读锁，DDL 会等待；写锁排队期间，后续读请求也可能被排在后面，导致连接堆积。</p>
 </li>
 </ul>
 <blockquote>
@@ -618,7 +619,7 @@
 </blockquote>
 <blockquote>
 <ol>
-<li>意向锁之间是<strong>完全兼容</strong>的（你亮灯我也亮灯，不冲突，大家各上各的厕所）。</li>
+<li>IS 与 IX 彼此兼容，但它们并不与显式表级 S/X 锁全部兼容；最终是否等待要查表级锁兼容矩阵。</li>
 </ol>
 </blockquote>
 <blockquote>
@@ -1031,9 +1032,9 @@
 			</tr>
 			<tr>
 					<td><strong>表级锁</strong></td>
-					<td>锁整张表</td>
+					<td>锁整张表或元数据</td>
 					<td><code>LOCK TABLES</code>, MDL</td>
-					<td>开销小，无死锁</td>
+					<td>管理开销小，但等待和死锁仍需处理</td>
 					<td>并发度低</td>
 			</tr>
 			<tr>

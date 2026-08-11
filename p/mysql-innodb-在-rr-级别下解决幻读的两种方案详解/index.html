@@ -327,7 +327,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 3 分钟
+                    阅读时长: 4 分钟
                 </time>
             </div>
         
@@ -361,12 +361,13 @@
 <p><strong>结论</strong>：在纯粹的快照读场景下，MVCC 会让事务看不到其他事务之后提交的新行，因此不会出现“外部插入导致结果集变多”的幻读现象。</p>
 <hr>
 <h2 id="2-场景二当前读-current-read">2. 场景二：当前读 (Current Read)
-</h2><p><strong>SQL 语句</strong>：</p>
+</h2><p><strong>SQL 语句</strong>（这些是当前读或写操作）：</p>
 <ul>
 <li><code>SELECT ... FOR UPDATE</code></li>
 <li><code>SELECT ... FOR SHARE</code></li>
 <li><code>UPDATE ...</code> / <code>DELETE ...</code></li>
 </ul>
+<p><code>INSERT</code> 是写操作，会获取插入记录及必要的间隙/冲突检查锁，但通常不称为“当前读”。</p>
 <p><strong>注意</strong>：这些操作需要读取数据库<strong>最新、最真实</strong>的数据，不能看老照片，否则会覆盖别人的更新，导致数据错乱。</p>
 <h3 id="机制next-key-lock-临键锁">机制：Next-Key Lock (临键锁)
 </h3><p><strong>Next-Key Lock = Record Lock (行锁) + Gap Lock (间隙锁)</strong></p>

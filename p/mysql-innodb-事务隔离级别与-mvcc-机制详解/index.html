@@ -489,9 +489,9 @@
 					<td><strong>Repeatable Read</strong></td>
 					<td>❌ 避免</td>
 					<td>❌ 避免</td>
-					<td>可能 (InnoDB 大部分避免)</td>
+					<td>标准允许；InnoDB 对快照读及适用的当前读通常避免</td>
 					<td>中</td>
-					<td><strong>MySQL 默认</strong>，够用且安全</td>
+					<td><strong>MySQL 默认</strong>，仍需正确设计事务和更新条件</td>
 			</tr>
 			<tr>
 					<td><strong>Serializable</strong></td>
