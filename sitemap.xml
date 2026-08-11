@@ -3,10 +3,43 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://skylm.top/</loc>
-    <lastmod>2026-08-03T15:30:00+08:00</lastmod>
+    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/agent/</loc>
+    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/categories/ai/</loc>
+    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
   </url><url>
     <loc>https://skylm.top/categories/</loc>
-    <lastmod>2026-08-03T15:30:00+08:00</lastmod>
+    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/code-review/</loc>
+    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/go/</loc>
+    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/post/</loc>
+    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/</loc>
+    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/trpc-agent-go/</loc>
+    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/p/trpc-agent-go-code-review-agent/</loc>
+    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/categories/%E5%BC%80%E6%BA%90/</loc>
+    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/%E6%B2%99%E7%AE%B1/</loc>
+    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB/</loc>
+    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
   </url><url>
     <loc>https://skylm.top/tags/clickhouse/</loc>
     <lastmod>2026-08-03T15:30:00+08:00</lastmod>
@@ -20,12 +53,6 @@
     <loc>https://skylm.top/tags/olap/</loc>
     <lastmod>2026-08-03T15:30:00+08:00</lastmod>
   </url><url>
-    <loc>https://skylm.top/post/</loc>
-    <lastmod>2026-08-03T15:30:00+08:00</lastmod>
-  </url><url>
-    <loc>https://skylm.top/tags/</loc>
-    <lastmod>2026-08-03T15:30:00+08:00</lastmod>
-  </url><url>
     <loc>https://skylm.top/tags/%E5%88%97%E5%BC%8F%E6%95%B0%E6%8D%AE%E5%BA%93/</loc>
     <lastmod>2026-08-03T15:30:00+08:00</lastmod>
   </url><url>
@@ -33,9 +60,6 @@
     <lastmod>2026-08-03T15:30:00+08:00</lastmod>
   </url><url>
     <loc>https://skylm.top/categories/go/</loc>
-    <lastmod>2026-07-29T08:00:00+08:00</lastmod>
-  </url><url>
-    <loc>https://skylm.top/tags/go/</loc>
     <lastmod>2026-07-29T08:00:00+08:00</lastmod>
   </url><url>
     <loc>https://skylm.top/p/go-singleflight-%E6%BA%90%E7%A0%81%E8%AE%B2%E8%A7%A3dodochan-%E4%B8%8E%E7%BB%93%E6%9E%9C%E5%85%B1%E4%BA%AB/</loc>
@@ -47,12 +71,6 @@
     <loc>https://skylm.top/tags/%E6%BA%90%E7%A0%81/</loc>
     <lastmod>2026-07-29T08:00:00+08:00</lastmod>
   </url><url>
-    <loc>https://skylm.top/tags/agent/</loc>
-    <lastmod>2026-07-22T10:06:00+08:00</lastmod>
-  </url><url>
-    <loc>https://skylm.top/categories/ai/</loc>
-    <lastmod>2026-07-22T10:06:00+08:00</lastmod>
-  </url><url>
     <loc>https://skylm.top/tags/cli/</loc>
     <lastmod>2026-07-22T10:06:00+08:00</lastmod>
   </url><url>
@@ -63,12 +81,6 @@
     <lastmod>2026-07-22T10:06:00+08:00</lastmod>
   </url><url>
     <loc>https://skylm.top/tags/hugo/</loc>
-    <lastmod>2026-07-22T10:06:00+08:00</lastmod>
-  </url><url>
-    <loc>https://skylm.top/categories/%E5%BC%80%E6%BA%90/</loc>
-    <lastmod>2026-07-22T10:06:00+08:00</lastmod>
-  </url><url>
-    <loc>https://skylm.top/tags/%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB/</loc>
     <lastmod>2026-07-22T10:06:00+08:00</lastmod>
   </url><url>
     <loc>https://skylm.top/tags/app-server/</loc>

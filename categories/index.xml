@@ -7,7 +7,23 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Mon, 03 Aug 2026 15:30:00 +0800</lastBuildDate><atom:link href="https://skylm.top/categories/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Tue, 11 Aug 2026 15:00:00 +0800</lastBuildDate><atom:link href="https://skylm.top/categories/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>AI</title>
+        <link>https://skylm.top/categories/ai/</link>
+        <pubDate>Tue, 11 Aug 2026 15:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/categories/ai/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>开源</title>
+        <link>https://skylm.top/categories/%E5%BC%80%E6%BA%90/</link>
+        <pubDate>Tue, 11 Aug 2026 15:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/categories/%E5%BC%80%E6%BA%90/</guid>
+        <description></description>
+        </item>
+        <item>
         <title>数据库</title>
         <link>https://skylm.top/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/</link>
         <pubDate>Mon, 03 Aug 2026 15:30:00 +0800</pubDate>
@@ -24,22 +40,6 @@
         <description>&lt;h2 id=&#34;go-语言&#34;&gt;Go 语言
 &lt;/h2&gt;&lt;p&gt;Go 语言的学习笔记、项目实践和技术分享。&lt;/p&gt;
 </description>
-        </item>
-        <item>
-        <title>AI</title>
-        <link>https://skylm.top/categories/ai/</link>
-        <pubDate>Wed, 22 Jul 2026 10:06:00 +0800</pubDate>
-        
-        <guid>https://skylm.top/categories/ai/</guid>
-        <description></description>
-        </item>
-        <item>
-        <title>开源</title>
-        <link>https://skylm.top/categories/%E5%BC%80%E6%BA%90/</link>
-        <pubDate>Wed, 22 Jul 2026 10:06:00 +0800</pubDate>
-        
-        <guid>https://skylm.top/categories/%E5%BC%80%E6%BA%90/</guid>
-        <description></description>
         </item>
         <item>
         <title>Harness</title>

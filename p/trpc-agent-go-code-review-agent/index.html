@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="tRPC-Agent-Go 源码导读：如何构建一个可审计的 Go 自动代码评审 Agent 本文基于 tRPC-Agent-Go 的官方实例文章 《tRPC-Agent-Go：构建智能 AI 应用的 Go 语言 Agent 框架》，分析 examples/code_review_agent 如何把 Skill、Tool、CodeExecutor、PermissionPolicy、Artifact、Event 和 Telemetry 组合成一个 Go 代码评审 Agent。\n">
+<title>tRPC-Agent-Go 源码导读：如何构建一个可审计的 Go 自动代码评审 Agent</title>
+
+<link rel='canonical' href='https://skylm.top/p/trpc-agent-go-code-review-agent/'>
+
+<link rel="stylesheet" href="/scss/style.min.6721d1ad1674f36f1d1fc4f72db64056f3ecbc804c01969066d7b28619fb6ba7.css"><meta property='og:title' content="tRPC-Agent-Go 源码导读：如何构建一个可审计的 Go 自动代码评审 Agent">
+<meta property='og:description' content="tRPC-Agent-Go 源码导读：如何构建一个可审计的 Go 自动代码评审 Agent 本文基于 tRPC-Agent-Go 的官方实例文章 《tRPC-Agent-Go：构建智能 AI 应用的 Go 语言 Agent 框架》，分析 examples/code_review_agent 如何把 Skill、Tool、CodeExecutor、PermissionPolicy、Artifact、Event 和 Telemetry 组合成一个 Go 代码评审 Agent。\n">
+<meta property='og:url' content='https://skylm.top/p/trpc-agent-go-code-review-agent/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Go' /><meta property='article:tag' content='tRPC-Agent-Go' /><meta property='article:tag' content='Agent' /><meta property='article:tag' content='Code Review' /><meta property='article:tag' content='沙箱' /><meta property='article:tag' content='源码导读' /><meta property='article:published_time' content='2026-08-11T15:00:00&#43;08:00'/><meta property='article:modified_time' content='2026-08-11T15:00:00&#43;08:00'/>
+<meta name="twitter:title" content="tRPC-Agent-Go 源码导读：如何构建一个可审计的 Go 自动代码评审 Agent">
+<meta name="twitter:description" content="tRPC-Agent-Go 源码导读：如何构建一个可审计的 Go 自动代码评审 Agent 本文基于 tRPC-Agent-Go 的官方实例文章 《tRPC-Agent-Go：构建智能 AI 应用的 Go 语言 Agent 框架》，分析 examples/code_review_agent 如何把 Skill、Tool、CodeExecutor、PermissionPolicy、Artifact、Event 和 Telemetry 组合成一个 Go 代码评审 Agent。\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友链</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#一项目要解决什么问题">一、项目要解决什么问题</a></li>
+    <li><a href="#二先看框架组件再看-cr-业务代码">二、先看框架组件，再看 CR 业务代码</a></li>
+    <li><a href="#三一次评审从哪里开始">三、一次评审从哪里开始</a>
+      <ol>
+        <li><a href="#1-cli-把不同输入变成统一-diff">1. CLI 把不同输入变成统一 diff</a></li>
+        <li><a href="#2-parser-为什么要保存-hunk">2. parser 为什么要保存 hunk</a></li>
+      </ol>
+    </li>
+    <li><a href="#四agentnew把框架组件组装起来">四、<code>Agent.New</code>：把框架组件组装起来</a>
+      <ol>
+        <li><a href="#1-skill-仓库与-tool">1. Skill 仓库与 Tool</a></li>
+        <li><a href="#2-codeexecutor-与-toolcodeexec">2. CodeExecutor 与 <code>tool/codeexec</code></a></li>
+        <li><a href="#3-permissionpolicy">3. PermissionPolicy</a></li>
+      </ol>
+    </li>
+    <li><a href="#五rundirect一次-review-的总编排">五、<code>runDirect</code>：一次 review 的总编排</a></li>
+    <li><a href="#六runskillchecksskill-到底如何运行">六、<code>runSkillChecks</code>：Skill 到底如何运行</a></li>
+    <li><a href="#七规则引擎以-secretdiff-为例">七、规则引擎：以 <code>secret.diff</code> 为例</a></li>
+    <li><a href="#八沙箱为什么不是直接-execcommand">八、沙箱：为什么不是直接 <code>exec.Command</code></a>
+      <ol>
+        <li><a href="#1-生成受限命令">1. 生成受限命令</a></li>
+        <li><a href="#2-容器边界">2. 容器边界</a></li>
+      </ol>
+    </li>
+    <li><a href="#九模型阶段只做语义增量">九、模型阶段：只做语义增量</a></li>
+    <li><a href="#十持久化artifact-和-telemetry">十、持久化、Artifact 和 Telemetry</a>
+      <ol>
+        <li><a href="#1-sqlite-是业务层的审计存储">1. SQLite 是业务层的审计存储</a></li>
+        <li><a href="#2-为什么用事务写-savereview">2. 为什么用事务写 <code>SaveReview</code></a></li>
+        <li><a href="#3-artifact-与报告">3. Artifact 与报告</a></li>
+        <li><a href="#4-event-和-telemetry">4. Event 和 Telemetry</a></li>
+      </ol>
+    </li>
+    <li><a href="#十一把项目跑起来">十一、把项目跑起来</a></li>
+    <li><a href="#十二面试时的几个关键追问">十二、面试时的几个关键追问</a>
+      <ol>
+        <li><a href="#为什么要把-skill-和-agent-编排分开">为什么要把 Skill 和 Agent 编排分开？</a></li>
+        <li><a href="#为什么-skill_run-也要-permissionpolicy">为什么 <code>skill_run</code> 也要 PermissionPolicy？</a></li>
+        <li><a href="#为什么容器要禁网">为什么容器要禁网？</a></li>
+        <li><a href="#沙箱失败会不会让整个-review-失败">沙箱失败会不会让整个 review 失败？</a></li>
+        <li><a href="#为什么-sqlite-还要抽象接口">为什么 SQLite 还要抽象接口？</a></li>
+      </ol>
+    </li>
+    <li><a href="#十三诚实边界">十三、诚实边界</a></li>
+    <li><a href="#结语">结语</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/ai/" >
+                AI
+            </a>
+        
+            <a href="/categories/%E5%BC%80%E6%BA%90/" >
+                开源
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/trpc-agent-go-code-review-agent/">tRPC-Agent-Go 源码导读：如何构建一个可审计的 Go 自动代码评审 Agent</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Aug 11, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 12 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="trpc-agent-go-源码导读如何构建一个可审计的-go-自动代码评审-agent">tRPC-Agent-Go 源码导读：如何构建一个可审计的 Go 自动代码评审 Agent
+</h1><p>本文基于 tRPC-Agent-Go 的官方实例文章 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/docs/mkdocs/zh/blog/trpcagentgo.md"  target="_blank" rel="noopener"
+    >《tRPC-Agent-Go：构建智能 AI 应用的 Go 语言 Agent 框架》</a>，分析 <code>examples/code_review_agent</code> 如何把 Skill、Tool、CodeExecutor、PermissionPolicy、Artifact、Event 和 Telemetry 组合成一个 Go 代码评审 Agent。</p>
+<p>这不是一篇“如何调用 LLM 评论代码”的文章。我们要回答的问题是：如果评审任务需要读取 diff、运行检查、保留审计记录，并且不能让模型或脚本越权，Agent 应该怎样组织？</p>
+<h2 id="一项目要解决什么问题">一、项目要解决什么问题
+</h2><p>一个真实的代码评审通常包含这些步骤：读取 PR 改动、定位新增行、检查安全和生命周期风险、必要时运行测试、给出带证据的建议、通知人工复核，并保留历史记录供回放。如果只把整个 PR 文本发给模型，会遇到三个问题：</p>
+<ol>
+<li>模型不一定能稳定对应到文件和行号。</li>
+<li>模型不应该直接决定执行哪些 shell 命令。</li>
+<li>评审失败、权限拦截和低置信结论不能只留在终端日志里。</li>
+</ol>
+<p>这个示例的输入可以来自统一 diff 文件、PR patch、文件列表、Git 工作区或测试 fixture。它先用确定性 Skill 规则处理高置信问题，再在权限允许时执行容器检查，最后生成 JSON/Markdown 报告并写入 SQLite。</p>
+<h2 id="二先看框架组件再看-cr-业务代码">二、先看框架组件，再看 CR 业务代码
+</h2><p>官方实例把 tRPC-Agent-Go 定位为构建生产级 Agent 系统的 Go 框架。CR Agent 实际使用的是下面几类组件：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>框架组件</th>
+					<th>解决什么问题</th>
+					<th>在这个示例中的落点</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Agent / Runner / Event</td>
+					<td>组织一次 Agent 运行，并把阶段结果以事件流传递</td>
+					<td><code>Agent.Run</code>、Runner adapter、输入/沙箱/模型/结束事件</td>
+			</tr>
+			<tr>
+					<td>Skill / <code>tool/skill</code></td>
+					<td>把可复用工作流封装为 <code>SKILL.md</code>、文档和脚本</td>
+					<td><code>skills/code-review/</code>、<code>skill_load</code>、<code>skill_run</code></td>
+			</tr>
+			<tr>
+					<td>Tool</td>
+					<td>给 Agent 一个受控的外部能力入口</td>
+					<td><code>LoadTool</code>、<code>RunTool</code>、<code>codeexec</code></td>
+			</tr>
+			<tr>
+					<td>CodeExecutor</td>
+					<td>在本地、容器或其他 runtime 执行代码</td>
+					<td>默认 <code>codeexecutor/container</code>，本地仅 fallback</td>
+			</tr>
+			<tr>
+					<td>PermissionPolicy</td>
+					<td>在 Tool 真正执行前检查命令是否允许</td>
+					<td>固定放行 <code>scripts/check.sh</code>、<code>go test</code>、<code>go vet</code></td>
+			</tr>
+			<tr>
+					<td>Artifact</td>
+					<td>描述和保存报告等运行产物</td>
+					<td>JSON、Markdown、诊断文件的 digest/大小/路径</td>
+			</tr>
+			<tr>
+					<td>Telemetry</td>
+					<td>记录一次运行的耗时、事件和异常</td>
+					<td>review trace、tool call、severity 和 exception 指标</td>
+			</tr>
+			<tr>
+					<td>Model adapter</td>
+					<td>抽象不同模型 Provider</td>
+					<td>fake、HTTP、OpenAI-compatible 可选接入</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>SQLite、diff parser、规则库、报告模板和 CR 的编排逻辑是这个 example 自己写的业务层。它们通过接口接入框架，但不是 tRPC-Agent-Go 自动生成的代码评审能力。</p>
+<p>官方组件总览和这个示例的初始化位置分别见：<a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/docs/mkdocs/zh/blog/trpcagentgo.md"  target="_blank" rel="noopener"
+    >官方框架介绍</a> 和 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/agent.go#L188-L282"  target="_blank" rel="noopener"
+    ><code>Agent.New</code></a>。</p>
+<h2 id="三一次评审从哪里开始">三、一次评审从哪里开始
+</h2><h3 id="1-cli-把不同输入变成统一-diff">1. CLI 把不同输入变成统一 diff
+</h3><p>CLI 入口在 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/cmd/review-agent/main.go#L43-L67"  target="_blank" rel="noopener"
+    ><code>cmd/review-agent/main.go</code></a>，支持：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>--diff-file  /tmp/change.diff
+</span></span><span style="display:flex;"><span>--file-list  /tmp/files.txt --repo-path /path/to/repo
+</span></span><span style="display:flex;"><span>--repo-path  /path/to/repo --base-ref main --head-ref HEAD
+</span></span><span style="display:flex;"><span>--fixture     secret.diff
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>PR patch</code> 只是 GitHub 将某个 PR 的改动导出的 unified diff 文本。例如：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>gh pr diff <span style="color:#bd93f9">2240</span> --repo trpc-group/trpc-agent-go --patch <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  &gt; /tmp/trpc-agent-go-pr-2240.patch
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这里 <code>2240</code> 是 PR 编号，<code>--repo</code> 是仓库，<code>--patch</code> 是让 CLI 以 patch 格式输出，<code>&gt;</code> 才是把终端输出写到本地文件。<code>.patch</code> 是常见文件名后缀，解析器真正关心的是内容格式。GitHub 也提供 <code>/pull/2240.patch</code> 和 <code>/pull/2240.diff</code> 形式的响应。</p>
+<p>输入层的实际入口是 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/input/input.go#L63-L84"  target="_blank" rel="noopener"
+    ><code>internal/input/input.go</code></a>：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">Read</span>(cfg Config, req Request) ([]<span style="color:#8be9fd">byte</span>, <span style="color:#8be9fd">string</span>, <span style="color:#8be9fd">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> req.DiffFile <span style="color:#ff79c6">!=</span> <span style="color:#f1fa8c">&#34;&#34;</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#50fa7b">readFileWithLimit</span>(req.DiffFile, maxBytes, <span style="color:#f1fa8c">&#34;diff file&#34;</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> req.FileList <span style="color:#ff79c6">!=</span> <span style="color:#f1fa8c">&#34;&#34;</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#50fa7b">diffFromFileList</span>(req.FileList, req.RepoPath, maxBytes)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> req.Fixture <span style="color:#ff79c6">!=</span> <span style="color:#f1fa8c">&#34;&#34;</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#50fa7b">readFixtureInput</span>(cfg.FixturesRoot, req.Fixture, maxBytes)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> req.RepoPath <span style="color:#ff79c6">!=</span> <span style="color:#f1fa8c">&#34;&#34;</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">return</span> <span style="color:#50fa7b">diffFromRepo</span>(req.RepoPath, req.BaseRef, req.HeadRef, maxBytes)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#ff79c6">nil</span>, <span style="color:#f1fa8c">&#34;&#34;</span>, errors.<span style="color:#50fa7b">New</span>(<span style="color:#f1fa8c">&#34;diff file, file list, repo path, or fixture is required&#34;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这个函数的价值是让后面的代码不关心输入来自 PR 还是本地工作区。所有输入最后都变成一份 <code>[]byte</code> unified diff。</p>
+<h3 id="2-parser-为什么要保存-hunk">2. parser 为什么要保存 hunk
+</h3><p><a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/review/parser.go"  target="_blank" rel="noopener"
+    ><code>internal/review/parser.go</code></a> 将 diff 拆成文件、hunk 和行；类型定义在 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/review/types.go#L157-L190"  target="_blank" rel="noopener"
+    ><code>internal/review/types.go</code></a>：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">type</span> ParsedDiff <span style="color:#8be9fd;font-style:italic">struct</span> {
+</span></span><span style="display:flex;"><span>    Files []ParsedFile <span style="color:#f1fa8c">`json:&#34;files&#34;`</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">type</span> ParsedFile <span style="color:#8be9fd;font-style:italic">struct</span> {
+</span></span><span style="display:flex;"><span>    Path, Language <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>    PackageName    <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>    Hunks          []Hunk
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">type</span> Hunk <span style="color:#8be9fd;font-style:italic">struct</span> {
+</span></span><span style="display:flex;"><span>    File               <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>    OldStart, OldLines <span style="color:#8be9fd">int</span>
+</span></span><span style="display:flex;"><span>    NewStart, NewLines <span style="color:#8be9fd">int</span>
+</span></span><span style="display:flex;"><span>    Context            []<span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>    CandidateLines []<span style="color:#8be9fd">int</span>
+</span></span><span style="display:flex;"><span>    Lines          []Line
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">type</span> Line <span style="color:#8be9fd;font-style:italic">struct</span> {
+</span></span><span style="display:flex;"><span>    OldLine, NewLine <span style="color:#8be9fd">int</span>
+</span></span><span style="display:flex;"><span>    Kind, Text       <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>规则只扫描新增行，但保留 hunk 上下文。例如 <code>context.Background()</code> 是否危险，需要知道函数是否已经接收 <code>ctx</code>；循环中的 <code>defer</code> 是否危险，需要知道前面是否存在循环边界。parser 把这些上下文保留下来，避免规则只能看孤立的一行。</p>
+<h2 id="四agentnew把框架组件组装起来">四、<code>Agent.New</code>：把框架组件组装起来
+</h2><h3 id="1-skill-仓库与-tool">1. Skill 仓库与 Tool
+</h3><p><a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/agent.go#L188-L282"  target="_blank" rel="noopener"
+    ><code>Agent.New</code></a> 首先创建 <code>skill.NewFSRepository</code>：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>repo, err <span style="color:#ff79c6">:=</span> skillrepo.<span style="color:#50fa7b">NewFSRepository</span>(cfg.SkillsRoot)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这个 <code>repo</code> 对应 <code>skills/code-review/</code>。目录里有：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>skills/code-review/
+</span></span><span style="display:flex;"><span>├── SKILL.md       # 输入输出契约、规则范围、状态约定
+</span></span><span style="display:flex;"><span>├── rules.md       # rule_id、严重级别和误报边界
+</span></span><span style="display:flex;"><span>└── scripts/
+</span></span><span style="display:flex;"><span>    ├── check.sh   # 稳定的脚本入口
+</span></span><span style="display:flex;"><span>    └── check_rules.py
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>随后创建两个 Skill Tool：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>loadTool <span style="color:#ff79c6">:=</span> toolskill.<span style="color:#50fa7b">NewLoadTool</span>(repo)
+</span></span><span style="display:flex;"><span>runTool <span style="color:#ff79c6">:=</span> toolskill.<span style="color:#50fa7b">NewRunTool</span>(
+</span></span><span style="display:flex;"><span>    repo,
+</span></span><span style="display:flex;"><span>    exec,
+</span></span><span style="display:flex;"><span>    toolskill.<span style="color:#50fa7b">WithAllowedCommands</span>(<span style="color:#f1fa8c">&#34;scripts/check.sh&#34;</span>),
+</span></span><span style="display:flex;"><span>    toolskill.<span style="color:#50fa7b">WithRunOutputLimits</span>(toolskill.RunOutputLimits{
+</span></span><span style="display:flex;"><span>        StdoutStderrBytes: cfg.OutputLimitBytes,
+</span></span><span style="display:flex;"><span>        PrimaryOutputBytes: cfg.OutputLimitBytes,
+</span></span><span style="display:flex;"><span>    }),
+</span></span><span style="display:flex;"><span>)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>LoadTool</code> 的职责是把 Skill 内容加载到 Agent 可用上下文；<code>RunTool</code> 的职责是运行脚本。它们不是同一个动作：加载规则不等于执行脚本。</p>
+<h3 id="2-codeexecutor-与-toolcodeexec">2. CodeExecutor 与 <code>tool/codeexec</code>
+</h3><p>初始化时根据 runtime 构造 <code>codeexecutor.CodeExecutor</code>。container runtime 使用 lazy executor，因为容器初始化成本高，dry-run 又不会执行代码。示例还创建了：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>checkTool <span style="color:#ff79c6">:=</span> toolcodeexec.<span style="color:#50fa7b">NewTool</span>(
+</span></span><span style="display:flex;"><span>    exec,
+</span></span><span style="display:flex;"><span>    toolcodeexec.<span style="color:#50fa7b">WithName</span>(<span style="color:#f1fa8c">&#34;execute_code&#34;</span>),
+</span></span><span style="display:flex;"><span>    toolcodeexec.<span style="color:#50fa7b">WithLanguages</span>(<span style="color:#f1fa8c">&#34;bash&#34;</span>),
+</span></span><span style="display:flex;"><span>)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这个 Tool 是受控的 fallback，不代表任意 bash 都能运行；实际调用前仍然要经过 <code>PermissionPolicy</code>。执行边界在 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/execution/exec.go#L55-L235"  target="_blank" rel="noopener"
+    ><code>internal/execution/exec.go</code></a>。</p>
+<h3 id="3-permissionpolicy">3. PermissionPolicy
+</h3><p><a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/approval/gate.go"  target="_blank" rel="noopener"
+    ><code>internal/approval/gate.go</code></a> 将可运行命令做成 allowlist：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>go test ./...                                allow
+</span></span><span style="display:flex;"><span>go vet ./...                                 allow
+</span></span><span style="display:flex;"><span>go test ./... &amp;&amp; curl ... | sh                ask
+</span></span><span style="display:flex;"><span>rm -rf /repo                                  ask
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>在这个项目里，<code>PermissionPolicy</code> 不是“用户确认弹窗”的装饰，而是进入 Tool 执行器前的安全边界。权限请求里包含 Tool、Tool 名称、声明和实际参数，策略可以判断“调用的是哪个能力”和“传入了什么命令”。</p>
+<h2 id="五rundirect一次-review-的总编排">五、<code>runDirect</code>：一次 review 的总编排
+</h2><p>实际总流程在 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/agent.go#L317-L430"  target="_blank" rel="noopener"
+    ><code>internal/agent/agent.go</code></a> 的 <code>runDirect</code>。删去 telemetry 细节后，可以简化为：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>plan, err <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">normalizeExecutionPlan</span>(req)
+</span></span><span style="display:flex;"><span>diff, inputRef, err <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">readInput</span>(a.cfg, req)
+</span></span><span style="display:flex;"><span>taskID <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">newTaskID</span>(diff)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 先记录 running，后续失败仍可查询。</span>
+</span></span><span style="display:flex;"><span>a.<span style="color:#50fa7b">saveTaskStatus</span>(ctx, taskID, inputRef, <span style="color:#50fa7b">digestBytes</span>(diff),
+</span></span><span style="display:flex;"><span>    req.RepoPath, plan.Mode, <span style="color:#f1fa8c">&#34;running&#34;</span>, start, time.Time{})
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>result, decisions, runs, toolCalls, runErr <span style="color:#ff79c6">:=</span>
+</span></span><span style="display:flex;"><span>    a.<span style="color:#50fa7b">runReviewChecks</span>(ctx, taskID, plan, req.RepoPath, diff)
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> runErr <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>    result = <span style="color:#50fa7b">resultWithRunError</span>(result, runErr)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>result = <span style="color:#50fa7b">finalizeReviewResult</span>(result, reviewResultContext{<span style="color:#ff79c6">...</span>})
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> provider, audit <span style="color:#ff79c6">:=</span> a.<span style="color:#50fa7b">configuredModelProvider</span>(plan.ModelRequested); provider <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> {
+</span></span><span style="display:flex;"><span>    result, modelSummary = a.<span style="color:#50fa7b">runModelReview</span>(
+</span></span><span style="display:flex;"><span>        ctx, taskID, provider, audit, result, diff, inputMeta)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>jsonReport, markdownReport, diagnostics <span style="color:#ff79c6">:=</span> a.<span style="color:#50fa7b">writeReports</span>(<span style="color:#ff79c6">...</span>)
+</span></span><span style="display:flex;"><span>a.<span style="color:#50fa7b">persist</span>(ctx, task, result, decisions, runs,
+</span></span><span style="display:flex;"><span>    jsonReport, markdownReport, diagnostics)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这里有一个重要的失败语义：沙箱失败不等于整个 review 没有结果。Skill 已经发现的问题仍然保留，执行失败被追加为人工复核项；只有输入无法读取、配置非法、数据库无法初始化等基础错误才会直接结束任务。</p>
+<h2 id="六runskillchecksskill-到底如何运行">六、<code>runSkillChecks</code>：Skill 到底如何运行
+</h2><p>代码位置：<a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/skill_step.go#L64-L151"  target="_blank" rel="noopener"
+    ><code>internal/agent/skill_step.go</code></a>。它严格按以下顺序执行：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#6272a4">// 1. 加载 Skill。</span>
+</span></span><span style="display:flex;"><span>a.loadTool.<span style="color:#50fa7b">Call</span>(ctx, []<span style="color:#8be9fd;font-style:italic">byte</span>(<span style="color:#f1fa8c">`{&#34;skill&#34;:&#34;code-review&#34;}`</span>))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 2. diff 通过 stdin 传给固定脚本，不写入 Skill 目录。</span>
+</span></span><span style="display:flex;"><span>runArgs, _ <span style="color:#ff79c6">:=</span> json.<span style="color:#50fa7b">Marshal</span>(<span style="color:#8be9fd;font-style:italic">map</span>[<span style="color:#8be9fd">string</span>]<span style="color:#8be9fd">any</span>{
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;skill&#34;</span>: <span style="color:#f1fa8c">&#34;code-review&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;command&#34;</span>: <span style="color:#f1fa8c">&#34;scripts/check.sh&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;stdin&#34;</span>: <span style="color:#8be9fd;font-style:italic">string</span>(diff),
+</span></span><span style="display:flex;"><span>    <span style="color:#f1fa8c">&#34;timeout&#34;</span>: <span style="color:#8be9fd;font-style:italic">int</span>(a.cfg.Timeout.<span style="color:#50fa7b">Seconds</span>()),
+</span></span><span style="display:flex;"><span>})
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 3. skill_run 也必须先审批。</span>
+</span></span><span style="display:flex;"><span>perm, _ <span style="color:#ff79c6">:=</span> a.policy.<span style="color:#50fa7b">CheckToolPermission</span>(ctx, permReq)
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> perm.Action <span style="color:#ff79c6">!=</span> tool.PermissionActionAllow {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> <span style="color:#50fa7b">needsHumanReview</span>(<span style="color:#f1fa8c">&#34;permission-non-allow&#34;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4">// 4. 允许后才真正执行，stdout 解析为结构化结果。</span>
+</span></span><span style="display:flex;"><span>raw, err <span style="color:#ff79c6">:=</span> a.runTool.<span style="color:#50fa7b">Call</span>(ctx, runArgs)
+</span></span><span style="display:flex;"><span>result, err <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">parseSkillFindings</span>(out.Stdout)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>为什么固定入口是 <code>scripts/check.sh</code>？因为权限策略可以精确限制一条稳定命令，Skill 也可以在目录内新增文档而不会自动获得任意命令执行能力。</p>
+<p><code>SKILL.md</code> 规定脚本输出结构：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;findings&#34;</span>: [{
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;severity&#34;</span>: <span style="color:#f1fa8c">&#34;high&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;category&#34;</span>: <span style="color:#f1fa8c">&#34;resource&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;file&#34;</span>: <span style="color:#f1fa8c">&#34;service.go&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;line&#34;</span>: <span style="color:#bd93f9">42</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;title&#34;</span>: <span style="color:#f1fa8c">&#34;Opened resource has no close path&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;evidence&#34;</span>: <span style="color:#f1fa8c">&#34;f, _ := os.Open(path)&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;recommendation&#34;</span>: <span style="color:#f1fa8c">&#34;Defer Close() immediately after the resource is opened.&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;confidence&#34;</span>: <span style="color:#f1fa8c">&#34;high&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;source&#34;</span>: <span style="color:#f1fa8c">&#34;skill_run&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">&#34;rule_id&#34;</span>: <span style="color:#f1fa8c">&#34;resource-leak&#34;</span>
+</span></span><span style="display:flex;"><span>  }],
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;warnings&#34;</span>: []
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>JSON 让报告、落库、去重和可选模型都共享同一个 finding 模型，而不是再次解析自然语言。</p>
+<h2 id="七规则引擎以-secretdiff-为例">七、规则引擎：以 <code>secret.diff</code> 为例
+</h2><p>fixture 位于 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/testdata/fixtures/secret.diff"  target="_blank" rel="noopener"
+    ><code>testdata/fixtures/secret.diff</code></a>：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-diff" data-lang="diff"><span style="display:flex;"><span><span style="font-weight:bold">diff --git a/config.go b/config.go
+</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+++ b/config.go
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold">@@ -1,2 +1,4 @@
+</span></span></span><span style="display:flex;"><span> package foo
+</span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+const apiKey = &#34;sk-1234567890abcdef&#34;
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>规则入口是 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/rules/rules.go#L32-L74"  target="_blank" rel="noopener"
+    ><code>internal/rules/rules.go</code></a>：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">for</span> _, file <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> diff.Files {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">for</span> _, hunk <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> file.Hunks {
+</span></span><span style="display:flex;"><span>        <span style="color:#ff79c6">for</span> _, line <span style="color:#ff79c6">:=</span> <span style="color:#ff79c6">range</span> hunk.Lines {
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">if</span> line.Kind <span style="color:#ff79c6">!=</span> <span style="color:#f1fa8c">&#34;add&#34;</span> {
+</span></span><span style="display:flex;"><span>                <span style="color:#ff79c6">continue</span>
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>            text <span style="color:#ff79c6">:=</span> strings.<span style="color:#50fa7b">TrimSpace</span>(line.Text)
+</span></span><span style="display:flex;"><span>            <span style="color:#ff79c6">if</span> <span style="color:#50fa7b">shouldReportSecret</span>(text) {
+</span></span><span style="display:flex;"><span>                out.Findings = <span style="color:#8be9fd;font-style:italic">append</span>(out.Findings, review.Finding{
+</span></span><span style="display:flex;"><span>                    Severity: <span style="color:#f1fa8c">&#34;critical&#34;</span>, Category: <span style="color:#f1fa8c">&#34;security&#34;</span>,
+</span></span><span style="display:flex;"><span>                    File: file.Path, Line: line.NewLine,
+</span></span><span style="display:flex;"><span>                    Title: <span style="color:#f1fa8c">&#34;Potential secret appears in added code&#34;</span>,
+</span></span><span style="display:flex;"><span>                    Evidence: <span style="color:#50fa7b">redact</span>(text),
+</span></span><span style="display:flex;"><span>                    Recommendation: <span style="color:#f1fa8c">&#34;Replace the literal with a secret manager or environment lookup.&#34;</span>,
+</span></span><span style="display:flex;"><span>                    Confidence: <span style="color:#f1fa8c">&#34;high&#34;</span>, Source: <span style="color:#f1fa8c">&#34;rule&#34;</span>,
+</span></span><span style="display:flex;"><span>                    RuleID: <span style="color:#f1fa8c">&#34;secret-leak&#34;</span>, Status: <span style="color:#f1fa8c">&#34;finding&#34;</span>,
+</span></span><span style="display:flex;"><span>                })
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这次输入的真实流转是：</p>
+<ol>
+<li>parser 识别 <code>config.go</code> 和新增行号。</li>
+<li>规则只扫描 <code>line.Kind == &quot;add&quot;</code> 的代码。</li>
+<li><code>shouldReportSecret</code> 命中 API Key 形态，生成 <code>critical/security</code> finding。</li>
+<li><code>Evidence</code> 在规则输出前经过 <code>redact</code>，报告能给出证据但不复制 Key 明文。</li>
+<li>finding 带 <code>rule_id=secret-leak</code>，后续报告、指标、回归测试可以稳定识别它。</li>
+</ol>
+<p>同样的思路用于 <code>context.diff</code>：规则发现已有 context 语义的函数里重新创建 <code>context.Background()</code>，指出取消信号、deadline 和 trace context 可能丢失。相关规则在 <code>rules.go</code> 的 <code>context-background-misuse</code> 分支，fixture 在 <code>testdata/fixtures/context.diff</code>。</p>
+<p>当前规则是“新增行 + hunk 上下文”的确定性启发式，不是完整 Go AST/SSA 分析。它的优点是可解释、可快速测试；跨文件授权、业务状态一致性等规则才交给可选模型补充。</p>
+<h2 id="八沙箱为什么不是直接-execcommand">八、沙箱：为什么不是直接 <code>exec.Command</code>
+</h2><h3 id="1-生成受限命令">1. 生成受限命令
+</h3><p>代码位置：<a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/sandbox_step.go#L62-L170"  target="_blank" rel="noopener"
+    ><code>internal/agent/sandbox_step.go</code></a>。命令先经过包装：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>execCommand <span style="color:#ff79c6">:=</span> execution.<span style="color:#50fa7b">BoundedSandboxCommand</span>(
+</span></span><span style="display:flex;"><span>    execution.<span style="color:#50fa7b">SandboxExecCommand</span>(a.cfg.Runtime, command),
+</span></span><span style="display:flex;"><span>    a.cfg.OutputLimitBytes,
+</span></span><span style="display:flex;"><span>)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>然后构造 <code>workspace_exec</code> 权限请求。只有 allow 才能创建带超时的执行 context：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>perm, _ <span style="color:#ff79c6">:=</span> a.policy.<span style="color:#50fa7b">CheckToolPermission</span>(ctx, permReq)
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> perm.Action <span style="color:#ff79c6">!=</span> tool.PermissionActionAllow {
+</span></span><span style="display:flex;"><span>    run.Status = <span style="color:#8be9fd;font-style:italic">string</span>(perm.Action)
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> decisions, run
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>execCtx, cancel <span style="color:#ff79c6">:=</span> context.<span style="color:#50fa7b">WithTimeout</span>(ctx, a.cfg.Timeout)
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">defer</span> <span style="color:#50fa7b">cancel</span>()
+</span></span><span style="display:flex;"><span>raw, err <span style="color:#ff79c6">:=</span> execution.<span style="color:#50fa7b">RunWorkspaceCommand</span>(
+</span></span><span style="display:flex;"><span>    execCtx, a.exec, repoPath, execCommand,
+</span></span><span style="display:flex;"><span>    a.cfg.Timeout, execution.<span style="color:#50fa7b">SandboxEnv</span>(a.cfg.Runtime),
+</span></span><span style="display:flex;"><span>)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="2-容器边界">2. 容器边界
+</h3><p><a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/execution/exec.go#L131-L235"  target="_blank" rel="noopener"
+    ><code>internal/execution/exec.go</code></a> 的 container 配置负责：</p>
+<ul>
+<li>禁用网络，避免脚本外传源码或临时下载依赖；</li>
+<li>只读挂载待审仓库；</li>
+<li>限制 CPU、内存和进程能力；</li>
+<li>只传递白名单环境变量；</li>
+<li>用 timeout 和输出上限记录失败而不是让进程失控。</li>
+</ul>
+<p>因此容器中执行 Go 检查有一个明确前置条件：仓库需要准备 <code>vendor/modules.txt</code>。如果依赖未 vendor，程序记录 <code>unsupported</code> 能力审计，不联网下载。<code>staticcheck</code> 当前仅允许 <code>local-fallback</code>，E2B runtime 是预留入口，不能在面试中说成已完成。</p>
+<h2 id="九模型阶段只做语义增量">九、模型阶段：只做语义增量
+</h2><p>模型阶段在 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/llm/review.go#L153-L220"  target="_blank" rel="noopener"
+    ><code>internal/llm/review.go</code></a>。发送给 Provider 的输入不是原始 diff，而是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>input <span style="color:#ff79c6">:=</span> Input{
+</span></span><span style="display:flex;"><span>    DiffSummary:       review.<span style="color:#50fa7b">RedactSecrets</span>(<span style="color:#8be9fd;font-style:italic">string</span>(diff)),
+</span></span><span style="display:flex;"><span>    InputMetadata:     inputMeta,
+</span></span><span style="display:flex;"><span>    ExistingFindings:  <span style="color:#50fa7b">SanitizedFindingSnapshot</span>(result.Findings, result.Warnings),
+</span></span><span style="display:flex;"><span>    SandboxSummary:    result.SandboxSummary,
+</span></span><span style="display:flex;"><span>    GovernanceSummary: result.GovernanceSummary,
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>模型输出会经过 <code>validateProviderFindings</code>，确认 file/line 锚定在当前 diff 的新增行；没有锚点的模型问题被丢弃，同时增加 <code>model-invalid-anchor</code> 人工复核项。<code>MergeFindings</code> 再按 <code>DedupeKey</code> 去重，并按 confidence 决定进入 findings 还是 warnings。</p>
+<p>这就是“规则优先、模型可选”的边界：确定性风险不依赖模型，模型只处理跨文件授权、事务语义、业务状态一致性等规则难以直接判断的内容。没有 API Key 时，fake provider 和 dry-run 仍能覆盖主流程。</p>
+<h2 id="十持久化artifact-和-telemetry">十、持久化、Artifact 和 Telemetry
+</h2><h3 id="1-sqlite-是业务层的审计存储">1. SQLite 是业务层的审计存储
+</h3><p>SQLite 实现位于 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/storage/sqlite/sqlite.go#L63-L159"  target="_blank" rel="noopener"
+    ><code>internal/storage/sqlite/sqlite.go</code></a>。<code>storage.Store</code> 是接口，SQLite 是默认适合 CLI/example 的实现。一个 task 关联：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>review_tasks
+</span></span><span style="display:flex;"><span>├── permission_decisions
+</span></span><span style="display:flex;"><span>├── filter_decisions
+</span></span><span style="display:flex;"><span>├── sandbox_runs
+</span></span><span style="display:flex;"><span>├── findings
+</span></span><span style="display:flex;"><span>├── artifacts
+</span></span><span style="display:flex;"><span>├── reports
+</span></span><span style="display:flex;"><span>└── metrics
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="2-为什么用事务写-savereview">2. 为什么用事务写 <code>SaveReview</code>
+</h3><p><a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/storage/sqlite/sqlite.go#L255-L340"  target="_blank" rel="noopener"
+    ><code>SaveReview</code></a> 先 <code>BeginTx</code>，再写子表，任何步骤失败都会 rollback。否则可能出现 task 已完成但没有 sandbox run、报告生成但 finding 未落库等审计断链。</p>
+<h3 id="3-artifact-与报告">3. Artifact 与报告
+</h3><p>tRPC-Agent-Go 的 <code>artifact</code> 组件提供统一产物服务边界。这个示例将 <code>review_report.json</code>、Markdown、中文报告和 diagnostics 作为 artifact 记录，并在 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/persist.go#L81-L112"  target="_blank" rel="noopener"
+    ><code>internal/agent/persist.go</code></a> 保存 digest、大小、路径和创建时间。这样可以知道报告是否被替换，也能在数据库中回放某次 review 的产物引用。</p>
+<h3 id="4-event-和-telemetry">4. Event 和 Telemetry
+</h3><p><code>Runner adapter</code> 将输入加载、Skill 执行、沙箱运行、模型调用、任务完成或失败包装成官方 event；<code>Agent.Run</code> 消费任务结束事件，读取 <code>StructuredOutput</code> 作为最终 <code>review.Result</code>。同时 <code>runDirect</code> 用 <code>telemetrytrace.Tracer</code> 创建 <code>cr-agent.review</code> span，写入 task ID、模式和阶段耗时。Event 适合实时观察，Telemetry 适合统计和追踪，两者不是一回事。</p>
+<h2 id="十一把项目跑起来">十一、把项目跑起来
+</h2><div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">cd</span> trpc-agent/trpc-agent-go/examples/code_review_agent
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 只跑确定性 Skill，不需要真实模型 Key。</span>
+</span></span><span style="display:flex;"><span>go run ./cmd/review-agent <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --diff-file testdata/fixtures/secret.diff <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --runtime local-fallback <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --output-dir /tmp/cr-agent-secret-demo
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#6272a4"># 完整验证。</span>
+</span></span><span style="display:flex;"><span>go <span style="color:#8be9fd;font-style:italic">test</span> ./...
+</span></span><span style="display:flex;"><span>go vet ./...
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>执行后 <code>/tmp/cr-agent-secret-demo</code> 会包含 <code>review_report.json</code>、<code>review_report.md</code>、<code>review_report.zh.md</code>、<code>review_diagnostics.json</code> 和 <code>review.db</code>。如果要运行 <code>go test/go vet</code> 沙箱检查，要额外提供 <code>--repo-path</code>；单独的 patch 没有完整工程和依赖，不能凭空运行 Go 测试。</p>
+<h2 id="十二面试时的几个关键追问">十二、面试时的几个关键追问
+</h2><h3 id="为什么要把-skill-和-agent-编排分开">为什么要把 Skill 和 Agent 编排分开？
+</h3><p>Skill 是可版本化、可复用的工作流包，包含 <code>SKILL.md</code>、规则说明和脚本；Agent 负责输入、权限、执行、模型、报告和持久化。这样规则可以单测和复用，权限策略也能对稳定脚本入口做最小授权。</p>
+<h3 id="为什么-skill_run-也要-permissionpolicy">为什么 <code>skill_run</code> 也要 PermissionPolicy？
+</h3><p>因为脚本本身就是执行能力。即使脚本来自仓库，也可能被更新或组合出额外命令。<code>NewRunTool</code> 的 allowed command 和 PermissionPolicy 是两层边界：第一层限制 Skill 脚本范围，第二层检查实际 Tool 参数。</p>
+<h3 id="为什么容器要禁网">为什么容器要禁网？
+</h3><p>审查输入可能包含源码、密钥或内部路径，禁网可以减少外传风险；同时防止 <code>go</code> 或脚本在评审时下载不受控依赖。代价是必须准备 vendor，程序会把不满足条件记录成 unsupported，而不是静默联网。</p>
+<h3 id="沙箱失败会不会让整个-review-失败">沙箱失败会不会让整个 review 失败？
+</h3><p>不会。Skill 已经产生的 findings 仍然保留，sandbox error/timeout 会变成审计记录和人工复核项。输入、配置或数据库初始化失败才会终止，因为这些错误意味着评审没有可靠基础。</p>
+<h3 id="为什么-sqlite-还要抽象接口">为什么 SQLite 还要抽象接口？
+</h3><p>SQLite 适合 example、CLI 和 dry-run，接口让 Agent 不依赖具体数据库。真实多租户环境可以替换 SQL 后端，同时保留 task、decision、run、finding、artifact、report、metrics 的数据契约。</p>
+<h2 id="十三诚实边界">十三、诚实边界
+</h2><ul>
+<li>当前规则是 diff/hunk 启发式，不是完整 Go AST/SSA 分析。</li>
+<li><code>staticcheck</code> 仅支持 <code>local-fallback</code>；container 会拒绝该组合。</li>
+<li>E2B runtime 是预留入口，当前返回 unsupported。</li>
+<li>container 中运行 Go 检查需要 <code>vendor/modules.txt</code>。</li>
+<li>示例没有提供真实线上命中率、误报率或评审耗时数据，不应自行编造。</li>
+</ul>
+<h2 id="结语">结语
+</h2><p>tRPC-Agent-Go 提供的是 Agent 的运行基础设施：Tool、Skill、CodeExecutor、PermissionPolicy、Artifact、Event、Model 和 Telemetry。<code>code_review_agent</code> 在这些能力之上补齐了 diff 解析、Go 规则、SQLite schema、去重脱敏和报告生成，最终形成的是一条可测试、可隔离、可审计的代码评审链路，而不是一次不可回放的模型对话。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/go/">Go</a>
+        
+            <a href="/tags/trpc-agent-go/">TRPC-Agent-Go</a>
+        
+            <a href="/tags/agent/">Agent</a>
+        
+            <a href="/tags/code-review/">Code Review</a>
+        
+            <a href="/tags/%E6%B2%99%E7%AE%B1/">沙箱</a>
+        
+            <a href="/tags/%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB/">源码导读</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/codex-cli-agent-architecture-11/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（十一）：一项任务怎样从输入走到验证</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-agent-architecture-09/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（十）：任务进度怎样送到终端和富客户端</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-agent-architecture-multi-agent/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（九）：多 Agent 怎样拆分任务、通信与收束</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E5%85%ABskillpluginhook-%E4%B8%8E-memory-%E5%90%84%E6%94%BE%E5%9C%A8%E5%93%AA%E9%87%8C/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（八）：Skill、Plugin、Hook 与 Memory 各放在哪里</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-%E6%BA%90%E7%A0%81%E5%AF%BC%E8%AF%BB%E4%B8%83mcp-%E6%80%8E%E6%A0%B7%E6%8A%8A%E5%A4%96%E9%83%A8%E7%B3%BB%E7%BB%9F%E6%8E%A5%E8%BF%9B%E4%BB%BB%E5%8A%A1/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（七）：MCP 怎样把外部系统接进任务</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+		<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+		<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+	
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm.top\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+    </body>
+</html>
