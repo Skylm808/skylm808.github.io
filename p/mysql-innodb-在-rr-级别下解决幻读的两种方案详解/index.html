@@ -373,7 +373,7 @@
 </h3><p><strong>Next-Key Lock = Record Lock (行锁) + Gap Lock (间隙锁)</strong></p>
 <p>InnoDB 不仅可能锁住扫描到的<strong>行</strong>，还可能锁住行与行之间的<strong>间隙</strong>，阻止其他事务在当前读扫描范围内插入。</p>
 <h3 id="案例演示如何锁死幻读">案例演示：如何锁死幻读？
-</h3><p><strong>Next-Key Lock</strong> 的核心在于“左开右闭”区间。</p>
+</h3><p><strong>Next-Key Lock</strong> 的核心在于“前一条索引记录到当前记录”的左开右闭区间；只有当前记录是索引第一条时，左边界才是 <code>-∞</code>。</p>
 <p>假设 <code>id</code> 是主键，表里现有数据：<code>id = 3, 5</code>。</p>
 <p><strong>事务 A 执行范围当前读</strong>：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">

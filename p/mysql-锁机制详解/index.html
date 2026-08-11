@@ -373,7 +373,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 12 分钟
+                    阅读时长: 13 分钟
                 </time>
             </div>
         
@@ -729,20 +729,22 @@
 </h4><ul>
 <li>锁住索引记录之间的<strong>间隙</strong>（不包含记录本身），确保索引记录的间隙不变。</li>
 <li><strong>目的</strong>：在当前读的扫描范围内防止插入数据，从而避免该范围的幻读。</li>
+<li>Gap Lock 不锁住间隙两侧已有的记录，也不阻止其他事务再持有兼容的 Gap Lock；它主要抑制向该间隙插入新索引记录。</li>
 <li><strong>注意</strong>：Gap Lock 主要出现在 RR 的当前读范围扫描中；RC 通常禁用间隙锁，但外键检查、重复键检查等场景仍可能使用。</li>
 </ul>
 <h4 id="c-next-key-lock-临键锁">C. Next-Key Lock (临键锁)
 </h4><ul>
 <li><strong>Record Lock + Gap Lock</strong> 的组合。</li>
-<li>锁住一个左开右闭的区间 <code>(negative_infinity, record]</code>。</li>
-<li><strong>常见行为</strong>：InnoDB 在 RR 的当前读范围扫描中常使用 Next-Key Lock；唯一索引等值查询且记录存在时，通常可以退化为 Record Lock。具体结果取决于语句和访问路径。</li>
+<li>对索引中的当前记录，锁住“前一个索引记录与当前记录”之间的左开右闭区间 <code>(previous record, current record]</code>；如果当前记录是第一条，左端才是 <code>-∞</code>。</li>
+<li><strong>常见行为</strong>：InnoDB 在 RR 的当前读范围扫描中常使用 Next-Key Lock；使用完整的非空唯一索引做等值查询且记录存在时，通常可以退化为 Record Lock。具体结果取决于语句和访问路径。</li>
 </ul>
 <h3 id="33-加锁规则实战-图解-rr-级别">3.3 加锁规则实战 (图解 RR 级别)
 </h3><p>为了理解透彻，我们用具体数字来演示。</p>
 <p>假设表 <code>t</code> 有主键 <code>id</code> 和 <strong>普通索引 <code>c</code></strong>。</p>
 <p>现有记录 <code>c</code> 的值为：<code>0, 5, 10, 15, 20, 25</code>。</p>
 <h4 id="1-唯一索引等值查询-查-id">1. 唯一索引等值查询 (查 id)
-</h4><ul>
+</h4><p>以下示例均指 RR 事务中的锁定读，例如 <code>SELECT ... WHERE id = 5 FOR UPDATE</code>；普通 <code>SELECT</code> 是快照读，不会按这些规则加行锁。</p>
+<ul>
 <li>
 <p><strong>查 <code>id = 5</code> (存在)</strong>：</p>
 <ul>
@@ -768,7 +770,7 @@
 </li>
 </ul>
 <h4 id="2-非唯一索引等值查询-查-c">2. 非唯一索引等值查询 (查 c)
-</h4><p>这是一个大坑点。因为普通索引允许重复，锁范围取决于<strong>左右邻居</strong>。</p>
+</h4><p>这是一个大坑点。因为普通索引允许重复，锁范围取决于<strong>匹配记录组两侧的邻居</strong>：会锁住所有匹配的索引记录，以及第一条匹配记录之前和最后一条匹配记录之后的相关间隙。</p>
 <ul>
 <li>
 <p><strong>假设数据是 <code>0, 5, 10</code>，查 <code>c = 5</code></strong>：</p>

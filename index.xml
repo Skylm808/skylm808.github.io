@@ -11300,20 +11300,22 @@
 &lt;/h4&gt;&lt;ul&gt;
 &lt;li&gt;锁住索引记录之间的&lt;strong&gt;间隙&lt;/strong&gt;（不包含记录本身），确保索引记录的间隙不变。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;目的&lt;/strong&gt;：在当前读的扫描范围内防止插入数据，从而避免该范围的幻读。&lt;/li&gt;
+&lt;li&gt;Gap Lock 不锁住间隙两侧已有的记录，也不阻止其他事务再持有兼容的 Gap Lock；它主要抑制向该间隙插入新索引记录。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;注意&lt;/strong&gt;：Gap Lock 主要出现在 RR 的当前读范围扫描中；RC 通常禁用间隙锁，但外键检查、重复键检查等场景仍可能使用。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h4 id=&#34;c-next-key-lock-临键锁&#34;&gt;C. Next-Key Lock (临键锁)
 &lt;/h4&gt;&lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Record Lock + Gap Lock&lt;/strong&gt; 的组合。&lt;/li&gt;
-&lt;li&gt;锁住一个左开右闭的区间 &lt;code&gt;(negative_infinity, record]&lt;/code&gt;。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;常见行为&lt;/strong&gt;：InnoDB 在 RR 的当前读范围扫描中常使用 Next-Key Lock；唯一索引等值查询且记录存在时，通常可以退化为 Record Lock。具体结果取决于语句和访问路径。&lt;/li&gt;
+&lt;li&gt;对索引中的当前记录，锁住“前一个索引记录与当前记录”之间的左开右闭区间 &lt;code&gt;(previous record, current record]&lt;/code&gt;；如果当前记录是第一条，左端才是 &lt;code&gt;-∞&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;常见行为&lt;/strong&gt;：InnoDB 在 RR 的当前读范围扫描中常使用 Next-Key Lock；使用完整的非空唯一索引做等值查询且记录存在时，通常可以退化为 Record Lock。具体结果取决于语句和访问路径。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3 id=&#34;33-加锁规则实战-图解-rr-级别&#34;&gt;3.3 加锁规则实战 (图解 RR 级别)
 &lt;/h3&gt;&lt;p&gt;为了理解透彻，我们用具体数字来演示。&lt;/p&gt;
 &lt;p&gt;假设表 &lt;code&gt;t&lt;/code&gt; 有主键 &lt;code&gt;id&lt;/code&gt; 和 &lt;strong&gt;普通索引 &lt;code&gt;c&lt;/code&gt;&lt;/strong&gt;。&lt;/p&gt;
 &lt;p&gt;现有记录 &lt;code&gt;c&lt;/code&gt; 的值为：&lt;code&gt;0, 5, 10, 15, 20, 25&lt;/code&gt;。&lt;/p&gt;
 &lt;h4 id=&#34;1-唯一索引等值查询-查-id&#34;&gt;1. 唯一索引等值查询 (查 id)
-&lt;/h4&gt;&lt;ul&gt;
+&lt;/h4&gt;&lt;p&gt;以下示例均指 RR 事务中的锁定读，例如 &lt;code&gt;SELECT ... WHERE id = 5 FOR UPDATE&lt;/code&gt;；普通 &lt;code&gt;SELECT&lt;/code&gt; 是快照读，不会按这些规则加行锁。&lt;/p&gt;
+&lt;ul&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;查 &lt;code&gt;id = 5&lt;/code&gt; (存在)&lt;/strong&gt;：&lt;/p&gt;
 &lt;ul&gt;
@@ -11339,7 +11341,7 @@
 &lt;/li&gt;
 &lt;/ul&gt;
 &lt;h4 id=&#34;2-非唯一索引等值查询-查-c&#34;&gt;2. 非唯一索引等值查询 (查 c)
-&lt;/h4&gt;&lt;p&gt;这是一个大坑点。因为普通索引允许重复，锁范围取决于&lt;strong&gt;左右邻居&lt;/strong&gt;。&lt;/p&gt;
+&lt;/h4&gt;&lt;p&gt;这是一个大坑点。因为普通索引允许重复，锁范围取决于&lt;strong&gt;匹配记录组两侧的邻居&lt;/strong&gt;：会锁住所有匹配的索引记录，以及第一条匹配记录之前和最后一条匹配记录之后的相关间隙。&lt;/p&gt;
 &lt;ul&gt;
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;假设数据是 &lt;code&gt;0, 5, 10&lt;/code&gt;，查 &lt;code&gt;c = 5&lt;/code&gt;&lt;/strong&gt;：&lt;/p&gt;
@@ -11657,7 +11659,7 @@
 &lt;/h3&gt;&lt;p&gt;&lt;strong&gt;Next-Key Lock = Record Lock (行锁) + Gap Lock (间隙锁)&lt;/strong&gt;&lt;/p&gt;
 &lt;p&gt;InnoDB 不仅可能锁住扫描到的&lt;strong&gt;行&lt;/strong&gt;，还可能锁住行与行之间的&lt;strong&gt;间隙&lt;/strong&gt;，阻止其他事务在当前读扫描范围内插入。&lt;/p&gt;
 &lt;h3 id=&#34;案例演示如何锁死幻读&#34;&gt;案例演示：如何锁死幻读？
-&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;Next-Key Lock&lt;/strong&gt; 的核心在于“左开右闭”区间。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;Next-Key Lock&lt;/strong&gt; 的核心在于“前一条索引记录到当前记录”的左开右闭区间；只有当前记录是索引第一条时，左边界才是 &lt;code&gt;-∞&lt;/code&gt;。&lt;/p&gt;
 &lt;p&gt;假设 &lt;code&gt;id&lt;/code&gt; 是主键，表里现有数据：&lt;code&gt;id = 3, 5&lt;/code&gt;。&lt;/p&gt;
 &lt;p&gt;&lt;strong&gt;事务 A 执行范围当前读&lt;/strong&gt;：&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
