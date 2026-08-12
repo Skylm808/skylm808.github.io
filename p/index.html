@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="en-us" dir="ltr">
     <head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。\n">
-<title>dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码</title>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content=" 1 date = &#39;2026-03-14T22:21:53+08:00&#39;title = &#39;dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码&#39;categories = [&#34;Go&#34;, &#34;开源&#34;]tags = [&#34;Go&#34;, &#34;开源&#34;, &#34;SAML&#34;, &#34;SSO&#34;, &#34;Pixiu&#34;] dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n">
+<title></title>
 
-<link rel='canonical' href='https://skylm.top/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-saml-%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3%E4%BB%8E%E4%BC%81%E4%B8%9A-sso-%E5%88%B0-pixiu-%E6%BA%90%E7%A0%81/'>
+<link rel='canonical' href='https://skylm.top/p/'>
 
-<link rel="stylesheet" href="/scss/style.min.6721d1ad1674f36f1d1fc4f72db64056f3ecbc804c01969066d7b28619fb6ba7.css"><meta property='og:title' content="dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码">
-<meta property='og:description' content="dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。\n">
-<meta property='og:url' content='https://skylm.top/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-saml-%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3%E4%BB%8E%E4%BC%81%E4%B8%9A-sso-%E5%88%B0-pixiu-%E6%BA%90%E7%A0%81/'>
+<link rel="stylesheet" href="/scss/style.min.6721d1ad1674f36f1d1fc4f72db64056f3ecbc804c01969066d7b28619fb6ba7.css"><meta property='og:title' content="">
+<meta property='og:description' content=" 1 date = &#39;2026-03-14T22:21:53+08:00&#39;title = &#39;dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码&#39;categories = [&#34;Go&#34;, &#34;开源&#34;]tags = [&#34;Go&#34;, &#34;开源&#34;, &#34;SAML&#34;, &#34;SSO&#34;, &#34;Pixiu&#34;] dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n">
+<meta property='og:url' content='https://skylm.top/p/'>
 <meta property='og:site_name' content='Skylm'>
-<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='Go' /><meta property='article:tag' content='开源' /><meta property='article:tag' content='SAML' /><meta property='article:tag' content='SSO' /><meta property='article:tag' content='Pixiu' /><meta property='article:published_time' content='2026-03-14T22:21:53&#43;08:00'/><meta property='article:modified_time' content='2026-03-14T22:21:53&#43;08:00'/>
-<meta name="twitter:title" content="dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码">
-<meta name="twitter:description" content="dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。\n">
+<meta property='og:type' content='article'><meta property='article:section' content='Post' />
+<meta name="twitter:title" content="">
+<meta name="twitter:description" content=" 1 date = &#39;2026-03-14T22:21:53+08:00&#39;title = &#39;dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码&#39;categories = [&#34;Go&#34;, &#34;开源&#34;]tags = [&#34;Go&#34;, &#34;开源&#34;, &#34;SAML&#34;, &#34;SSO&#34;, &#34;Pixiu&#34;] dubbo-go-pixiu 添加 SAML 功能详解 这份文档把 apache/dubbo-go-pixiu 的 issue #888 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。\n">
     <link rel="shortcut icon" href="/favicon.ico" />
 
     </head>
@@ -249,7 +249,7 @@
         <div class="widget--toc">
             <nav id="TableOfContents">
   <ol>
-    <li><a href="#0-saml-是什么">0. SAML 是什么</a>
+    <li><a href="#0-先用一句人话理解-saml">0. 先用一句人话理解 SAML</a>
       <ol>
         <li><a href="#01-不要把-saml-当作pixiu-自己登录">0.1 不要把 SAML 当作“Pixiu 自己登录”</a></li>
         <li><a href="#02-acs-url-和-metadata-url-分别是什么">0.2 ACS URL 和 Metadata URL 分别是什么</a></li>
@@ -304,7 +304,14 @@
         </li>
       </ol>
     </li>
-    <li><a href="#7-受保护路径session属性与-header-防伪造">7. 受保护路径：session、属性与 Header 防伪造</a></li>
+    <li><a href="#7-受保护路径sessioncookiejwt-与-header-防伪造">7. 受保护路径：session、Cookie、JWT 与 Header 防伪造</a>
+      <ol>
+        <li><a href="#71-当前-pixiu-示例session-实际存在哪里">7.1 当前 Pixiu 示例：session 实际存在哪里</a></li>
+        <li><a href="#72-它与传统有状态-session-有什么区别">7.2 它与传统有状态 session 有什么区别</a></li>
+        <li><a href="#73-jwt-与-cookie-是什么关系">7.3 JWT 与 Cookie 是什么关系</a></li>
+        <li><a href="#74-为什么必须清掉客户端自带的身份-header">7.4 为什么必须清掉客户端自带的身份 Header</a></li>
+      </ol>
+    </li>
     <li><a href="#8-从配置到后端的一次完整复盘">8. 从配置到后端的一次完整复盘</a></li>
     <li><a href="#9-这一版实现解决了哪些实际问题">9. 这一版实现解决了哪些实际问题</a></li>
     <li><a href="#10-和项目里已有-jwt--mcp-能力的关系">10. 和项目里已有 JWT / MCP 能力的关系</a>
@@ -333,22 +340,10 @@
 
     <div class="article-details">
     
-    <header class="article-category">
-        
-            <a href="/categories/go/" >
-                Go
-            </a>
-        
-            <a href="/categories/%E5%BC%80%E6%BA%90/" >
-                开源
-            </a>
-        
-    </header>
-    
 
     <div class="article-title-wrapper">
         <h2 class="article-title">
-            <a href="/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-saml-%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3%E4%BB%8E%E4%BC%81%E4%B8%9A-sso-%E5%88%B0-pixiu-%E6%BA%90%E7%A0%81/">dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码</a>
+            <a href="/p/"></a>
         </h2>
     
         
@@ -359,19 +354,6 @@
     
     
     <footer class="article-time">
-        
-            <div>
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <path stroke="none" d="M0 0h24v24H0z"/>
-  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
-  <circle cx="18" cy="18" r="4" />
-  <path d="M15 3v4" />
-  <path d="M7 3v4" />
-  <path d="M3 11h16" />
-  <path d="M18 16.496v1.504l1 1" />
-</svg>
-                <time class="article-time--published">Mar 14, 2026</time>
-            </div>
         
 
         
@@ -385,7 +367,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 17 分钟
+                    阅读时长: 20 分钟
                 </time>
             </div>
         
@@ -400,11 +382,19 @@
     <section class="article-content">
     
     
-    <h1 id="dubbo-go-pixiu-添加-saml-功能详解">dubbo-go-pixiu 添加 SAML 功能详解
+    <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-toml" data-lang="toml"><span style="display:flex;"><span>date = <span style="color:#f1fa8c">&#39;2026-03-14T22:21:53+08:00&#39;</span>title = <span style="color:#f1fa8c">&#39;dubbo-go-pixiu 添加 SAML 功能详解：从企业 SSO 到 Pixiu 源码&#39;</span>categories = [<span style="color:#f1fa8c">&#34;Go&#34;</span>, <span style="color:#f1fa8c">&#34;开源&#34;</span>]tags = [<span style="color:#f1fa8c">&#34;Go&#34;</span>, <span style="color:#f1fa8c">&#34;开源&#34;</span>, <span style="color:#f1fa8c">&#34;SAML&#34;</span>, <span style="color:#f1fa8c">&#34;SSO&#34;</span>, <span style="color:#f1fa8c">&#34;Pixiu&#34;</span>]
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h1 id="dubbo-go-pixiu-添加-saml-功能详解">dubbo-go-pixiu 添加 SAML 功能详解
 </h1><p>这份文档把 <code>apache/dubbo-go-pixiu</code> 的 <a class="link" href="https://github.com/apache/dubbo-go-pixiu/issues/888"  target="_blank" rel="noopener"
     >issue #888</a> 和当前代码实现串起来，方便从“为什么要做”一路看到“代码是怎么跑起来的”。</p>
 <p>如果你是第一次接触 Pixiu 插件开发，可以把这篇文档当成一份 SAML 版本的“源码导读”。</p>
-<h2 id="0-saml-是什么">0. SAML 是什么
+<h2 id="0-先用一句人话理解-saml">0. 先用一句人话理解 SAML
 </h2><p>SAML 全称是 <strong>Security Assertion Markup Language</strong>，中文常译为“安全断言标记语言”。它是企业单点登录（SSO）的一种标准：用户不用在每个内部系统分别输入密码，而是在统一身份系统登录一次，再进入各个业务系统。</p>
 <p>本篇出现的三个角色可以先这样记：</p>
 <div class="table-wrapper"><table>
@@ -973,7 +963,7 @@
 <li>跳转到 IdP</li>
 </ul>
 <h4 id="情况-bsession-读取失败但不是没有-session">情况 B：session 读取失败，但不是没有 session
-</h4><p>比如 cookie 解密失败、session 内容损坏，这种不应该继续跳登录。</p>
+</h4><p>比如 session provider 返回了非 <code>ErrNoSession</code> 的内部异常，这种不应该继续跳登录。</p>
 <p>因为如果这里还继续重定向，可能会出现无限重定向：</p>
 <ol>
 <li>跳去 IdP</li>
@@ -990,7 +980,7 @@
 <li>按配置映射到 HTTP header</li>
 <li>让请求继续往后端走</li>
 </ul>
-<h2 id="7-受保护路径session属性与-header-防伪造">7. 受保护路径：session、属性与 Header 防伪造
+<h2 id="7-受保护路径sessioncookiejwt-与-header-防伪造">7. 受保护路径：session、Cookie、JWT 与 Header 防伪造
 </h2><p>命中 <code>/app</code> 等受保护路径后，SAML filter 首先调用：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
@@ -1000,59 +990,165 @@
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>session, err <span style="color:#ff79c6">:=</span> f.middleware.Session.<span style="color:#50fa7b">GetSession</span>(ctx.Request)
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>这里的 <code>middleware</code> 是第三方 <code>samlsp.Middleware</code>，不是 Pixiu 的普通 filter。它从当前请求携带的 Cookie 恢复 session；session 代表用户是否已完成登录，必要时还保存已经验证的 Assertion 属性。</p>
+</div><p>这里的 <code>middleware</code> 是第三方 <code>samlsp.Middleware</code>，不是 Pixiu 的普通 filter。理解这行代码的关键是：<strong>session 是认证结果；Cookie 是浏览器携带认证结果的容器；JWT 是本示例把认证结果编码进 Cookie 的格式。</strong> 三个词不是一回事。</p>
+<h3 id="71-当前-pixiu-示例session-实际存在哪里">7.1 当前 Pixiu 示例：session 实际存在哪里
+</h3><p>当前代码只调用 <code>samlsp.New(...)</code>，没有替换其默认的 <code>middleware.Session</code>。<code>crewjam/saml</code> 的默认实现是 <code>CookieSessionProvider</code>，因此 session 存在浏览器的 Cookie 中，而不是 Pixiu 的内存、数据库或 Redis 中。</p>
+<p>登录成功时的真实过程是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>1. IdP 将已签名的 SAMLResponse POST 到 Pixiu 的 /saml/acs
+</span></span><span style="display:flex;"><span>2. Pixiu/crewjam 校验 IdP 签名、受众、有效期及请求关联
+</span></span><span style="display:flex;"><span>3. 库从已验证的 Assertion 取出 email、displayName 等属性
+</span></span><span style="display:flex;"><span>4. 库将属性和过期时间编码为一个 JWT，并用 SP 私钥签名
+</span></span><span style="display:flex;"><span>5. Pixiu 返回响应头：Set-Cookie: token=&lt;签名后的 JWT&gt;
+</span></span><span style="display:flex;"><span>6. 浏览器保存 token Cookie
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>后续访问 <code>/app/orders</code> 时：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>浏览器 -&gt; Pixiu
+</span></span><span style="display:flex;"><span>Cookie: token=&lt;签名后的 JWT&gt;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Pixiu -&gt; 从 Cookie 读取 token
+</span></span><span style="display:flex;"><span>      -&gt; 用 SP 公钥验 JWT 签名
+</span></span><span style="display:flex;"><span>      -&gt; 检查 JWT 的过期时间、issuer、audience、saml-session 标记
+</span></span><span style="display:flex;"><span>      -&gt; 得到 session 及其中的 email、displayName
+</span></span><span style="display:flex;"><span>      -&gt; 继续转发请求
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>默认 Cookie 名是 <code>token</code>，默认有效期是 1 小时；HTTPS 时会带 <code>Secure</code>，并且默认是 <code>HttpOnly</code>，所以页面 JavaScript 不能读取它。这个 JWT 是<strong>签名</strong>而非默认加密：浏览器用户通常可以看到其中的 claims，但无法在不知道 SP 私钥的情况下修改后仍通过验签。因此不要把密码、身份证号等敏感信息放入要转发的 SAML 属性。</p>
+<p>需要特别区分：登录跳转期间还会有短期的请求跟踪 Cookie，名称通常以 <code>saml_</code> 开头。它用于把“这次 IdP 回调”与“刚才发出的 AuthnRequest”关联，核验 <code>InResponseTo</code>；它不是登录成功后的 <code>token</code> session Cookie。</p>
 <div class="table-wrapper"><table>
 	<thead>
 			<tr>
-					<th>结果</th>
+					<th><code>GetSession()</code> 的结果</th>
 					<th>含义</th>
-					<th>动作</th>
+					<th>Pixiu 动作</th>
 			</tr>
 	</thead>
 	<tbody>
 			<tr>
 					<td><code>ErrNoSession</code></td>
-					<td>未登录或没有 session Cookie</td>
+					<td>没有 Cookie，或默认 JWT session 无法通过验证</td>
 					<td><code>HandleStartAuthFlow</code>，通常 302 到 IdP，随后 Stop</td>
 			</tr>
 			<tr>
 					<td>其他 error</td>
-					<td>Cookie 损坏、无法解密等</td>
+					<td>session provider 出现非正常错误</td>
 					<td>本地 500，Stop，避免无限登录重定向</td>
 			</tr>
 			<tr>
 					<td>有效 session</td>
-					<td>用户已登录</td>
+					<td>JWT 已验签且可恢复用户身份</td>
 					<td>继续处理属性，然后 Continue</td>
 			</tr>
 	</tbody>
 </table></div>
-<p>这一段的三种结果很重要：无 session 是正常业务状态；无法解密等异常不是“再登录一次”就能解决，若一律重定向会造成循环。</p>
-<p><code>forwardAttributes()</code> 有一个非常重要的安全动作：</p>
+<p>默认 <code>CookieSessionProvider</code> 会把“没有 <code>token</code> Cookie”和“JWT 解码/验签失败”统一转换为 <code>ErrNoSession</code>，所以两者都会触发重新登录。只有 provider 返回其他错误时，Pixiu 才会返回 500，避免把真正的内部故障伪装成普通未登录。</p>
+<h3 id="72-它与传统有状态-session-有什么区别">7.2 它与传统有状态 session 有什么区别
+</h3><p>你常见的模型是<strong>有状态 session</strong>。浏览器只保存一个没有业务含义的随机编号，真正的用户数据在服务端：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
 </span></code></pre></td>
 <td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>ctx.Request.Header.<span style="color:#50fa7b">Del</span>(fa.Header)
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>浏览器 Cookie: session_id=abC123
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Redis:
+</span></span><span style="display:flex;"><span>abC123 -&gt; { user: &#34;alice&#34;, roles: [&#34;employee&#34;], expireAt: ... }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>请求到达 -&gt; 服务端读取 session_id -&gt; 查 Redis -&gt; 得到 alice -&gt; 鉴权
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>也就是先删除客户端原本自己带来的这些 header，再把真正来自 SAML assertion 的值写进去。</p>
-<p>为什么必须这样做？</p>
-<p>因为如果不删，攻击者就可以自己伪造：</p>
-<ul>
-<li><code>X-User-Email</code></li>
-<li><code>X-User-Name</code></li>
-</ul>
-<p>这类“看起来像登录后身份信息”的 header，骗后端系统误以为用户已经认证成功。</p>
-<p>所以这里的顺序必须是：</p>
-<ol>
-<li>清掉客户端自带的 SAML 控制 header</li>
-<li>只信任 session/assertion 里的属性</li>
-<li>把真实属性重新写回请求</li>
-</ol>
-<p>这就是这次实现里“防 header spoofing”的核心。</p>
-<p><code>session</code> 不一定都带可读取的用户属性。代码中的类型断言：</p>
+</div><p>当前 Pixiu 示例则是<strong>无状态 session</strong>：浏览器 Cookie 本身携带已签名的 session 内容，Pixiu 不需要按 session ID 查询 Redis：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>浏览器 Cookie: token=&lt;JWT: sub=alice, attr=email..., exp=...，且已签名&gt;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>请求到达 -&gt; Pixiu 验签并解析 token -&gt; 得到 alice -&gt; 鉴权
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>维度</th>
+					<th>传统有状态 session</th>
+					<th>当前 Pixiu SAML 默认实现</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>浏览器保存</td>
+					<td>随机 <code>session_id</code></td>
+					<td>签名 JWT（Cookie 名默认 <code>token</code>）</td>
+			</tr>
+			<tr>
+					<td>服务端保存</td>
+					<td>Redis、数据库或进程内 map</td>
+					<td>不保存每个用户的 session 记录</td>
+			</tr>
+			<tr>
+					<td>每次请求</td>
+					<td>需要按 ID 查询 session 存储</td>
+					<td>只需本地验 JWT 签名、有效期和 claims</td>
+			</tr>
+			<tr>
+					<td>网关重启</td>
+					<td>Redis/DB 仍在则 session 仍有效</td>
+					<td>Cookie 未过期且 SP 密钥没变则仍有效</td>
+			</tr>
+			<tr>
+					<td>立即强制某一用户下线</td>
+					<td>删除该 ID 对应服务端记录即可</td>
+					<td>默认做不到；通常等 token 过期、轮换密钥，或改为引入服务端撤销列表</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>两种方式没有谁绝对更好。无状态模式适合网关水平扩展，少一个 session 存储依赖；有状态模式更容易做“踢下线”“修改权限立即生效”和细粒度撤销。</p>
+<h3 id="73-jwt-与-cookie-是什么关系">7.3 JWT 与 Cookie 是什么关系
+</h3><p>JWT 不是一种存储位置，而是一种 token 格式；Cookie 不是一种认证协议，而是浏览器自动随请求发送数据的一种机制。它们可以自由组合：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>JWT 放在 Authorization: Bearer &lt;JWT&gt;  # 常见于 API 客户端
+</span></span><span style="display:flex;"><span>JWT 放在 Cookie: token=&lt;JWT&gt;           # 本示例采用，适合浏览器 SAML 跳转
+</span></span><span style="display:flex;"><span>session_id 放在 Cookie                 # 传统有状态 session
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>SAML 解决的是“如何从企业 IdP 获得已认证的用户身份”；本示例随后把这个认证结果转换为 Cookie 里的 JWT session，供 Pixiu 在之后的请求中使用。也就是说：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
@@ -1061,20 +1157,73 @@
 </span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
 </span></code></pre></td>
 <td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>sa, ok <span style="color:#ff79c6">:=</span> session.(samlsp.SessionWithAttributes)
-</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> !ok {
-</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span>
-</span></span><span style="display:flex;"><span>}
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>SAMLResponse（IdP 对本次登录的证明）
+</span></span><span style="display:flex;"><span>  -&gt; Pixiu 验证
+</span></span><span style="display:flex;"><span>  -&gt; JWT session（Pixiu 自己给浏览器的后续访问凭证）
+</span></span><span style="display:flex;"><span>  -&gt; 浏览器 Cookie 自动携带
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>是在问：“当前这个已登录 session 是否支持读取 Assertion 属性？”<code>SessionWithAttributes</code> 不是验证客户端 HTTP header 的组件，也不是 IdP 返回的 header；IdP 返回的是已签名的 SAMLResponse/Assertion，库验证后才把 <code>email</code>、<code>department</code> 等属性保存进 session。</p>
-<p>删除动作与 IdP 是否提供属性无关。只要进入 <code>forwardAttributes</code>，每个受控 header 都会先被删除；之后仅当 session 带属性、且 Assertion 中确实存在对应值时，才 <code>Set</code> 回去。</p>
+</div><h3 id="74-为什么必须清掉客户端自带的身份-header">7.4 为什么必须清掉客户端自带的身份 Header
+</h3><p>成功恢复 session 后，<code>forwardAttributes()</code> 会先执行：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>ctx.Request.Header.<span style="color:#50fa7b">Del</span>(fa.Header)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>然后才从已验证 session 取 SAML 属性，重新写入 header：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>ctx.Request.Header.<span style="color:#50fa7b">Set</span>(fa.Header, val)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这是在保护“后端信任边界”。后端服务通常会把 <code>X-User-Email</code> 当成“网关已经认证出的用户”，但 HTTP header 本来完全由客户端控制。攻击者可以直接构造请求：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-http" data-lang="http"><span style="display:flex;"><span><span style="color:#50fa7b">GET</span> /app/orders <span style="color:#ff79c6">HTTP</span><span style="color:#ff79c6">/</span><span style="color:#bd93f9">1.1</span>
+</span></span><span style="display:flex;"><span>Host<span style="color:#ff79c6">:</span> gateway.example.com
+</span></span><span style="display:flex;"><span>Cookie<span style="color:#ff79c6">:</span> token=&lt;alice 的有效 session&gt;
+</span></span><span style="display:flex;"><span>X-User-Email<span style="color:#ff79c6">:</span> admin@example.com
+</span></span><span style="display:flex;"><span>X-User-Name<span style="color:#ff79c6">:</span> Administrator
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>假设 <code>email</code> 配置为映射到 <code>X-User-Email</code>。如果 Pixiu 不处理这个 header，后端就可能看到 <code>admin@example.com</code>，把 Alice 错当管理员。问题不在于攻击者伪造了 SAML assertion，而在于攻击者伪造了一个<strong>长得像网关注入身份信息的普通 HTTP header</strong>。</p>
+<p>正确过程是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>客户端请求中的 X-User-Email: admin@example.com
+</span></span><span style="display:flex;"><span>  -&gt; Pixiu 删除它
+</span></span><span style="display:flex;"><span>  -&gt; Pixiu 从已验签 JWT session 取到 email: alice@example.com
+</span></span><span style="display:flex;"><span>  -&gt; Pixiu 设置 X-User-Email: alice@example.com
+</span></span><span style="display:flex;"><span>  -&gt; 后端只能收到 alice@example.com
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>即使 session 没有属性、或者 IdP 没有返回 <code>email</code>，也必须先删除客户端值。否则“没有可信 email”会意外退化成“接受客户端声称自己是 admin”。</p>
 <div class="table-wrapper"><table>
 	<thead>
 			<tr>
 					<th>已登录 session 的情况</th>
 					<th>客户端传入 <code>X-User-Email</code></th>
-					<th>Assertion 的 <code>email</code></th>
+					<th>SAML session 的 <code>email</code></th>
 					<th>后端最终收到</th>
 			</tr>
 	</thead>
@@ -1099,7 +1248,7 @@
 			</tr>
 	</tbody>
 </table></div>
-<p>因此删除 header 不是为了让 SP 验证 Assertion 属性，SP 已经用 IdP 证书验证过 Assertion。删除是为了让后端看到的身份 header <strong>只可能由 Pixiu 根据已验证 Assertion 注入</strong>，而不能残留客户端伪造值。</p>
+<p>所以“只信任 session 中的属性”更准确地说是：Pixiu 先信任 IdP 签名的 Assertion；验证成功后，库把属性变成 Pixiu 签名的 JWT session；最后 Pixiu 只把这份已验证 session 中的值注入后端请求。客户端自己携带的同名 header 永远不属于可信身份来源。</p>
 <h2 id="8-从配置到后端的一次完整复盘">8. 从配置到后端的一次完整复盘
 </h2><p>最后把文章压缩成一条你可以在面试中复述的链路：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
@@ -1220,20 +1369,6 @@
 
     <footer class="article-footer">
     
-    <section class="article-tags">
-        
-            <a href="/tags/go/">Go</a>
-        
-            <a href="/tags/%E5%BC%80%E6%BA%90/">开源</a>
-        
-            <a href="/tags/saml/">SAML</a>
-        
-            <a href="/tags/sso/">SSO</a>
-        
-            <a href="/tags/pixiu/">Pixiu</a>
-        
-    </section>
-
 
     </footer>
 
@@ -1244,80 +1379,6 @@
     
 
     
-
-<aside class="related-content--wrapper">
-    <h2 class="section-title">相关文章</h2>
-    <div class="related-content">
-        <div class="flex article-list--tile">
-            
-                
-<article class="">
-    <a href="/p/dubbo-go-pixiu-%E6%B7%BB%E5%8A%A0-openapi-%E8%AF%B7%E6%B1%82%E6%A0%A1%E9%AA%8C%E8%AF%A6%E8%A7%A3%E4%BB%8E%E6%8E%A5%E5%8F%A3%E5%A5%91%E7%BA%A6%E5%88%B0%E7%BD%91%E5%85%B3%E6%BA%90%E7%A0%81/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">dubbo-go-pixiu 添加 OpenAPI 请求校验详解：从接口契约到网关源码</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/p/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA%E5%8F%82%E4%B8%8E%E7%9A%84%E8%A7%84%E8%8C%83-git-%E6%B5%81%E7%A8%8B/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">开源社区参与的规范 Git 流程</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/p/trpc-agent-go-code-review-agent/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">tRPC-Agent-Go 源码导读：如何构建一个可审计的 Go 自动代码评审 Agent</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/p/go-singleflight-%E6%BA%90%E7%A0%81%E8%AE%B2%E8%A7%A3dodochan-%E4%B8%8E%E7%BB%93%E6%9E%9C%E5%85%B1%E4%BA%AB/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">Go singleflight 源码讲解：Do、DoChan 与结果共享</h2>
-        </div>
-    </a>
-</article>
-
-            
-                
-<article class="">
-    <a href="/p/codex-cli-agent-architecture-11/">
-        
-        
-
-        <div class="article-details">
-            <h2 class="article-title">Codex CLI 源码导读（十一）：一项任务怎样从输入走到验证</h2>
-        </div>
-    </a>
-</article>
-
-            
-        </div>
-    </div>
-</aside>
 
      
     
