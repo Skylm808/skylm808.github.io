@@ -7,7 +7,63 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Tue, 11 Aug 2026 15:00:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Thu, 13 Aug 2026 00:00:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Apache Dubbo</title>
+        <link>https://skylm.top/tags/apache-dubbo/</link>
+        <pubDate>Thu, 13 Aug 2026 00:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/tags/apache-dubbo/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>Go</title>
+        <link>https://skylm.top/tags/go/</link>
+        <pubDate>Thu, 13 Aug 2026 00:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/tags/go/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>GRPC</title>
+        <link>https://skylm.top/tags/grpc/</link>
+        <pubDate>Thu, 13 Aug 2026 00:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/tags/grpc/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>HTTP</title>
+        <link>https://skylm.top/tags/http/</link>
+        <pubDate>Thu, 13 Aug 2026 00:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/tags/http/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>Pixiu</title>
+        <link>https://skylm.top/tags/pixiu/</link>
+        <pubDate>Thu, 13 Aug 2026 00:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/tags/pixiu/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>Triple</title>
+        <link>https://skylm.top/tags/triple/</link>
+        <pubDate>Thu, 13 Aug 2026 00:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/tags/triple/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>高并发</title>
+        <link>https://skylm.top/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/</link>
+        <pubDate>Thu, 13 Aug 2026 00:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/</guid>
+        <description></description>
+        </item>
+        <item>
         <title>Agent</title>
         <link>https://skylm.top/tags/agent/</link>
         <pubDate>Tue, 11 Aug 2026 15:00:00 +0800</pubDate>
@@ -21,14 +77,6 @@
         <pubDate>Tue, 11 Aug 2026 15:00:00 +0800</pubDate>
         
         <guid>https://skylm.top/tags/code-review/</guid>
-        <description></description>
-        </item>
-        <item>
-        <title>Go</title>
-        <link>https://skylm.top/tags/go/</link>
-        <pubDate>Tue, 11 Aug 2026 15:00:00 +0800</pubDate>
-        
-        <guid>https://skylm.top/tags/go/</guid>
         <description></description>
         </item>
         <item>
@@ -189,14 +237,6 @@
         <pubDate>Sun, 19 Jul 2026 22:21:53 +0800</pubDate>
         
         <guid>https://skylm.top/tags/openapi/</guid>
-        <description></description>
-        </item>
-        <item>
-        <title>Pixiu</title>
-        <link>https://skylm.top/tags/pixiu/</link>
-        <pubDate>Sun, 19 Jul 2026 22:21:53 +0800</pubDate>
-        
-        <guid>https://skylm.top/tags/pixiu/</guid>
         <description></description>
         </item>
         <item>

@@ -6,7 +6,7 @@
 
 <link rel='canonical' href='https://skylm.top/p/mysql-%E6%97%A5%E5%BF%97%E8%AF%A6%E8%A7%A3/'>
 
-<link rel="stylesheet" href="/scss/style.min.6721d1ad1674f36f1d1fc4f72db64056f3ecbc804c01969066d7b28619fb6ba7.css"><meta property='og:title' content="Mysql 日志详解">
+<link rel="stylesheet" href="/scss/style.min.983f0466b0b9003b179a294e0065d6b95cf7526e75ff2ef96e064a821493297d.css"><meta property='og:title' content="Mysql 日志详解">
 <meta property='og:description' content="MySQL 日志体系详解 MySQL 的日志体系是数据库实现数据恢复、主从复制、高并发（MVCC）及故障排查的核心基石。\n日志主要分为两大类：\nServer 层日志：MySQL 服务层产生，所有存储引擎通用（Binlog, Error Log, Slow Query Log）。 引擎层日志：特定存储引擎产生（InnoDB 的 Redo Log, Undo Log）。 1. 核心日志详解 1.1 二进制日志 (Binlog) 归属：Server 层。 性质：逻辑日志（记录 SQL 语句或行数据的变更）。 作用：数据恢复、主从复制。 写入方式：追加写。文件写满后会切换到下一个新文件。 ❓ Binlog 如何实现主从一致 (Replication)？ 经典异步主从复制可以理解为让副本把主库的变更再执行一遍，通常包含三个角色（现代版本还可能配置并行复制工作线程）：\n">
 <meta property='og:url' content='https://skylm.top/p/mysql-%E6%97%A5%E5%BF%97%E8%AF%A6%E8%A7%A3/'>
 <meta property='og:site_name' content='Skylm'>
