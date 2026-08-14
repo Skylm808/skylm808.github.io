@@ -182,6 +182,113 @@
 &lt;p&gt;Triple 是 Dubbo 3 的协议，保留 Dubbo 的服务治理语义。例如 Pixiu 的 gRPC proxy 协议辅助代码会识别 &lt;code&gt;tri-&lt;/code&gt; 前缀的元数据，像 &lt;code&gt;tri-service-version&lt;/code&gt;、&lt;code&gt;tri-service-group&lt;/code&gt;；位置在 &lt;code&gt;pkg/filter/network/grpcproxy/filter/proxy/protocol.go&lt;/code&gt;。这些信息对应 Dubbo 服务的版本、分组等概念，而不是普通 gRPC 的必备头。&lt;/p&gt;
 &lt;p&gt;Pixiu 的 Triple listener 在 &lt;code&gt;pkg/listener/triple/triple_listener.go&lt;/code&gt; 中创建 Dubbo-go 的 Triple server，并以 proxy mode 收到调用。后续通常进入 Dubbo proxy connection manager 的 &lt;code&gt;OnTripleData&lt;/code&gt;，与 Dubbo2 一样按接口和方法路由，再由配置决定出站是 Dubbo2 还是 Triple。&lt;/p&gt;
 &lt;p&gt;因此更准确的说法是：&lt;strong&gt;gRPC 是标准 RPC 框架；Triple 是 Dubbo 3 在 HTTP/2/Protobuf 基础上实现的 RPC 协议，并把 Dubbo 服务治理语义带进来。&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id=&#34;15-序列化到底解决什么问题&#34;&gt;1.5 序列化到底解决什么问题
+&lt;/h3&gt;&lt;p&gt;业务代码里的对象不能直接放进网络。比如 Go 里有一个请求对象：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;type&lt;/span&gt; GetUserRequest &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;struct&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    ID &lt;span style=&#34;color:#8be9fd&#34;&gt;int64&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;发送前要把它转换成字节，接收方再把字节还原成对象，这个过程分别叫&lt;strong&gt;序列化（serialize）&lt;strong&gt;和&lt;/strong&gt;反序列化（deserialize）&lt;/strong&gt;。序列化格式决定了几个实际问题：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;网络上传多少字节，影响带宽和延迟；&lt;/li&gt;
+&lt;li&gt;编解码要消耗多少 CPU 和内存；&lt;/li&gt;
+&lt;li&gt;不同语言能不能准确理解同一份消息；&lt;/li&gt;
+&lt;li&gt;服务升级后，旧客户端和新服务能不能继续通信。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;JSON、Protobuf、Hessian2 都是序列化格式，但定位不同。JSON 便于人读，适合开放 HTTP API；Protobuf 和 Hessian2 都是二进制格式，更适合 RPC 内部传输。二进制不等于一定更快，最终还要看消息大小、生成代码、反射、压缩和业务负载。&lt;/p&gt;
+&lt;h3 id=&#34;16-grpcprotobuf-与-hessian2-的区别&#34;&gt;1.6 gRPC/Protobuf 与 Hessian2 的区别
+&lt;/h3&gt;&lt;p&gt;先纠正一个常见说法：&lt;strong&gt;gRPC 不是一种序列化格式。&lt;/strong&gt; gRPC 是 RPC 框架和调用模型，通常使用 HTTP/2 传输；在 gRPC 中，真正把请求对象编码成字节的默认格式是 Protobuf。Hessian2 则是 Dubbo 生态常用的对象序列化格式，通常放在 Dubbo/Dubbo generic invocation 的协议帧里。&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;对比项&lt;/th&gt;
+					&lt;th&gt;gRPC + Protobuf&lt;/th&gt;
+					&lt;th&gt;Dubbo2 + Hessian2&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;分层&lt;/td&gt;
+					&lt;td&gt;gRPC 负责 RPC 调用，HTTP/2 负责传输，Protobuf 负责消息编码&lt;/td&gt;
+					&lt;td&gt;Dubbo 协议负责 RPC 帧，Hessian2 负责参数/返回值编码&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;数据模型&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;.proto&lt;/code&gt; 明确定义 message、字段编号和类型，常由代码生成&lt;/td&gt;
+					&lt;td&gt;以对象/参数类型为中心，编码中可携带类型信息，动态 generic 调用更方便&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;性能特征&lt;/td&gt;
+					&lt;td&gt;二进制、字段 tag 紧凑，生成代码路径通常稳定可预测&lt;/td&gt;
+					&lt;td&gt;二进制、对 Dubbo 对象调用友好，但动态类型和对象图会带来额外编码成本&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;跨语言&lt;/td&gt;
+					&lt;td&gt;Protobuf 生态覆盖 Go、Java、C++、Python 等，契约一致&lt;/td&gt;
+					&lt;td&gt;主要服务于 Dubbo 生态，跨语言要确认对应 Hessian2 实现与类型兼容&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;演进方式&lt;/td&gt;
+					&lt;td&gt;通过字段编号和兼容规则演进，旧客户端通常可忽略未知字段&lt;/td&gt;
+					&lt;td&gt;依赖双方类型名、字段和序列化实现的兼容，升级前要验证对象结构&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;常见场景&lt;/td&gt;
+					&lt;td&gt;强契约内部 API、流式调用、多语言微服务&lt;/td&gt;
+					&lt;td&gt;Dubbo2 传统服务、泛化调用、需要传递 Dubbo 对象参数的场景&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;用同一个 &lt;code&gt;GetUserRequest{ID: 42}&lt;/code&gt; 举例：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;8
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;gRPC + Protobuf:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  .proto 定义 GetUserRequest.id = 1
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 生成的 protobuf 编码器把字段编号和值写成二进制
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; gRPC 将这条 message 放入 HTTP/2 stream
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;Dubbo2 + Hessian2:
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  Dubbo invocation 声明接口、方法和参数类型
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; Hessian2 将参数对象/类型信息编码成二进制
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; Dubbo 将它放进请求帧发送给 provider
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;两者都能减少 JSON 的文本体积，但优化方向不完全一样：Protobuf 强调稳定的 schema 和跨语言契约，Hessian2 更贴近 Dubbo 的对象调用与泛化调用。需要在浏览器和 RPC 服务之间转换时，网关还要承担一次反序列化和再序列化，例如 Pixiu 的 &lt;code&gt;pkg/filter/http/grpcproxy/grpc.go&lt;/code&gt; 用 &lt;code&gt;jsonToProtoMsg&lt;/code&gt; 把 HTTP JSON 变成动态 Protobuf，再用 &lt;code&gt;protoMsgToJson&lt;/code&gt; 把响应转回 JSON；这会产生 CPU、内存和延迟成本。&lt;/p&gt;
+&lt;h3 id=&#34;17-序列化格式怎么选以及-pixiu-当前代码的边界&#34;&gt;1.7 序列化格式怎么选，以及 Pixiu 当前代码的边界
+&lt;/h3&gt;&lt;p&gt;可以按下面的决策思路选：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;对外 HTTP API&lt;/strong&gt;：JSON 可读、调试和浏览器兼容性最好；即使内部下游是 gRPC，也可以由 Pixiu 做 JSON/Protobuf 转换。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;新建的跨语言内部 RPC&lt;/strong&gt;：优先考虑 gRPC + Protobuf，接口契约、生成代码和兼容性工具比较完整。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;已有 Dubbo2 服务&lt;/strong&gt;：通常保持 Dubbo + Hessian2，避免为了换编码格式同时改造 provider、consumer 和注册治理。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;泛化调用或动态参数&lt;/strong&gt;：Hessian2 在 Dubbo generic invocation 场景更自然，但要用真实对象大小和类型复杂度做基准测试。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;还要区分“协议理论上支持什么”和“当前 Pixiu 代码实际配置了什么”。本仓库中：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;pkg/filter/network/dubboproxy/filter/proxy/proxyfilter.go&lt;/code&gt; 的 Dubbo 和 Triple 出站示例都显式设置 &lt;code&gt;SerializationKey&lt;/code&gt; 为 Hessian2；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;pkg/listener/triple/triple_listener.go&lt;/code&gt; 创建 Triple server 时显式使用 &lt;code&gt;WithCodecType(tripleConstant.HessianCodecName)&lt;/code&gt;；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;pkg/filter/http/grpcproxy/grpc.go&lt;/code&gt; 的 HTTP 到 gRPC 转换使用 Protobuf message 和 descriptor；&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;pkg/client/dubbo/dubbo.go&lt;/code&gt; 会读取 effective serialization，配置可以明确选择 &lt;code&gt;hessian2&lt;/code&gt; 或其他 Dubbo-go 支持的序列化方式。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;所以文章里说“Triple 基于 HTTP/2/Protobuf 生态”描述的是 Triple 的互通方向；而在当前这份 Pixiu 实现中，具体 listener/proxy 仍可能使用 Hessian codec。排查线上报文时，应以 listener、filter 和 client 的实际配置为准，不能只根据协议名称推断序列化格式。&lt;/p&gt;
 &lt;h2 id=&#34;2-pixiu-如何把不同协议接进同一个网关&#34;&gt;2. Pixiu 如何把不同协议接进同一个网关
 &lt;/h2&gt;&lt;p&gt;Pixiu 不是要求所有业务统一成一种协议，而是为不同入口准备 listener，再让路由和 filter 决定如何调用下游。&lt;/p&gt;
 &lt;pre class=&#34;mermaid&#34;&gt;flowchart LR
