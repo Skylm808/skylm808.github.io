@@ -249,6 +249,7 @@
         <div class="widget--toc">
             <nav id="TableOfContents">
   <ol>
+    <li><a href="#0-先把高频术语翻译成人话">0. 先把高频术语翻译成人话</a></li>
     <li><a href="#1-先给结论四种协议不是同一层的东西">1. 先给结论：四种协议不是同一层的东西</a>
       <ol>
         <li><a href="#11-http人和生态最容易理解的入口">1.1 HTTP：人和生态最容易理解的入口</a></li>
@@ -347,7 +348,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 13 分钟
+                    阅读时长: 17 分钟
                 </time>
             </div>
         
@@ -366,6 +367,61 @@
 </h1><p>很多人问“网关怎样扛高并发”，答案很容易变成一串词：连接池、限流、熔断、负载均衡。</p>
 <p>但把这些词背出来不等于理解网关。更重要的问题是：<strong>请求以什么协议进入，Pixiu 在哪里转换，慢请求和故障又在哪一层被挡住。</strong> 本文结合 <code>dubbo-go-pixiu</code> 当前源码，先把 HTTP、Dubbo2、gRPC、Triple 讲清楚，再沿一条请求链路看 Pixiu 已经落地的高并发保护。</p>
 <p>文中源码路径均相对于仓库根目录 <code>dubbo-go-pixiu</code>。</p>
+<h2 id="0-先把高频术语翻译成人话">0. 先把高频术语翻译成人话
+</h2><p>读网关源码时，最容易混淆的是“请求”“资源”“连接”和“上下文”这几组词。先建立一个共同词典：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>术语</th>
+					<th>在 Pixiu 里的含义</th>
+					<th>可以把它想成</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>listener</td>
+					<td>监听端口并接收某一种协议</td>
+					<td>大楼入口</td>
+			</tr>
+			<tr>
+					<td>filter chain</td>
+					<td>按顺序执行的一组过滤器</td>
+					<td>入口安检流水线</td>
+			</tr>
+			<tr>
+					<td>route</td>
+					<td>根据 path、method 找到 cluster 的规则</td>
+					<td>分诊台</td>
+			</tr>
+			<tr>
+					<td>cluster</td>
+					<td>一组同类上游 endpoint 的逻辑集合</td>
+					<td>库存服务这个“服务池”</td>
+			</tr>
+			<tr>
+					<td>endpoint</td>
+					<td>cluster 中一个具体地址</td>
+					<td><code>10.0.0.11:8080</code> 这台实例</td>
+			</tr>
+			<tr>
+					<td>resource</td>
+					<td>Sentinel 统计和治理的逻辑资源名</td>
+					<td><code>/inventory/*</code> 这条业务车道</td>
+			</tr>
+			<tr>
+					<td><code>HttpContext</code></td>
+					<td>Pixiu 保存一次 HTTP 请求状态的对象</td>
+					<td>本次请求的工作台</td>
+			</tr>
+			<tr>
+					<td><code>context.Context</code></td>
+					<td>Go 里传播取消、deadline 和少量元数据的值</td>
+					<td>请求的截止时间/取消信号</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>因此，“对库存接口限流”不是对一个抽象的网关总开关限流，而是先把 URL 匹配成某个 Sentinel resource，再对这个 resource 计算流量；“连接池”也不是 endpoint 池，前者复用 TCP/HTTP 连接，后者是服务实例地址集合。</p>
+<p>本文后面还会出现几组性能术语：<code>QPS</code> 是每秒请求数，<code>P95/P99</code> 是把请求耗时从小到大排序后位于 95%/99% 位置的延迟，表示“绝大多数请求”和“尾部慢请求”有多慢；<code>goroutine</code> 是 Go 的轻量并发执行单元，<code>GC</code> 是垃圾回收，过多临时对象会增加 GC 工作；<code>deadline</code> 是请求必须完成的绝对截止时间，<code>timeout</code> 通常是从现在开始计算的一段最长等待时间；<code>idempotent</code>（幂等）表示同一个请求执行一次或多次，业务最终结果应该相同，例如按 ID 查询通常幂等，扣款通常不天然幂等。</p>
 <h2 id="1-先给结论四种协议不是同一层的东西">1. 先给结论：四种协议不是同一层的东西
 </h2><div class="table-wrapper"><table>
 	<thead>
@@ -712,7 +768,32 @@
 </span></span><span style="display:flex;"><span>    sentinel.<span style="color:#50fa7b">WithTrafficType</span>(base.Inbound))
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>当 Sentinel 返回 <code>blockErr</code>，Pixiu 立刻构造本地限流响应并停止 filter chain；请求不会再访问上游。其规则在 <code>Apply()</code> 初始化，并通过 <code>OnRulesUpdate()</code> 加载启用的 flow rules。</p>
+</div><p>这里的 <code>Entry</code> 不是“登记一条配置”，而是一次请求进入 Sentinel 保护链的动作。Sentinel 会把 <code>resourceName</code> 包装成资源上下文，然后依次执行统计、流控等 slot。调用结果有两种：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>Entry(&#34;inventory&#34;)
+</span></span><span style="display:flex;"><span>  -&gt; 没有违反规则：返回 (*SentinelEntry, nil)
+</span></span><span style="display:flex;"><span>       -&gt; 继续访问下游
+</span></span><span style="display:flex;"><span>       -&gt; 请求结束时 entry.Exit()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  -&gt; 违反规则：返回 (nil, *BlockError)
+</span></span><span style="display:flex;"><span>       -&gt; 不访问下游
+</span></span><span style="display:flex;"><span>       -&gt; Pixiu 返回 429
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>resourceName</code> 来自 Pixiu 自己的 matcher：<code>pkg/filter/sentinel/config.go</code> 定义资源和 path pattern，<code>pkg/filter/sentinel/matcher.go</code> 负责把 <code>/inventory/42</code> 匹配成资源名，例如 <code>inventory-api</code>。只有匹配成功的 URL 才会调用 <code>Entry</code>；没有配置资源的 URL 会直接跳过该 filter。</p>
+<p>放行时必须调用 <code>entry.Exit()</code>，它告诉 Sentinel “这次进入已经结束”，让并发数、响应时间和结果统计能够闭合。Pixiu 的限流 filter 用 <code>defer entry.Exit()</code>，所以即使后面的 filter 返回或发生错误，也会结束这次 entry。被阻塞时 <code>Entry</code> 已经返回 <code>BlockError</code>，不应该再调用一个不存在的 entry；Pixiu 直接构造 <code>RateLimited</code> 本地响应并停止 filter chain。</p>
+<p>其规则在 <code>Apply()</code> 初始化，并通过 <code>OnRulesUpdate()</code> 加载启用的 flow rules。flow rule 至少要说明三件事：管哪一个 <code>Resource</code>、阈值 <code>Threshold</code> 是多少、超过阈值时是直接拒绝还是排队等待（<code>ControlBehavior</code>）。例如统计窗口是 1 秒、阈值是 4000，那么含义是“该 resource 每秒最多按 4000 次的预算放行”，不是“整个 Pixiu 进程只能处理 4000 个请求”。</p>
 <p>对 <code>/inventory/*</code>，限流的业务含义可以是：库存服务的预算是 5 千 QPS，网关留出余量后只放行 4 千 QPS；多出来的请求快速失败或由客户端退避重试，而不是排队到库存服务、把所有正常请求一起拖慢。</p>
 <p>限流阈值应该来自压测和线上指标。只写一个很高的固定 QPS，不能称为容量治理。</p>
 <h3 id="35-熔断下游连续失败时快速失败">3.5 熔断：下游连续失败时快速失败
@@ -730,7 +811,15 @@
 </span></span><span style="display:flex;"><span>}
 </span></span></code></pre></td></tr></table>
 </div>
-</div><p>这形成闭环：失败响应被统计，达到配置规则后熔断器打开，后续请求快速失败；恢复窗口后再允许少量请求探测。</p>
+</div><p>这里的 entry 生命周期跨越了“请求发出”和“响应回来”两个阶段：熔断 filter 在 Decode 阶段调用 <code>Entry</code>，把返回的 entry 放进 <code>HttpContext.Params</code>；请求经过 HTTP proxy 到达上游后，在 Encode 阶段读取它、根据最终状态码调用 <code>SetError</code>，最后 <code>entry.Exit()</code>。这样 Sentinel 才能把一次完整调用的成功、失败和耗时记到同一个资源上。</p>
+<p>熔断规则和限流规则也不是一回事。限流主要问“现在进来的速度是否超过预算”；熔断主要问“最近这个下游是否持续失败或过慢”。Sentinel 的 circuit-breaker rule 可以选择：</p>
+<ul>
+<li><code>ErrorCount</code>：错误次数达到阈值；</li>
+<li><code>ErrorRatio</code>：错误比例达到阈值；</li>
+<li><code>SlowRequestRatio</code>：超过 <code>MaxAllowedRtMs</code> 的慢请求比例达到阈值。</li>
+</ul>
+<p>规则达到条件后，熔断器进入 <strong>open</strong> 状态，新的 <code>Entry</code> 直接得到 BlockError，Pixiu 返回 503，不再制造新的下游请求。经过 <code>RetryTimeoutMs</code> 后进入 <strong>half-open</strong>，只放少量 probe request 探测；探测成功才恢复 <strong>closed</strong>，失败则继续 open。也就是说，熔断不是永久关闭接口，而是一个“失败统计 -&gt; 快速失败 -&gt; 试探恢复”的状态机。</p>
+<p>这形成闭环：失败响应被 <code>SetError</code> 记录，达到配置规则后熔断器打开；恢复窗口后只允许少量请求试探。当前 filter 把 HTTP 5xx 视为错误，业务级 HTTP 4xx 不会因为这段代码自动计入熔断错误。</p>
 <p>它和限流解决的是不同问题：</p>
 <div class="table-wrapper"><table>
 	<thead>
