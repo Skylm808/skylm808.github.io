@@ -3,33 +3,60 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://skylm.top/</loc>
-    <lastmod>2026-08-13T00:00:00+08:00</lastmod>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/agent/</loc>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/categories/ai/</loc>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/categories/</loc>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/dubbo/</loc>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/categories/go/</loc>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/grpc/</loc>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/post/</loc>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/rpc/</loc>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/</loc>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/thrift/</loc>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/trpc/</loc>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/p/trpc-and-trpc-agent-go-basics/</loc>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/tags/trpc-agent-go/</loc>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://skylm.top/categories/%E5%BC%80%E6%BA%90/</loc>
+    <lastmod>2026-08-15T10:00:00+08:00</lastmod>
   </url><url>
     <loc>https://skylm.top/tags/apache-dubbo/</loc>
     <lastmod>2026-08-13T00:00:00+08:00</lastmod>
   </url><url>
-    <loc>https://skylm.top/categories/</loc>
-    <lastmod>2026-08-13T00:00:00+08:00</lastmod>
-  </url><url>
-    <loc>https://skylm.top/categories/go/</loc>
-    <lastmod>2026-08-13T00:00:00+08:00</lastmod>
-  </url><url>
     <loc>https://skylm.top/tags/go/</loc>
-    <lastmod>2026-08-13T00:00:00+08:00</lastmod>
-  </url><url>
-    <loc>https://skylm.top/tags/grpc/</loc>
     <lastmod>2026-08-13T00:00:00+08:00</lastmod>
   </url><url>
     <loc>https://skylm.top/tags/http/</loc>
     <lastmod>2026-08-13T00:00:00+08:00</lastmod>
   </url><url>
     <loc>https://skylm.top/tags/pixiu/</loc>
-    <lastmod>2026-08-13T00:00:00+08:00</lastmod>
-  </url><url>
-    <loc>https://skylm.top/post/</loc>
-    <lastmod>2026-08-13T00:00:00+08:00</lastmod>
-  </url><url>
-    <loc>https://skylm.top/tags/</loc>
     <lastmod>2026-08-13T00:00:00+08:00</lastmod>
   </url><url>
     <loc>https://skylm.top/tags/triple/</loc>
@@ -41,19 +68,7 @@
     <loc>https://skylm.top/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/</loc>
     <lastmod>2026-08-13T00:00:00+08:00</lastmod>
   </url><url>
-    <loc>https://skylm.top/categories/%E5%BC%80%E6%BA%90/</loc>
-    <lastmod>2026-08-13T00:00:00+08:00</lastmod>
-  </url><url>
-    <loc>https://skylm.top/tags/agent/</loc>
-    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
-  </url><url>
-    <loc>https://skylm.top/categories/ai/</loc>
-    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
-  </url><url>
     <loc>https://skylm.top/tags/code-review/</loc>
-    <lastmod>2026-08-11T15:00:00+08:00</lastmod>
-  </url><url>
-    <loc>https://skylm.top/tags/trpc-agent-go/</loc>
     <lastmod>2026-08-11T15:00:00+08:00</lastmod>
   </url><url>
     <loc>https://skylm.top/p/trpc-agent-go-code-review-agent/</loc>

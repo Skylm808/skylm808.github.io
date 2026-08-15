@@ -1,0 +1,614 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>RPC on Skylm</title>
+        <link>https://skylm.top/tags/rpc/</link>
+        <description>Recent content in RPC on Skylm</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>en-us</language>
+        <copyright>Skylm</copyright>
+        <lastBuildDate>Sat, 15 Aug 2026 10:00:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/rpc/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>tRPC 基础与 tRPC-Agent-Go 关系：从 RPC 到 Agent 框架</title>
+        <link>https://skylm.top/p/trpc-and-trpc-agent-go-basics/</link>
+        <pubDate>Sat, 15 Aug 2026 10:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/p/trpc-and-trpc-agent-go-basics/</guid>
+        <description>&lt;h1 id=&#34;trpc-基础与-trpc-agent-go-关系从-rpc-到-agent-框架&#34;&gt;tRPC 基础与 tRPC-Agent-Go 关系：从 RPC 到 Agent 框架
+&lt;/h1&gt;&lt;p&gt;第一次看到 &lt;code&gt;tRPC-Agent-Go&lt;/code&gt; 这个名字时，很容易产生一个误解：它是不是用 tRPC 发请求的 Agent？是不是必须先启动一个 tRPC 服务？&lt;/p&gt;
+&lt;p&gt;答案都是否定的。要把它讲清楚，必须先拆开两个问题：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;RPC 解决的是“一个进程怎样调用另一个进程的能力”。&lt;/li&gt;
+&lt;li&gt;Agent 框架解决的是“模型、工具、状态和工作流怎样组织成一个应用”。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;本文先从一次普通 Go 函数调用讲起，再解释 RPC、tRPC、主流 RPC 框架，最后回到 tRPC-Agent-Go。读完后，你应该能够说明：为什么二者名字相近、设计上有什么联系，以及为什么 &lt;code&gt;code_review_agent&lt;/code&gt; 可以完全不走 tRPC 网络调用。&lt;/p&gt;
+&lt;h2 id=&#34;一本地函数调用发生了什么&#34;&gt;一、本地函数调用发生了什么
+&lt;/h2&gt;&lt;p&gt;先看一个最普通的 Go 函数：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;func&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;Add&lt;/span&gt;(a, b &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt;) &lt;span style=&#34;color:#8be9fd&#34;&gt;int&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; a &lt;span style=&#34;color:#ff79c6&#34;&gt;+&lt;/span&gt; b
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;sum &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;Add&lt;/span&gt;(&lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;, &lt;span style=&#34;color:#bd93f9&#34;&gt;2&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;调用方和 &lt;code&gt;Add&lt;/code&gt; 在同一个进程里。程序知道函数入口、参数类型和返回类型，可以直接把参数交给函数，再拿回结果。这个过程不需要把 &lt;code&gt;1&lt;/code&gt; 和 &lt;code&gt;2&lt;/code&gt; 编码成网络消息，也不需要考虑另一台机器是否宕机。&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;同一个进程
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;调用方 -&amp;gt; Add(1, 2) -&amp;gt; 3
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;如果 &lt;code&gt;Add&lt;/code&gt; 在另一台机器上的“计算服务”中，调用方就不能直接跳转到它的函数地址。两个进程拥有各自的内存，机器之间只能通过网络交换字节。于是一次看似简单的调用会被展开：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;调用方
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 把“调用 Add，参数是 1 和 2”编码成字节
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 通过网络发给服务端
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 服务端解码请求
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 调用真正的 Add
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 把结果 3 编码后发回
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 调用方解码得到 3
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;RPC 是 Remote Procedure Call 的缩写，中文通常译作“远程过程调用”。它的目标是让远程调用在代码写法上接近本地函数调用，同时由框架处理编码、传输、寻址、超时和错误等工作。&lt;/p&gt;
+&lt;p&gt;注意“接近”这两个字。远程调用永远不会真的等同于本地调用，因为网络会引入本地调用没有的失败方式。&lt;/p&gt;
+&lt;h2 id=&#34;二一次-rpc-怎样走完&#34;&gt;二、一次 RPC 怎样走完
+&lt;/h2&gt;&lt;p&gt;把客户端到服务端的路径完整展开，可以分成九步：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;8
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;9
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;1. 业务代码调用 client stub
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;2. stub 根据接口定义组装请求
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;3. serializer 把请求对象编码成字节
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;4. transport 通过网络发送字节
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;5. server 收到并解码请求
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;6. server stub 找到对应的 handler
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;7. handler 执行业务逻辑
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;8. 服务端编码并返回响应
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;9. 客户端解码响应或得到错误
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;其中几个名词需要分别理解。&lt;/p&gt;
+&lt;h3 id=&#34;1-序列化不是转成-json这么简单&#34;&gt;1. 序列化不是“转成 JSON”这么简单
+&lt;/h3&gt;&lt;p&gt;网络传输的是字节，而不是 Go 的 &lt;code&gt;struct&lt;/code&gt;、Java 的对象或 Python 的字典。&lt;strong&gt;序列化&lt;/strong&gt;就是把内存中的结构化数据编码成约定的字节格式；&lt;strong&gt;反序列化&lt;/strong&gt;则把字节还原为本地对象。&lt;/p&gt;
+&lt;p&gt;例如下面的逻辑对象：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;AddRequest{A: 1, B: 2}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;可以编码成 JSON，也可以编码成 Protobuf、Thrift Binary 等二进制格式。双方必须对字段编号、类型和编码规则达成一致，否则服务端无法正确解释收到的字节。&lt;/p&gt;
+&lt;h3 id=&#34;2-idl-是双方共享的接口合同&#34;&gt;2. IDL 是双方共享的接口合同
+&lt;/h3&gt;&lt;p&gt;IDL 是 Interface Definition Language，即“接口定义语言”。它不负责实现业务，只描述服务有哪些方法、每个方法接收什么、返回什么。&lt;/p&gt;
+&lt;p&gt;以 Protobuf 风格为例：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 8
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt; 9
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;10
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;11
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;12
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-proto&#34; data-lang=&#34;proto&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;service&lt;/span&gt; Calculator {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;rpc&lt;/span&gt; Add(AddRequest) &lt;span style=&#34;color:#ff79c6&#34;&gt;returns&lt;/span&gt; (AddReply);
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;message&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;AddRequest&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#8be9fd&#34;&gt;int32&lt;/span&gt; a &lt;span style=&#34;color:#ff79c6&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#8be9fd&#34;&gt;int32&lt;/span&gt; b &lt;span style=&#34;color:#ff79c6&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;2&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;message&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;AddReply&lt;/span&gt; {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#8be9fd&#34;&gt;int32&lt;/span&gt; sum &lt;span style=&#34;color:#ff79c6&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;生成器可以据此产生客户端和服务端代码。这样 Go 客户端和 Java 服务端不必手写同一套消息解析逻辑，它们共同遵守 IDL 定义的协议合同。&lt;/p&gt;
+&lt;p&gt;IDL 也不等于某一种序列化格式。不同框架对 IDL、协议和序列化的绑定程度不同；比较 RPC 框架时要把这三层分开。&lt;/p&gt;
+&lt;h3 id=&#34;3-stub-为什么让远程调用看起来像本地调用&#34;&gt;3. Stub 为什么让远程调用看起来像本地调用
+&lt;/h3&gt;&lt;p&gt;&lt;strong&gt;客户端 Stub&lt;/strong&gt; 是本地代理。业务代码调用它的 &lt;code&gt;Add&lt;/code&gt; 方法，它在内部构造请求、编码、发送并等待响应：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;reply, err &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; calculatorClient.&lt;span style=&#34;color:#50fa7b&#34;&gt;Add&lt;/span&gt;(ctx, &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;amp;&lt;/span&gt;AddRequest{A: &lt;span style=&#34;color:#bd93f9&#34;&gt;1&lt;/span&gt;, B: &lt;span style=&#34;color:#bd93f9&#34;&gt;2&lt;/span&gt;})
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;这行代码看起来像普通方法调用，但 &lt;code&gt;err&lt;/code&gt; 可能表示序列化失败、连接失败、超时、服务端错误或响应无法解码。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;服务端 Stub&lt;/strong&gt; 接收网络消息，根据服务名和方法名找到真正的业务实现。真正做加法的是业务 handler；Stub 只是协议和业务之间的适配层。&lt;/p&gt;
+&lt;h3 id=&#34;4-server-不只是一个函数&#34;&gt;4. Server 不只是一个函数
+&lt;/h3&gt;&lt;p&gt;RPC server 通常还要负责监听端口、连接管理、请求分发、并发控制、超时传播、拦截器或过滤器、日志、指标和优雅退出。框架的价值不只是“帮你发一个包”，还包括把这些通用能力组织起来。&lt;/p&gt;
+&lt;h2 id=&#34;三网络失败为什么比普通-error-难&#34;&gt;三、网络失败为什么比普通 error 难
+&lt;/h2&gt;&lt;p&gt;本地调用返回错误时，调用方通常知道函数已经结束。RPC 超时时却可能出现一种典型歧义：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;客户端发出“扣款 100 元”
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 服务端已经扣款
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 返回包在网络中丢失
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 客户端看到 timeout
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;客户端只知道“规定时间内没有收到结果”，不知道服务端到底有没有执行。此时直接重试，可能扣款两次。&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;失败现象&lt;/th&gt;
+					&lt;th&gt;仅凭客户端能否确定服务端状态&lt;/th&gt;
+					&lt;th&gt;常见处理思路&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;建连失败&lt;/td&gt;
+					&lt;td&gt;通常可以认为请求尚未送达，但仍需结合传输实现&lt;/td&gt;
+					&lt;td&gt;服务发现、退避重试、快速失败&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;请求超时&lt;/td&gt;
+					&lt;td&gt;不能确定服务端是否已经执行&lt;/td&gt;
+					&lt;td&gt;deadline、幂等键、状态查询&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;服务端明确返回错误&lt;/td&gt;
+					&lt;td&gt;知道服务端处理过请求，但要区分业务错误和系统错误&lt;/td&gt;
+					&lt;td&gt;结构化错误码、决定是否重试&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;响应解码失败&lt;/td&gt;
+					&lt;td&gt;服务端可能已经成功执行&lt;/td&gt;
+					&lt;td&gt;协议兼容检查、告警、避免盲目重试&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;部分批量操作成功&lt;/td&gt;
+					&lt;td&gt;整体成功或失败都不足以描述结果&lt;/td&gt;
+					&lt;td&gt;返回逐项状态、补偿或对账&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;这里还有三个经常一起出现的概念：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Timeout&lt;/strong&gt;：调用方最多愿意等待多久。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Deadline&lt;/strong&gt;：这次请求最晚必须在什么时间前完成，应该沿调用链向下传递。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Idempotency&lt;/strong&gt;：同一个请求执行一次或多次，最终业务效果相同。幂等是安全重试的重要前提。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;因此，“RPC 框架支持自动重试”不是越多越好。重试次数、退避策略、是否幂等和剩余 deadline 必须一起设计，否则一次小故障可能被放大为重试风暴。&lt;/p&gt;
+&lt;h2 id=&#34;四接口升级为什么需要兼容性&#34;&gt;四、接口升级为什么需要兼容性
+&lt;/h2&gt;&lt;p&gt;微服务不可能让所有客户端和服务端在同一毫秒升级。发布过程中经常存在：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;旧客户端 -&amp;gt; 新服务端
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;新客户端 -&amp;gt; 旧服务端
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;兼容性因此包含两层：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;结构兼容&lt;/strong&gt;：新增字段、未知字段、字段编号和默认值能否正确处理。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;语义兼容&lt;/strong&gt;：字段含义、错误码和业务约束有没有改变。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;结构上能够解码，不代表语义上一定兼容。例如把 &lt;code&gt;timeout_seconds=0&lt;/code&gt; 从“使用默认值”改成“永不超时”，旧客户端虽然没有解析错误，行为却已经改变。&lt;/p&gt;
+&lt;p&gt;面试中被问“为什么要 IDL”时，不要只回答“为了生成代码”。更完整的回答是：IDL 提供跨语言接口合同、生成 Stub、约束消息结构，并为滚动升级和兼容性审查提供稳定依据。&lt;/p&gt;
+&lt;h2 id=&#34;五trpc-和-trpc-go-到底是什么&#34;&gt;五、tRPC 和 tRPC-Go 到底是什么
+&lt;/h2&gt;&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/trpc-group/trpc-go&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;tRPC-Go 官方仓库&lt;/a&gt;将自己描述为 tRPC 的 Go 语言实现，并将 tRPC 定位为可插拔的高性能 RPC 框架。这里需要区分三个名称：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;tRPC&lt;/strong&gt;：整个 RPC 框架和开源生态的名称。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;tRPC 协议&lt;/strong&gt;：框架可以使用的一种通信协议。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;tRPC-Go&lt;/strong&gt;：tRPC 的 Go 语言实现。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;tRPC-Go 不只是一个固定的线协议。官方 README 列出的核心特点包括：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;一个进程可以启动多个服务并监听多个地址。&lt;/li&gt;
+&lt;li&gt;组件通过接口做成可替换插件。&lt;/li&gt;
+&lt;li&gt;默认支持 tRPC 和 HTTP 协议，也允许通过 &lt;code&gt;codec&lt;/code&gt; 接入第三方协议。&lt;/li&gt;
+&lt;li&gt;提供代码生成工具及过滤器、数据库等生态插件。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;所以更准确的心智模型是：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;7
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;tRPC-Go
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├── 服务启动与生命周期
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├── 协议和编解码 codec
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├── client / server 调用
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├── filter 拦截链
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;├── 注册发现、配置和治理接入
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;└── 日志、指标、追踪等工程能力
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;“可插拔”意味着框架定义稳定接口，具体协议、编解码、过滤器或外围组件可以替换；它不意味着任意两种协议天然互通。客户端和服务端仍然必须选择兼容的协议与消息合同。&lt;/p&gt;
+&lt;p&gt;本文不比较吞吐量或延迟。没有同一硬件、相同消息、相同连接模型和相同调优条件下的基准数据，单独说某个框架“更快”没有意义。&lt;/p&gt;
+&lt;h2 id=&#34;六trpcgrpcdubbothrift-怎么比较&#34;&gt;六、tRPC、gRPC、Dubbo、Thrift 怎么比较
+&lt;/h2&gt;&lt;p&gt;下面比较的是设计重心和生态，不是排名。每个项目都在持续发展，实际选型应再核对当前版本的官方文档。&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;维度&lt;/th&gt;
+					&lt;th&gt;tRPC / tRPC-Go&lt;/th&gt;
+					&lt;th&gt;gRPC&lt;/th&gt;
+					&lt;th&gt;Apache Dubbo&lt;/th&gt;
+					&lt;th&gt;Apache Thrift&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;主要语言与生态&lt;/td&gt;
+					&lt;td&gt;tRPC 生态；这里重点讨论 Go 实现 tRPC-Go&lt;/td&gt;
+					&lt;td&gt;官方支持多种语言，常见于云原生和跨语言服务&lt;/td&gt;
+					&lt;td&gt;Java 生态最成熟，也提供 Go、Rust、Node.js 等实现&lt;/td&gt;
+					&lt;td&gt;Apache 多语言生态，长期强调跨语言代码生成&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;IDL 与序列化&lt;/td&gt;
+					&lt;td&gt;取决于采用的协议和 codec，框架本身强调可插拔&lt;/td&gt;
+					&lt;td&gt;通常用 &lt;code&gt;.proto&lt;/code&gt; 同时定义服务和 Protobuf 消息&lt;/td&gt;
+					&lt;td&gt;Triple 可采用 Protobuf IDL，也支持 Java 接口等开发方式&lt;/td&gt;
+					&lt;td&gt;用 &lt;code&gt;.thrift&lt;/code&gt; IDL，提供多种传输、协议和类型映射&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;协议特点&lt;/td&gt;
+					&lt;td&gt;默认支持 tRPC、HTTP，可通过 codec 扩展第三方协议&lt;/td&gt;
+					&lt;td&gt;gRPC 语义通常运行在 HTTP/2 之上，支持 unary 和 streaming&lt;/td&gt;
+					&lt;td&gt;支持 Triple、Dubbo2、REST 等协议&lt;/td&gt;
+					&lt;td&gt;传输层、协议层和处理器分层组合&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;服务治理&lt;/td&gt;
+					&lt;td&gt;tRPC-Go 通过插件和生态接入 filter、发现、配置、观测等能力&lt;/td&gt;
+					&lt;td&gt;核心提供 RPC、拦截器、负载均衡等机制，治理常与平台或服务网格组合&lt;/td&gt;
+					&lt;td&gt;框架重点覆盖发现、流量管理、配置、可观测性和控制台&lt;/td&gt;
+					&lt;td&gt;核心更集中在 IDL、代码生成、传输和序列化，治理通常由外部系统补充&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;跨语言&lt;/td&gt;
+					&lt;td&gt;要看对应语言实现及双方选用的协议，不能只凭 tRPC-Go 推断&lt;/td&gt;
+					&lt;td&gt;是核心优势之一，同一 &lt;code&gt;.proto&lt;/code&gt; 可生成多语言 Stub&lt;/td&gt;
+					&lt;td&gt;Triple 强调跨语言互通，其他协议取决于相应 SDK&lt;/td&gt;
+					&lt;td&gt;是核心设计目标之一&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;常见适用场景&lt;/td&gt;
+					&lt;td&gt;已采用 tRPC 生态的 Go 微服务、需要替换组件的 RPC 工程&lt;/td&gt;
+					&lt;td&gt;跨语言接口、Protobuf 合同、流式 RPC、云原生服务&lt;/td&gt;
+					&lt;td&gt;Java 企业微服务、需要完整服务治理的平台&lt;/td&gt;
+					&lt;td&gt;多语言服务互调、重视稳定 IDL 或已有 Thrift 资产的系统&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;选择重点&lt;/td&gt;
+					&lt;td&gt;现有 tRPC 生态、Go 工程集成、插件能力&lt;/td&gt;
+					&lt;td&gt;Protobuf/gRPC 生态、跨语言标准、流式能力&lt;/td&gt;
+					&lt;td&gt;Dubbo 生态、治理能力、团队 Java 技术栈&lt;/td&gt;
+					&lt;td&gt;语言覆盖、IDL 兼容和存量集成&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id=&#34;不要把协议框架和治理平台混成一层&#34;&gt;不要把协议、框架和治理平台混成一层
+&lt;/h3&gt;&lt;p&gt;面试里最常见的比较错误是：“gRPC 用 HTTP/2，所以它是协议；Dubbo 有注册中心，所以它是框架；两者不能比较。”&lt;/p&gt;
+&lt;p&gt;更准确的说法是：这些项目都覆盖 RPC 开发，但边界不同。可以按层比较：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;接口合同：IDL、字段类型、兼容规则
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;消息编码：Protobuf、Thrift Binary 或其他 codec
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;传输协议：如何分帧、复用连接、表达状态
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;运行框架：client/server、拦截器、生命周期
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;服务治理：发现、路由、限流、配置、观测
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;一个项目可以内置多层，也可以把部分能力交给生态。选型时应先问团队需要哪几层，而不是只比较项目名。&lt;/p&gt;
+&lt;h2 id=&#34;七agent-框架解决的不是-rpc-问题&#34;&gt;七、Agent 框架解决的不是 RPC 问题
+&lt;/h2&gt;&lt;p&gt;大语言模型只会根据输入生成输出。要让它完成一个工程任务，还需要有人组织：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;本轮使用哪个模型；&lt;/li&gt;
+&lt;li&gt;能看到哪些工具；&lt;/li&gt;
+&lt;li&gt;工具怎样执行以及谁来批准；&lt;/li&gt;
+&lt;li&gt;多轮消息和状态保存在哪里；&lt;/li&gt;
+&lt;li&gt;中间进度怎样送给调用方；&lt;/li&gt;
+&lt;li&gt;报告和其他产物怎样保存；&lt;/li&gt;
+&lt;li&gt;失败后是终止、重试还是转人工。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;这正是 Agent 框架处理的问题。tRPC-Agent-Go 官方文档列出的核心模块包括 Agent、Runner、Model、Tool、Session、Memory、Knowledge、Planner、CodeExecutor 和可观测性。&lt;/p&gt;
+&lt;p&gt;可以先用下面这组简化定义建立概念：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;组件&lt;/th&gt;
+					&lt;th&gt;初学者可以怎样理解&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Agent&lt;/td&gt;
+					&lt;td&gt;接收一次任务并产生事件的执行单元&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Runner&lt;/td&gt;
+					&lt;td&gt;创建运行上下文，驱动 Agent，连接会话、产物等服务&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Model&lt;/td&gt;
+					&lt;td&gt;对不同大模型 Provider 的统一调用抽象&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Tool&lt;/td&gt;
+					&lt;td&gt;Agent 能调用的外部能力，例如搜索、文件或代码执行&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Skill&lt;/td&gt;
+					&lt;td&gt;可加载的说明、资源和脚本组成的复用任务包&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Session / Memory&lt;/td&gt;
+					&lt;td&gt;保存当前会话与更长期的信息&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Event&lt;/td&gt;
+					&lt;td&gt;把开始、中间步骤、错误和结果变成统一消息&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Artifact&lt;/td&gt;
+					&lt;td&gt;报告、文件等可版本化运行产物&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Telemetry&lt;/td&gt;
+					&lt;td&gt;trace、metric 和异常等运行观测数据&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;这些组件可以运行在一个本地进程里。是否通过 RPC 暴露给其他服务，是另一层部署选择。&lt;/p&gt;
+&lt;h2 id=&#34;八trpc-与-trpc-agent-go-是什么关系&#34;&gt;八、tRPC 与 tRPC-Agent-Go 是什么关系
+&lt;/h2&gt;&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/trpc-group/trpc-agent-go/blob/main/docs/mkdocs/zh/blog/trpcagentgo.md&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;tRPC-Agent-Go 的官方介绍&lt;/a&gt;提到，它面向 Go Agent 应用，并考虑与已有 tRPC 微服务结合；框架设计也沿用了插件化思路。&lt;/p&gt;
+&lt;p&gt;但“同一生态、设计思路相关”不等于“同一个运行时”或“必须依赖 tRPC-Go”。从当前源码可以确认：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;code&gt;trpc-agent-go&lt;/code&gt; 是独立的 Go module。&lt;/li&gt;
+&lt;li&gt;它的根 &lt;code&gt;go.mod&lt;/code&gt; 没有直接依赖传统 &lt;code&gt;trpc-go/trpc-go&lt;/code&gt; RPC 框架。&lt;/li&gt;
+&lt;li&gt;Agent、Runner、Tool 和 Event 可以在同一个进程中运行。&lt;/li&gt;
+&lt;li&gt;是否再包装成 HTTP、A2A 或传统 tRPC 服务，由应用部署方式决定。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;它们的职责可以这样分开：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;7
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;8
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;传统 tRPC 调用
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;服务 A --序列化 / 网络 / RPC--&amp;gt; 服务 B
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;tRPC-Agent-Go 应用
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;用户输入 -&amp;gt; Runner -&amp;gt; Agent -&amp;gt; Model / Tool / Workflow
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;二者结合时
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;RPC 服务入口 -&amp;gt; Runner -&amp;gt; Agent -&amp;gt; Tool -&amp;gt; 其他本地或远程系统
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;因此下面几句话都是错误的：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;“Runner 就是 tRPC server。”&lt;/li&gt;
+&lt;li&gt;“用了 tRPC-Agent-Go 就必须部署 tRPC 服务。”&lt;/li&gt;
+&lt;li&gt;“Agent 调模型时走的一定是 tRPC 协议。”&lt;/li&gt;
+&lt;li&gt;“tRPC-Agent-Go 是在 tRPC-Go 上加了一层提示词。”&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;准确说法是：tRPC-Go 是 RPC/微服务框架；tRPC-Agent-Go 是 Agent 应用框架。它们可以组合，但前者不是后者本地运行的必经链路。&lt;/p&gt;
+&lt;h2 id=&#34;九为什么-code_review_agent-没有-trpc-网络调用&#34;&gt;九、为什么 &lt;code&gt;code_review_agent&lt;/code&gt; 没有 tRPC 网络调用
+&lt;/h2&gt;&lt;p&gt;&lt;code&gt;examples/code_review_agent&lt;/code&gt; 是理解这条边界的好例子。它的真实入口是本地 CLI：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;命令行参数
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 本地创建 review Agent
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 本地 Runner adapter
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 固定代码评审工作流
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; 本地报告和 SQLite
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;源码证据包括：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;示例 &lt;code&gt;go.mod&lt;/code&gt; 直接依赖 &lt;code&gt;trpc-agent-go&lt;/code&gt;，没有依赖传统 &lt;code&gt;trpc-go&lt;/code&gt; RPC 框架。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;cmd/review-agent&lt;/code&gt; 在本地解析参数并直接调用 &lt;code&gt;cragent.New&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;reviewRunnerAgent&lt;/code&gt; 把固定的 &lt;code&gt;runDirect&lt;/code&gt; 流水线适配成框架 &lt;code&gt;agent.Agent&lt;/code&gt; 接口。&lt;/li&gt;
+&lt;li&gt;这个 adapter 的 &lt;code&gt;Tools()&lt;/code&gt; 和 &lt;code&gt;SubAgents()&lt;/code&gt; 返回空；模型不是这里的工具调度器。&lt;/li&gt;
+&lt;li&gt;示例没有创建 tRPC client、tRPC server，也没有通过 tRPC 协议把 diff 发给远端服务。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这不影响它使用 tRPC-Agent-Go 的 Runner、Event、Skill Tool、CodeExecutor、Artifact 和 Telemetry。使用 Agent 框架组件与使用 RPC 网络协议是两件独立的事。&lt;/p&gt;
+&lt;p&gt;如果未来要把它服务化，可以在外层增加：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;tRPC-Agent-Go 提供的 HTTP API；&lt;/li&gt;
+&lt;li&gt;A2A 服务；&lt;/li&gt;
+&lt;li&gt;团队自己的 HTTP API；&lt;/li&gt;
+&lt;li&gt;传统 tRPC 服务接口。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;那时网络协议、鉴权、租户隔离、请求大小和远程取消都会成为新增设计问题。当前示例没有实现这些能力，面试中不能把“可以扩展”说成“已经具备”。&lt;/p&gt;
+&lt;p&gt;CR Agent 的真实源码链路、&lt;code&gt;hunk&lt;/code&gt;、&lt;code&gt;dry-run&lt;/code&gt;、Skill、沙箱和审计设计，见下一篇：&lt;a class=&#34;link&#34; href=&#34;https://skylm.top/p/trpc-agent-go-code-review-agent/&#34; &gt;《tRPC-Agent-Go 源码导读：如何构建一个可审计的 Go 自动代码评审 Agent》&lt;/a&gt;。&lt;/p&gt;
+&lt;h2 id=&#34;十面试时怎样回答&#34;&gt;十、面试时怎样回答
+&lt;/h2&gt;&lt;h3 id=&#34;1-rpc-和本地调用最本质的区别是什么&#34;&gt;1. RPC 和本地调用最本质的区别是什么？
+&lt;/h3&gt;&lt;p&gt;本地调用共享同一进程的内存和调用栈；RPC 跨进程甚至跨机器，必须经过序列化和网络。调用方还要处理超时、部分失败、重试、幂等和版本兼容，这些失败语义无法被完全隐藏。&lt;/p&gt;
+&lt;h3 id=&#34;2-idl-和-stub-分别解决什么问题&#34;&gt;2. IDL 和 Stub 分别解决什么问题？
+&lt;/h3&gt;&lt;p&gt;IDL 是语言无关的接口合同，描述服务、方法和消息；生成器根据 IDL 产生客户端和服务端 Stub。客户端 Stub 把方法调用变成网络请求，服务端 Stub 把请求分发给业务 handler。&lt;/p&gt;
+&lt;h3 id=&#34;3-为什么超时后不能直接重试&#34;&gt;3. 为什么超时后不能直接重试？
+&lt;/h3&gt;&lt;p&gt;超时只说明客户端没有按时收到响应，不说明服务端没有执行。非幂等操作直接重试可能造成重复扣款或重复创建，需要幂等键、状态查询或业务补偿。&lt;/p&gt;
+&lt;h3 id=&#34;4-trpc-与-grpc-的区别怎样回答才稳妥&#34;&gt;4. tRPC 与 gRPC 的区别怎样回答才稳妥？
+&lt;/h3&gt;&lt;p&gt;先按层比较，不做笼统排名。tRPC-Go 强调 Go 工程中的可插拔 RPC 框架和 tRPC 生态；gRPC 通常以 Protobuf IDL、跨语言生成和 HTTP/2 RPC 语义为核心。最终选择还取决于现有生态、治理平台、语言分布和协议合同。&lt;/p&gt;
+&lt;h3 id=&#34;5-trpc-agent-go-是否基于-trpc-go-才能运行&#34;&gt;5. tRPC-Agent-Go 是否基于 tRPC-Go 才能运行？
+&lt;/h3&gt;&lt;p&gt;不是。当前 &lt;code&gt;trpc-agent-go&lt;/code&gt; 是独立 module，Agent 和 Runner 可以在本地进程运行。它和 tRPC 属于同一生态，设计上重视插件化和服务集成，但传统 tRPC RPC 不是其本地执行链的必经步骤。&lt;/p&gt;
+&lt;h3 id=&#34;6-code_review_agent-为什么叫-trpc-agent-go-示例却没有-trpc-调用&#34;&gt;6. &lt;code&gt;code_review_agent&lt;/code&gt; 为什么叫 tRPC-Agent-Go 示例，却没有 tRPC 调用？
+&lt;/h3&gt;&lt;p&gt;因为它使用的是 tRPC-Agent-Go 的 Agent 应用组件，而不是传统 tRPC-Go 的网络 client/server。它证明的是如何用 Runner、Event、Skill、CodeExecutor 和 Artifact 组织代码评审，不是如何实现一个 RPC 服务。&lt;/p&gt;
+&lt;h2 id=&#34;十一术语表&#34;&gt;十一、术语表
+&lt;/h2&gt;&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;术语&lt;/th&gt;
+					&lt;th&gt;简明解释&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;RPC&lt;/td&gt;
+					&lt;td&gt;一个进程通过网络调用另一个进程提供的方法&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;IDL&lt;/td&gt;
+					&lt;td&gt;描述服务、方法、请求和响应的接口定义语言&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Serialization&lt;/td&gt;
+					&lt;td&gt;把本地对象编码成可传输字节，即序列化&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Stub&lt;/td&gt;
+					&lt;td&gt;根据接口合同生成或实现的本地代理与服务端适配代码&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Handler&lt;/td&gt;
+					&lt;td&gt;真正处理请求的业务函数&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Codec&lt;/td&gt;
+					&lt;td&gt;编码和解码消息的组件&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Transport&lt;/td&gt;
+					&lt;td&gt;建立连接、发送和接收字节的传输层&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Timeout&lt;/td&gt;
+					&lt;td&gt;调用方最多等待的时间&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Deadline&lt;/td&gt;
+					&lt;td&gt;整条调用链必须完成的最晚时间点&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Idempotency&lt;/td&gt;
+					&lt;td&gt;同一请求执行多次与执行一次具有相同业务效果，即幂等性&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Service discovery&lt;/td&gt;
+					&lt;td&gt;客户端寻找可用服务实例的机制，即服务发现&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Agent&lt;/td&gt;
+					&lt;td&gt;接收任务、组织模型或工具并产生结果的执行单元&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Runner&lt;/td&gt;
+					&lt;td&gt;创建运行上下文并驱动 Agent 的组件&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Tool&lt;/td&gt;
+					&lt;td&gt;Agent 可以调用的受控外部能力&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Artifact&lt;/td&gt;
+					&lt;td&gt;报告、文件等运行产物&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Telemetry&lt;/td&gt;
+					&lt;td&gt;trace、metric、日志等运行观测信息&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;参考资料&#34;&gt;参考资料
+&lt;/h2&gt;&lt;ul&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/trpc-group/trpc-go&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;tRPC-Go 官方仓库&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/trpc-group/trpc-agent-go&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;tRPC-Agent-Go 官方仓库&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/trpc-group/trpc-agent-go/blob/main/docs/mkdocs/zh/blog/trpcagentgo.md&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;tRPC-Agent-Go 官方框架介绍&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://grpc.io/docs/what-is-grpc/introduction/&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;gRPC Introduction&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://dubbo.apache.org/en/overview/what/overview/&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;Apache Dubbo Overview&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a class=&#34;link&#34; href=&#34;https://thrift.apache.org/docs/concepts&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
+    &gt;Apache Thrift Concepts&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&#34;结语&#34;&gt;结语
+&lt;/h2&gt;&lt;p&gt;RPC 把远程服务能力包装成接近本地方法的调用，但序列化、网络和分布式失败始终存在。tRPC-Go、gRPC、Dubbo 和 Thrift 都在解决这类问题，只是覆盖层次和生态重心不同。&lt;/p&gt;
+&lt;p&gt;tRPC-Agent-Go 解决的是另一类问题：怎样把 Agent、模型、工具、状态、事件和产物组织成可运行的应用。两者可以组合，但不应混为一谈。先守住这条边界，再读具体 Agent 示例，才不会把一个本地工作流误讲成 RPC 服务。&lt;/p&gt;
+</description>
+        </item>
+        
+    </channel>
+</rss>

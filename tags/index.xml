@@ -7,7 +7,63 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en-us</language>
         <copyright>Skylm</copyright>
-        <lastBuildDate>Thu, 13 Aug 2026 00:00:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Sat, 15 Aug 2026 10:00:00 +0800</lastBuildDate><atom:link href="https://skylm.top/tags/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Agent</title>
+        <link>https://skylm.top/tags/agent/</link>
+        <pubDate>Sat, 15 Aug 2026 10:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/tags/agent/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>Dubbo</title>
+        <link>https://skylm.top/tags/dubbo/</link>
+        <pubDate>Sat, 15 Aug 2026 10:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/tags/dubbo/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>GRPC</title>
+        <link>https://skylm.top/tags/grpc/</link>
+        <pubDate>Sat, 15 Aug 2026 10:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/tags/grpc/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>RPC</title>
+        <link>https://skylm.top/tags/rpc/</link>
+        <pubDate>Sat, 15 Aug 2026 10:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/tags/rpc/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>Thrift</title>
+        <link>https://skylm.top/tags/thrift/</link>
+        <pubDate>Sat, 15 Aug 2026 10:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/tags/thrift/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>TRPC</title>
+        <link>https://skylm.top/tags/trpc/</link>
+        <pubDate>Sat, 15 Aug 2026 10:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/tags/trpc/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>TRPC-Agent-Go</title>
+        <link>https://skylm.top/tags/trpc-agent-go/</link>
+        <pubDate>Sat, 15 Aug 2026 10:00:00 +0800</pubDate>
+        
+        <guid>https://skylm.top/tags/trpc-agent-go/</guid>
+        <description></description>
+        </item>
+        <item>
         <title>Apache Dubbo</title>
         <link>https://skylm.top/tags/apache-dubbo/</link>
         <pubDate>Thu, 13 Aug 2026 00:00:00 +0800</pubDate>
@@ -21,14 +77,6 @@
         <pubDate>Thu, 13 Aug 2026 00:00:00 +0800</pubDate>
         
         <guid>https://skylm.top/tags/go/</guid>
-        <description></description>
-        </item>
-        <item>
-        <title>GRPC</title>
-        <link>https://skylm.top/tags/grpc/</link>
-        <pubDate>Thu, 13 Aug 2026 00:00:00 +0800</pubDate>
-        
-        <guid>https://skylm.top/tags/grpc/</guid>
         <description></description>
         </item>
         <item>
@@ -64,27 +112,11 @@
         <description></description>
         </item>
         <item>
-        <title>Agent</title>
-        <link>https://skylm.top/tags/agent/</link>
-        <pubDate>Tue, 11 Aug 2026 15:00:00 +0800</pubDate>
-        
-        <guid>https://skylm.top/tags/agent/</guid>
-        <description></description>
-        </item>
-        <item>
         <title>Code Review</title>
         <link>https://skylm.top/tags/code-review/</link>
         <pubDate>Tue, 11 Aug 2026 15:00:00 +0800</pubDate>
         
         <guid>https://skylm.top/tags/code-review/</guid>
-        <description></description>
-        </item>
-        <item>
-        <title>TRPC-Agent-Go</title>
-        <link>https://skylm.top/tags/trpc-agent-go/</link>
-        <pubDate>Tue, 11 Aug 2026 15:00:00 +0800</pubDate>
-        
-        <guid>https://skylm.top/tags/trpc-agent-go/</guid>
         <description></description>
         </item>
         <item>

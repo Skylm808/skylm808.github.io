@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="tRPC 基础与 tRPC-Agent-Go 关系：从 RPC 到 Agent 框架 第一次看到 tRPC-Agent-Go 这个名字时，很容易产生一个误解：它是不是用 tRPC 发请求的 Agent？是不是必须先启动一个 tRPC 服务？\n答案都是否定的。要把它讲清楚，必须先拆开两个问题：\n">
+<title>tRPC 基础与 tRPC-Agent-Go 关系：从 RPC 到 Agent 框架</title>
+
+<link rel='canonical' href='https://skylm.top/p/trpc-and-trpc-agent-go-basics/'>
+
+<link rel="stylesheet" href="/scss/style.min.983f0466b0b9003b179a294e0065d6b95cf7526e75ff2ef96e064a821493297d.css"><meta property='og:title' content="tRPC 基础与 tRPC-Agent-Go 关系：从 RPC 到 Agent 框架">
+<meta property='og:description' content="tRPC 基础与 tRPC-Agent-Go 关系：从 RPC 到 Agent 框架 第一次看到 tRPC-Agent-Go 这个名字时，很容易产生一个误解：它是不是用 tRPC 发请求的 Agent？是不是必须先启动一个 tRPC 服务？\n答案都是否定的。要把它讲清楚，必须先拆开两个问题：\n">
+<meta property='og:url' content='https://skylm.top/p/trpc-and-trpc-agent-go-basics/'>
+<meta property='og:site_name' content='Skylm'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='tRPC' /><meta property='article:tag' content='tRPC-Agent-Go' /><meta property='article:tag' content='RPC' /><meta property='article:tag' content='gRPC' /><meta property='article:tag' content='Dubbo' /><meta property='article:tag' content='Thrift' /><meta property='article:tag' content='Agent' /><meta property='article:published_time' content='2026-08-15T10:00:00&#43;08:00'/><meta property='article:modified_time' content='2026-08-15T10:00:00&#43;08:00'/>
+<meta name="twitter:title" content="tRPC 基础与 tRPC-Agent-Go 关系：从 RPC 到 Agent 框架">
+<meta name="twitter:description" content="tRPC 基础与 tRPC-Agent-Go 关系：从 RPC 到 Agent 框架 第一次看到 tRPC-Agent-Go 这个名字时，很容易产生一个误解：它是不是用 tRPC 发请求的 Agent？是不是必须先启动一个 tRPC 服务？\n答案都是否定的。要把它讲清楚，必须先拆开两个问题：\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu_43bf11ea60daaaa7.jpg" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🤩</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">Skylm</a></h1>
+            <h2 class="site-description">人生得意须尽欢</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://github.com/Skylm808'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/categories/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+                
+                <span>分类</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>归档</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>搜索</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>友链</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#一本地函数调用发生了什么">一、本地函数调用发生了什么</a></li>
+    <li><a href="#二一次-rpc-怎样走完">二、一次 RPC 怎样走完</a>
+      <ol>
+        <li><a href="#1-序列化不是转成-json这么简单">1. 序列化不是“转成 JSON”这么简单</a></li>
+        <li><a href="#2-idl-是双方共享的接口合同">2. IDL 是双方共享的接口合同</a></li>
+        <li><a href="#3-stub-为什么让远程调用看起来像本地调用">3. Stub 为什么让远程调用看起来像本地调用</a></li>
+        <li><a href="#4-server-不只是一个函数">4. Server 不只是一个函数</a></li>
+      </ol>
+    </li>
+    <li><a href="#三网络失败为什么比普通-error-难">三、网络失败为什么比普通 error 难</a></li>
+    <li><a href="#四接口升级为什么需要兼容性">四、接口升级为什么需要兼容性</a></li>
+    <li><a href="#五trpc-和-trpc-go-到底是什么">五、tRPC 和 tRPC-Go 到底是什么</a></li>
+    <li><a href="#六trpcgrpcdubbothrift-怎么比较">六、tRPC、gRPC、Dubbo、Thrift 怎么比较</a>
+      <ol>
+        <li><a href="#不要把协议框架和治理平台混成一层">不要把协议、框架和治理平台混成一层</a></li>
+      </ol>
+    </li>
+    <li><a href="#七agent-框架解决的不是-rpc-问题">七、Agent 框架解决的不是 RPC 问题</a></li>
+    <li><a href="#八trpc-与-trpc-agent-go-是什么关系">八、tRPC 与 tRPC-Agent-Go 是什么关系</a></li>
+    <li><a href="#九为什么-code_review_agent-没有-trpc-网络调用">九、为什么 <code>code_review_agent</code> 没有 tRPC 网络调用</a></li>
+    <li><a href="#十面试时怎样回答">十、面试时怎样回答</a>
+      <ol>
+        <li><a href="#1-rpc-和本地调用最本质的区别是什么">1. RPC 和本地调用最本质的区别是什么？</a></li>
+        <li><a href="#2-idl-和-stub-分别解决什么问题">2. IDL 和 Stub 分别解决什么问题？</a></li>
+        <li><a href="#3-为什么超时后不能直接重试">3. 为什么超时后不能直接重试？</a></li>
+        <li><a href="#4-trpc-与-grpc-的区别怎样回答才稳妥">4. tRPC 与 gRPC 的区别怎样回答才稳妥？</a></li>
+        <li><a href="#5-trpc-agent-go-是否基于-trpc-go-才能运行">5. tRPC-Agent-Go 是否基于 tRPC-Go 才能运行？</a></li>
+        <li><a href="#6-code_review_agent-为什么叫-trpc-agent-go-示例却没有-trpc-调用">6. <code>code_review_agent</code> 为什么叫 tRPC-Agent-Go 示例，却没有 tRPC 调用？</a></li>
+      </ol>
+    </li>
+    <li><a href="#十一术语表">十一、术语表</a></li>
+    <li><a href="#参考资料">参考资料</a></li>
+    <li><a href="#结语">结语</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/ai/" >
+                AI
+            </a>
+        
+            <a href="/categories/%E5%BC%80%E6%BA%90/" >
+                开源
+            </a>
+        
+            <a href="/categories/go/" >
+                Go
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/trpc-and-trpc-agent-go-basics/">tRPC 基础与 tRPC-Agent-Go 关系：从 RPC 到 Agent 框架</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Aug 15, 2026</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 13 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="trpc-基础与-trpc-agent-go-关系从-rpc-到-agent-框架">tRPC 基础与 tRPC-Agent-Go 关系：从 RPC 到 Agent 框架
+</h1><p>第一次看到 <code>tRPC-Agent-Go</code> 这个名字时，很容易产生一个误解：它是不是用 tRPC 发请求的 Agent？是不是必须先启动一个 tRPC 服务？</p>
+<p>答案都是否定的。要把它讲清楚，必须先拆开两个问题：</p>
+<ol>
+<li>RPC 解决的是“一个进程怎样调用另一个进程的能力”。</li>
+<li>Agent 框架解决的是“模型、工具、状态和工作流怎样组织成一个应用”。</li>
+</ol>
+<p>本文先从一次普通 Go 函数调用讲起，再解释 RPC、tRPC、主流 RPC 框架，最后回到 tRPC-Agent-Go。读完后，你应该能够说明：为什么二者名字相近、设计上有什么联系，以及为什么 <code>code_review_agent</code> 可以完全不走 tRPC 网络调用。</p>
+<h2 id="一本地函数调用发生了什么">一、本地函数调用发生了什么
+</h2><p>先看一个最普通的 Go 函数：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">func</span> <span style="color:#50fa7b">Add</span>(a, b <span style="color:#8be9fd">int</span>) <span style="color:#8be9fd">int</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">return</span> a <span style="color:#ff79c6">+</span> b
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>sum <span style="color:#ff79c6">:=</span> <span style="color:#50fa7b">Add</span>(<span style="color:#bd93f9">1</span>, <span style="color:#bd93f9">2</span>)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>调用方和 <code>Add</code> 在同一个进程里。程序知道函数入口、参数类型和返回类型，可以直接把参数交给函数，再拿回结果。这个过程不需要把 <code>1</code> 和 <code>2</code> 编码成网络消息，也不需要考虑另一台机器是否宕机。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>同一个进程
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>调用方 -&gt; Add(1, 2) -&gt; 3
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>如果 <code>Add</code> 在另一台机器上的“计算服务”中，调用方就不能直接跳转到它的函数地址。两个进程拥有各自的内存，机器之间只能通过网络交换字节。于是一次看似简单的调用会被展开：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>调用方
+</span></span><span style="display:flex;"><span>  -&gt; 把“调用 Add，参数是 1 和 2”编码成字节
+</span></span><span style="display:flex;"><span>  -&gt; 通过网络发给服务端
+</span></span><span style="display:flex;"><span>  -&gt; 服务端解码请求
+</span></span><span style="display:flex;"><span>  -&gt; 调用真正的 Add
+</span></span><span style="display:flex;"><span>  -&gt; 把结果 3 编码后发回
+</span></span><span style="display:flex;"><span>  -&gt; 调用方解码得到 3
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>RPC 是 Remote Procedure Call 的缩写，中文通常译作“远程过程调用”。它的目标是让远程调用在代码写法上接近本地函数调用，同时由框架处理编码、传输、寻址、超时和错误等工作。</p>
+<p>注意“接近”这两个字。远程调用永远不会真的等同于本地调用，因为网络会引入本地调用没有的失败方式。</p>
+<h2 id="二一次-rpc-怎样走完">二、一次 RPC 怎样走完
+</h2><p>把客户端到服务端的路径完整展开，可以分成九步：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>1. 业务代码调用 client stub
+</span></span><span style="display:flex;"><span>2. stub 根据接口定义组装请求
+</span></span><span style="display:flex;"><span>3. serializer 把请求对象编码成字节
+</span></span><span style="display:flex;"><span>4. transport 通过网络发送字节
+</span></span><span style="display:flex;"><span>5. server 收到并解码请求
+</span></span><span style="display:flex;"><span>6. server stub 找到对应的 handler
+</span></span><span style="display:flex;"><span>7. handler 执行业务逻辑
+</span></span><span style="display:flex;"><span>8. 服务端编码并返回响应
+</span></span><span style="display:flex;"><span>9. 客户端解码响应或得到错误
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>其中几个名词需要分别理解。</p>
+<h3 id="1-序列化不是转成-json这么简单">1. 序列化不是“转成 JSON”这么简单
+</h3><p>网络传输的是字节，而不是 Go 的 <code>struct</code>、Java 的对象或 Python 的字典。<strong>序列化</strong>就是把内存中的结构化数据编码成约定的字节格式；<strong>反序列化</strong>则把字节还原为本地对象。</p>
+<p>例如下面的逻辑对象：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>AddRequest{A: 1, B: 2}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>可以编码成 JSON，也可以编码成 Protobuf、Thrift Binary 等二进制格式。双方必须对字段编号、类型和编码规则达成一致，否则服务端无法正确解释收到的字节。</p>
+<h3 id="2-idl-是双方共享的接口合同">2. IDL 是双方共享的接口合同
+</h3><p>IDL 是 Interface Definition Language，即“接口定义语言”。它不负责实现业务，只描述服务有哪些方法、每个方法接收什么、返回什么。</p>
+<p>以 Protobuf 风格为例：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-proto" data-lang="proto"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">service</span> Calculator {
+</span></span><span style="display:flex;"><span>  <span style="color:#8be9fd;font-style:italic">rpc</span> Add(AddRequest) <span style="color:#ff79c6">returns</span> (AddReply);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">message</span> <span style="color:#50fa7b">AddRequest</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#8be9fd">int32</span> a <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#8be9fd">int32</span> b <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">2</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">message</span> <span style="color:#50fa7b">AddReply</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#8be9fd">int32</span> sum <span style="color:#ff79c6">=</span> <span style="color:#bd93f9">1</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>生成器可以据此产生客户端和服务端代码。这样 Go 客户端和 Java 服务端不必手写同一套消息解析逻辑，它们共同遵守 IDL 定义的协议合同。</p>
+<p>IDL 也不等于某一种序列化格式。不同框架对 IDL、协议和序列化的绑定程度不同；比较 RPC 框架时要把这三层分开。</p>
+<h3 id="3-stub-为什么让远程调用看起来像本地调用">3. Stub 为什么让远程调用看起来像本地调用
+</h3><p><strong>客户端 Stub</strong> 是本地代理。业务代码调用它的 <code>Add</code> 方法，它在内部构造请求、编码、发送并等待响应：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>reply, err <span style="color:#ff79c6">:=</span> calculatorClient.<span style="color:#50fa7b">Add</span>(ctx, <span style="color:#ff79c6">&amp;</span>AddRequest{A: <span style="color:#bd93f9">1</span>, B: <span style="color:#bd93f9">2</span>})
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这行代码看起来像普通方法调用，但 <code>err</code> 可能表示序列化失败、连接失败、超时、服务端错误或响应无法解码。</p>
+<p><strong>服务端 Stub</strong> 接收网络消息，根据服务名和方法名找到真正的业务实现。真正做加法的是业务 handler；Stub 只是协议和业务之间的适配层。</p>
+<h3 id="4-server-不只是一个函数">4. Server 不只是一个函数
+</h3><p>RPC server 通常还要负责监听端口、连接管理、请求分发、并发控制、超时传播、拦截器或过滤器、日志、指标和优雅退出。框架的价值不只是“帮你发一个包”，还包括把这些通用能力组织起来。</p>
+<h2 id="三网络失败为什么比普通-error-难">三、网络失败为什么比普通 error 难
+</h2><p>本地调用返回错误时，调用方通常知道函数已经结束。RPC 超时时却可能出现一种典型歧义：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>客户端发出“扣款 100 元”
+</span></span><span style="display:flex;"><span>  -&gt; 服务端已经扣款
+</span></span><span style="display:flex;"><span>  -&gt; 返回包在网络中丢失
+</span></span><span style="display:flex;"><span>  -&gt; 客户端看到 timeout
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>客户端只知道“规定时间内没有收到结果”，不知道服务端到底有没有执行。此时直接重试，可能扣款两次。</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>失败现象</th>
+					<th>仅凭客户端能否确定服务端状态</th>
+					<th>常见处理思路</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>建连失败</td>
+					<td>通常可以认为请求尚未送达，但仍需结合传输实现</td>
+					<td>服务发现、退避重试、快速失败</td>
+			</tr>
+			<tr>
+					<td>请求超时</td>
+					<td>不能确定服务端是否已经执行</td>
+					<td>deadline、幂等键、状态查询</td>
+			</tr>
+			<tr>
+					<td>服务端明确返回错误</td>
+					<td>知道服务端处理过请求，但要区分业务错误和系统错误</td>
+					<td>结构化错误码、决定是否重试</td>
+			</tr>
+			<tr>
+					<td>响应解码失败</td>
+					<td>服务端可能已经成功执行</td>
+					<td>协议兼容检查、告警、避免盲目重试</td>
+			</tr>
+			<tr>
+					<td>部分批量操作成功</td>
+					<td>整体成功或失败都不足以描述结果</td>
+					<td>返回逐项状态、补偿或对账</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>这里还有三个经常一起出现的概念：</p>
+<ul>
+<li><strong>Timeout</strong>：调用方最多愿意等待多久。</li>
+<li><strong>Deadline</strong>：这次请求最晚必须在什么时间前完成，应该沿调用链向下传递。</li>
+<li><strong>Idempotency</strong>：同一个请求执行一次或多次，最终业务效果相同。幂等是安全重试的重要前提。</li>
+</ul>
+<p>因此，“RPC 框架支持自动重试”不是越多越好。重试次数、退避策略、是否幂等和剩余 deadline 必须一起设计，否则一次小故障可能被放大为重试风暴。</p>
+<h2 id="四接口升级为什么需要兼容性">四、接口升级为什么需要兼容性
+</h2><p>微服务不可能让所有客户端和服务端在同一毫秒升级。发布过程中经常存在：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>旧客户端 -&gt; 新服务端
+</span></span><span style="display:flex;"><span>新客户端 -&gt; 旧服务端
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>兼容性因此包含两层：</p>
+<ol>
+<li><strong>结构兼容</strong>：新增字段、未知字段、字段编号和默认值能否正确处理。</li>
+<li><strong>语义兼容</strong>：字段含义、错误码和业务约束有没有改变。</li>
+</ol>
+<p>结构上能够解码，不代表语义上一定兼容。例如把 <code>timeout_seconds=0</code> 从“使用默认值”改成“永不超时”，旧客户端虽然没有解析错误，行为却已经改变。</p>
+<p>面试中被问“为什么要 IDL”时，不要只回答“为了生成代码”。更完整的回答是：IDL 提供跨语言接口合同、生成 Stub、约束消息结构，并为滚动升级和兼容性审查提供稳定依据。</p>
+<h2 id="五trpc-和-trpc-go-到底是什么">五、tRPC 和 tRPC-Go 到底是什么
+</h2><p><a class="link" href="https://github.com/trpc-group/trpc-go"  target="_blank" rel="noopener"
+    >tRPC-Go 官方仓库</a>将自己描述为 tRPC 的 Go 语言实现，并将 tRPC 定位为可插拔的高性能 RPC 框架。这里需要区分三个名称：</p>
+<ul>
+<li><strong>tRPC</strong>：整个 RPC 框架和开源生态的名称。</li>
+<li><strong>tRPC 协议</strong>：框架可以使用的一种通信协议。</li>
+<li><strong>tRPC-Go</strong>：tRPC 的 Go 语言实现。</li>
+</ul>
+<p>tRPC-Go 不只是一个固定的线协议。官方 README 列出的核心特点包括：</p>
+<ol>
+<li>一个进程可以启动多个服务并监听多个地址。</li>
+<li>组件通过接口做成可替换插件。</li>
+<li>默认支持 tRPC 和 HTTP 协议，也允许通过 <code>codec</code> 接入第三方协议。</li>
+<li>提供代码生成工具及过滤器、数据库等生态插件。</li>
+</ol>
+<p>所以更准确的心智模型是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>tRPC-Go
+</span></span><span style="display:flex;"><span>├── 服务启动与生命周期
+</span></span><span style="display:flex;"><span>├── 协议和编解码 codec
+</span></span><span style="display:flex;"><span>├── client / server 调用
+</span></span><span style="display:flex;"><span>├── filter 拦截链
+</span></span><span style="display:flex;"><span>├── 注册发现、配置和治理接入
+</span></span><span style="display:flex;"><span>└── 日志、指标、追踪等工程能力
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>“可插拔”意味着框架定义稳定接口，具体协议、编解码、过滤器或外围组件可以替换；它不意味着任意两种协议天然互通。客户端和服务端仍然必须选择兼容的协议与消息合同。</p>
+<p>本文不比较吞吐量或延迟。没有同一硬件、相同消息、相同连接模型和相同调优条件下的基准数据，单独说某个框架“更快”没有意义。</p>
+<h2 id="六trpcgrpcdubbothrift-怎么比较">六、tRPC、gRPC、Dubbo、Thrift 怎么比较
+</h2><p>下面比较的是设计重心和生态，不是排名。每个项目都在持续发展，实际选型应再核对当前版本的官方文档。</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>维度</th>
+					<th>tRPC / tRPC-Go</th>
+					<th>gRPC</th>
+					<th>Apache Dubbo</th>
+					<th>Apache Thrift</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>主要语言与生态</td>
+					<td>tRPC 生态；这里重点讨论 Go 实现 tRPC-Go</td>
+					<td>官方支持多种语言，常见于云原生和跨语言服务</td>
+					<td>Java 生态最成熟，也提供 Go、Rust、Node.js 等实现</td>
+					<td>Apache 多语言生态，长期强调跨语言代码生成</td>
+			</tr>
+			<tr>
+					<td>IDL 与序列化</td>
+					<td>取决于采用的协议和 codec，框架本身强调可插拔</td>
+					<td>通常用 <code>.proto</code> 同时定义服务和 Protobuf 消息</td>
+					<td>Triple 可采用 Protobuf IDL，也支持 Java 接口等开发方式</td>
+					<td>用 <code>.thrift</code> IDL，提供多种传输、协议和类型映射</td>
+			</tr>
+			<tr>
+					<td>协议特点</td>
+					<td>默认支持 tRPC、HTTP，可通过 codec 扩展第三方协议</td>
+					<td>gRPC 语义通常运行在 HTTP/2 之上，支持 unary 和 streaming</td>
+					<td>支持 Triple、Dubbo2、REST 等协议</td>
+					<td>传输层、协议层和处理器分层组合</td>
+			</tr>
+			<tr>
+					<td>服务治理</td>
+					<td>tRPC-Go 通过插件和生态接入 filter、发现、配置、观测等能力</td>
+					<td>核心提供 RPC、拦截器、负载均衡等机制，治理常与平台或服务网格组合</td>
+					<td>框架重点覆盖发现、流量管理、配置、可观测性和控制台</td>
+					<td>核心更集中在 IDL、代码生成、传输和序列化，治理通常由外部系统补充</td>
+			</tr>
+			<tr>
+					<td>跨语言</td>
+					<td>要看对应语言实现及双方选用的协议，不能只凭 tRPC-Go 推断</td>
+					<td>是核心优势之一，同一 <code>.proto</code> 可生成多语言 Stub</td>
+					<td>Triple 强调跨语言互通，其他协议取决于相应 SDK</td>
+					<td>是核心设计目标之一</td>
+			</tr>
+			<tr>
+					<td>常见适用场景</td>
+					<td>已采用 tRPC 生态的 Go 微服务、需要替换组件的 RPC 工程</td>
+					<td>跨语言接口、Protobuf 合同、流式 RPC、云原生服务</td>
+					<td>Java 企业微服务、需要完整服务治理的平台</td>
+					<td>多语言服务互调、重视稳定 IDL 或已有 Thrift 资产的系统</td>
+			</tr>
+			<tr>
+					<td>选择重点</td>
+					<td>现有 tRPC 生态、Go 工程集成、插件能力</td>
+					<td>Protobuf/gRPC 生态、跨语言标准、流式能力</td>
+					<td>Dubbo 生态、治理能力、团队 Java 技术栈</td>
+					<td>语言覆盖、IDL 兼容和存量集成</td>
+			</tr>
+	</tbody>
+</table></div>
+<h3 id="不要把协议框架和治理平台混成一层">不要把协议、框架和治理平台混成一层
+</h3><p>面试里最常见的比较错误是：“gRPC 用 HTTP/2，所以它是协议；Dubbo 有注册中心，所以它是框架；两者不能比较。”</p>
+<p>更准确的说法是：这些项目都覆盖 RPC 开发，但边界不同。可以按层比较：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>接口合同：IDL、字段类型、兼容规则
+</span></span><span style="display:flex;"><span>消息编码：Protobuf、Thrift Binary 或其他 codec
+</span></span><span style="display:flex;"><span>传输协议：如何分帧、复用连接、表达状态
+</span></span><span style="display:flex;"><span>运行框架：client/server、拦截器、生命周期
+</span></span><span style="display:flex;"><span>服务治理：发现、路由、限流、配置、观测
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>一个项目可以内置多层，也可以把部分能力交给生态。选型时应先问团队需要哪几层，而不是只比较项目名。</p>
+<h2 id="七agent-框架解决的不是-rpc-问题">七、Agent 框架解决的不是 RPC 问题
+</h2><p>大语言模型只会根据输入生成输出。要让它完成一个工程任务，还需要有人组织：</p>
+<ul>
+<li>本轮使用哪个模型；</li>
+<li>能看到哪些工具；</li>
+<li>工具怎样执行以及谁来批准；</li>
+<li>多轮消息和状态保存在哪里；</li>
+<li>中间进度怎样送给调用方；</li>
+<li>报告和其他产物怎样保存；</li>
+<li>失败后是终止、重试还是转人工。</li>
+</ul>
+<p>这正是 Agent 框架处理的问题。tRPC-Agent-Go 官方文档列出的核心模块包括 Agent、Runner、Model、Tool、Session、Memory、Knowledge、Planner、CodeExecutor 和可观测性。</p>
+<p>可以先用下面这组简化定义建立概念：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>组件</th>
+					<th>初学者可以怎样理解</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Agent</td>
+					<td>接收一次任务并产生事件的执行单元</td>
+			</tr>
+			<tr>
+					<td>Runner</td>
+					<td>创建运行上下文，驱动 Agent，连接会话、产物等服务</td>
+			</tr>
+			<tr>
+					<td>Model</td>
+					<td>对不同大模型 Provider 的统一调用抽象</td>
+			</tr>
+			<tr>
+					<td>Tool</td>
+					<td>Agent 能调用的外部能力，例如搜索、文件或代码执行</td>
+			</tr>
+			<tr>
+					<td>Skill</td>
+					<td>可加载的说明、资源和脚本组成的复用任务包</td>
+			</tr>
+			<tr>
+					<td>Session / Memory</td>
+					<td>保存当前会话与更长期的信息</td>
+			</tr>
+			<tr>
+					<td>Event</td>
+					<td>把开始、中间步骤、错误和结果变成统一消息</td>
+			</tr>
+			<tr>
+					<td>Artifact</td>
+					<td>报告、文件等可版本化运行产物</td>
+			</tr>
+			<tr>
+					<td>Telemetry</td>
+					<td>trace、metric 和异常等运行观测数据</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>这些组件可以运行在一个本地进程里。是否通过 RPC 暴露给其他服务，是另一层部署选择。</p>
+<h2 id="八trpc-与-trpc-agent-go-是什么关系">八、tRPC 与 tRPC-Agent-Go 是什么关系
+</h2><p><a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/docs/mkdocs/zh/blog/trpcagentgo.md"  target="_blank" rel="noopener"
+    >tRPC-Agent-Go 的官方介绍</a>提到，它面向 Go Agent 应用，并考虑与已有 tRPC 微服务结合；框架设计也沿用了插件化思路。</p>
+<p>但“同一生态、设计思路相关”不等于“同一个运行时”或“必须依赖 tRPC-Go”。从当前源码可以确认：</p>
+<ol>
+<li><code>trpc-agent-go</code> 是独立的 Go module。</li>
+<li>它的根 <code>go.mod</code> 没有直接依赖传统 <code>trpc-go/trpc-go</code> RPC 框架。</li>
+<li>Agent、Runner、Tool 和 Event 可以在同一个进程中运行。</li>
+<li>是否再包装成 HTTP、A2A 或传统 tRPC 服务，由应用部署方式决定。</li>
+</ol>
+<p>它们的职责可以这样分开：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>传统 tRPC 调用
+</span></span><span style="display:flex;"><span>服务 A --序列化 / 网络 / RPC--&gt; 服务 B
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>tRPC-Agent-Go 应用
+</span></span><span style="display:flex;"><span>用户输入 -&gt; Runner -&gt; Agent -&gt; Model / Tool / Workflow
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>二者结合时
+</span></span><span style="display:flex;"><span>RPC 服务入口 -&gt; Runner -&gt; Agent -&gt; Tool -&gt; 其他本地或远程系统
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>因此下面几句话都是错误的：</p>
+<ul>
+<li>“Runner 就是 tRPC server。”</li>
+<li>“用了 tRPC-Agent-Go 就必须部署 tRPC 服务。”</li>
+<li>“Agent 调模型时走的一定是 tRPC 协议。”</li>
+<li>“tRPC-Agent-Go 是在 tRPC-Go 上加了一层提示词。”</li>
+</ul>
+<p>准确说法是：tRPC-Go 是 RPC/微服务框架；tRPC-Agent-Go 是 Agent 应用框架。它们可以组合，但前者不是后者本地运行的必经链路。</p>
+<h2 id="九为什么-code_review_agent-没有-trpc-网络调用">九、为什么 <code>code_review_agent</code> 没有 tRPC 网络调用
+</h2><p><code>examples/code_review_agent</code> 是理解这条边界的好例子。它的真实入口是本地 CLI：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>命令行参数
+</span></span><span style="display:flex;"><span>  -&gt; 本地创建 review Agent
+</span></span><span style="display:flex;"><span>  -&gt; 本地 Runner adapter
+</span></span><span style="display:flex;"><span>  -&gt; 固定代码评审工作流
+</span></span><span style="display:flex;"><span>  -&gt; 本地报告和 SQLite
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>源码证据包括：</p>
+<ol>
+<li>示例 <code>go.mod</code> 直接依赖 <code>trpc-agent-go</code>，没有依赖传统 <code>trpc-go</code> RPC 框架。</li>
+<li><code>cmd/review-agent</code> 在本地解析参数并直接调用 <code>cragent.New</code>。</li>
+<li><code>reviewRunnerAgent</code> 把固定的 <code>runDirect</code> 流水线适配成框架 <code>agent.Agent</code> 接口。</li>
+<li>这个 adapter 的 <code>Tools()</code> 和 <code>SubAgents()</code> 返回空；模型不是这里的工具调度器。</li>
+<li>示例没有创建 tRPC client、tRPC server，也没有通过 tRPC 协议把 diff 发给远端服务。</li>
+</ol>
+<p>这不影响它使用 tRPC-Agent-Go 的 Runner、Event、Skill Tool、CodeExecutor、Artifact 和 Telemetry。使用 Agent 框架组件与使用 RPC 网络协议是两件独立的事。</p>
+<p>如果未来要把它服务化，可以在外层增加：</p>
+<ul>
+<li>tRPC-Agent-Go 提供的 HTTP API；</li>
+<li>A2A 服务；</li>
+<li>团队自己的 HTTP API；</li>
+<li>传统 tRPC 服务接口。</li>
+</ul>
+<p>那时网络协议、鉴权、租户隔离、请求大小和远程取消都会成为新增设计问题。当前示例没有实现这些能力，面试中不能把“可以扩展”说成“已经具备”。</p>
+<p>CR Agent 的真实源码链路、<code>hunk</code>、<code>dry-run</code>、Skill、沙箱和审计设计，见下一篇：<a class="link" href="/p/trpc-agent-go-code-review-agent/" >《tRPC-Agent-Go 源码导读：如何构建一个可审计的 Go 自动代码评审 Agent》</a>。</p>
+<h2 id="十面试时怎样回答">十、面试时怎样回答
+</h2><h3 id="1-rpc-和本地调用最本质的区别是什么">1. RPC 和本地调用最本质的区别是什么？
+</h3><p>本地调用共享同一进程的内存和调用栈；RPC 跨进程甚至跨机器，必须经过序列化和网络。调用方还要处理超时、部分失败、重试、幂等和版本兼容，这些失败语义无法被完全隐藏。</p>
+<h3 id="2-idl-和-stub-分别解决什么问题">2. IDL 和 Stub 分别解决什么问题？
+</h3><p>IDL 是语言无关的接口合同，描述服务、方法和消息；生成器根据 IDL 产生客户端和服务端 Stub。客户端 Stub 把方法调用变成网络请求，服务端 Stub 把请求分发给业务 handler。</p>
+<h3 id="3-为什么超时后不能直接重试">3. 为什么超时后不能直接重试？
+</h3><p>超时只说明客户端没有按时收到响应，不说明服务端没有执行。非幂等操作直接重试可能造成重复扣款或重复创建，需要幂等键、状态查询或业务补偿。</p>
+<h3 id="4-trpc-与-grpc-的区别怎样回答才稳妥">4. tRPC 与 gRPC 的区别怎样回答才稳妥？
+</h3><p>先按层比较，不做笼统排名。tRPC-Go 强调 Go 工程中的可插拔 RPC 框架和 tRPC 生态；gRPC 通常以 Protobuf IDL、跨语言生成和 HTTP/2 RPC 语义为核心。最终选择还取决于现有生态、治理平台、语言分布和协议合同。</p>
+<h3 id="5-trpc-agent-go-是否基于-trpc-go-才能运行">5. tRPC-Agent-Go 是否基于 tRPC-Go 才能运行？
+</h3><p>不是。当前 <code>trpc-agent-go</code> 是独立 module，Agent 和 Runner 可以在本地进程运行。它和 tRPC 属于同一生态，设计上重视插件化和服务集成，但传统 tRPC RPC 不是其本地执行链的必经步骤。</p>
+<h3 id="6-code_review_agent-为什么叫-trpc-agent-go-示例却没有-trpc-调用">6. <code>code_review_agent</code> 为什么叫 tRPC-Agent-Go 示例，却没有 tRPC 调用？
+</h3><p>因为它使用的是 tRPC-Agent-Go 的 Agent 应用组件，而不是传统 tRPC-Go 的网络 client/server。它证明的是如何用 Runner、Event、Skill、CodeExecutor 和 Artifact 组织代码评审，不是如何实现一个 RPC 服务。</p>
+<h2 id="十一术语表">十一、术语表
+</h2><div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>术语</th>
+					<th>简明解释</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>RPC</td>
+					<td>一个进程通过网络调用另一个进程提供的方法</td>
+			</tr>
+			<tr>
+					<td>IDL</td>
+					<td>描述服务、方法、请求和响应的接口定义语言</td>
+			</tr>
+			<tr>
+					<td>Serialization</td>
+					<td>把本地对象编码成可传输字节，即序列化</td>
+			</tr>
+			<tr>
+					<td>Stub</td>
+					<td>根据接口合同生成或实现的本地代理与服务端适配代码</td>
+			</tr>
+			<tr>
+					<td>Handler</td>
+					<td>真正处理请求的业务函数</td>
+			</tr>
+			<tr>
+					<td>Codec</td>
+					<td>编码和解码消息的组件</td>
+			</tr>
+			<tr>
+					<td>Transport</td>
+					<td>建立连接、发送和接收字节的传输层</td>
+			</tr>
+			<tr>
+					<td>Timeout</td>
+					<td>调用方最多等待的时间</td>
+			</tr>
+			<tr>
+					<td>Deadline</td>
+					<td>整条调用链必须完成的最晚时间点</td>
+			</tr>
+			<tr>
+					<td>Idempotency</td>
+					<td>同一请求执行多次与执行一次具有相同业务效果，即幂等性</td>
+			</tr>
+			<tr>
+					<td>Service discovery</td>
+					<td>客户端寻找可用服务实例的机制，即服务发现</td>
+			</tr>
+			<tr>
+					<td>Agent</td>
+					<td>接收任务、组织模型或工具并产生结果的执行单元</td>
+			</tr>
+			<tr>
+					<td>Runner</td>
+					<td>创建运行上下文并驱动 Agent 的组件</td>
+			</tr>
+			<tr>
+					<td>Tool</td>
+					<td>Agent 可以调用的受控外部能力</td>
+			</tr>
+			<tr>
+					<td>Artifact</td>
+					<td>报告、文件等运行产物</td>
+			</tr>
+			<tr>
+					<td>Telemetry</td>
+					<td>trace、metric、日志等运行观测信息</td>
+			</tr>
+	</tbody>
+</table></div>
+<h2 id="参考资料">参考资料
+</h2><ul>
+<li><a class="link" href="https://github.com/trpc-group/trpc-go"  target="_blank" rel="noopener"
+    >tRPC-Go 官方仓库</a></li>
+<li><a class="link" href="https://github.com/trpc-group/trpc-agent-go"  target="_blank" rel="noopener"
+    >tRPC-Agent-Go 官方仓库</a></li>
+<li><a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/docs/mkdocs/zh/blog/trpcagentgo.md"  target="_blank" rel="noopener"
+    >tRPC-Agent-Go 官方框架介绍</a></li>
+<li><a class="link" href="https://grpc.io/docs/what-is-grpc/introduction/"  target="_blank" rel="noopener"
+    >gRPC Introduction</a></li>
+<li><a class="link" href="https://dubbo.apache.org/en/overview/what/overview/"  target="_blank" rel="noopener"
+    >Apache Dubbo Overview</a></li>
+<li><a class="link" href="https://thrift.apache.org/docs/concepts"  target="_blank" rel="noopener"
+    >Apache Thrift Concepts</a></li>
+</ul>
+<h2 id="结语">结语
+</h2><p>RPC 把远程服务能力包装成接近本地方法的调用，但序列化、网络和分布式失败始终存在。tRPC-Go、gRPC、Dubbo 和 Thrift 都在解决这类问题，只是覆盖层次和生态重心不同。</p>
+<p>tRPC-Agent-Go 解决的是另一类问题：怎样把 Agent、模型、工具、状态、事件和产物组织成可运行的应用。两者可以组合，但不应混为一谈。先守住这条边界，再读具体 Agent 示例，才不会把一个本地工作流误讲成 RPC 服务。</p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/trpc/">TRPC</a>
+        
+            <a href="/tags/trpc-agent-go/">TRPC-Agent-Go</a>
+        
+            <a href="/tags/rpc/">RPC</a>
+        
+            <a href="/tags/grpc/">GRPC</a>
+        
+            <a href="/tags/dubbo/">Dubbo</a>
+        
+            <a href="/tags/thrift/">Thrift</a>
+        
+            <a href="/tags/agent/">Agent</a>
+        
+    </section>
+
+
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+<aside class="related-content--wrapper">
+    <h2 class="section-title">相关文章</h2>
+    <div class="related-content">
+        <div class="flex article-list--tile">
+            
+                
+<article class="">
+    <a href="/p/trpc-agent-go-code-review-agent/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">tRPC-Agent-Go 源码导读：如何构建一个可审计的 Go 自动代码评审 Agent</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/%E4%BB%8E-httpdubbo2grpctriple-%E5%88%B0%E9%AB%98%E5%B9%B6%E5%8F%91%E8%AF%BB%E6%87%82-pixiu-%E7%BD%91%E5%85%B3%E7%9A%84%E5%8D%8F%E8%AE%AE%E4%B8%8E%E6%B2%BB%E7%90%86%E4%BB%A3%E7%A0%81/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">从 HTTP、Dubbo2、gRPC、Triple 到高并发：读懂 Pixiu 网关的协议与治理代码</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-agent-architecture-11/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（十一）：一项任务怎样从输入走到验证</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-agent-architecture-09/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（十）：任务进度怎样送到终端和富客户端</h2>
+        </div>
+    </a>
+</article>
+
+            
+                
+<article class="">
+    <a href="/p/codex-cli-agent-architecture-multi-agent/">
+        
+        
+
+        <div class="article-details">
+            <h2 class="article-title">Codex CLI 源码导读（九）：多 Agent 怎样拆分任务、通信与收束</h2>
+        </div>
+    </a>
+</article>
+
+            
+        </div>
+    </div>
+</aside>
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+		<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+		<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+	
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2025 - 
+        
+        2026 Skylm
+    </section>
+    
+    <section class="powerby">
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.30.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.1e9a3bafd846ced4c345d084b355fb8c7bae75701c338f8a1f8a82c780137826.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+<style>
+    #TableOfContents > ul, ol {
+        ul, ol {
+            display: none;
+        }
+        .open {
+            display: block;
+        }
+    }
+    .highlight {
+         
+        max-height: 400px;
+        overflow: hidden;
+    }
+
+    .code-show {
+        max-height: none !important;
+    }
+
+    .code-more-box {
+        width: 100%;
+        padding-top: 78px;
+        background-image: -webkit-gradient(linear, left top, left bottom, from(rgba(255, 255, 255, 0)), to(#fff));
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+    }
+
+    .code-more-btn {
+        display: block;
+        margin: auto;
+        width: 44px;
+        height: 22px;
+        background: #f0f0f5;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        padding-top: 6px;
+        cursor: pointer;
+    }
+
+    .code-more-img {
+        cursor: pointer !important;
+        display: block;
+        margin: auto;
+        width: 22px;
+        height: 16px;
+    }
+</style>
+
+<script>
+    function initTocHide() {
+        
+        let toc = document.querySelector(".widget--toc");
+        if (!toc) {
+            return;
+        }
+        
+        window.addEventListener('scroll', function() {
+            
+            let openUl = document.querySelectorAll(".open");
+            if (openUl.length > 0) {
+              openUl.forEach((ul) => {
+                ul.classList.remove("open")
+              })
+            }
+            
+            let currentLi = document.querySelector(".active-class");
+            if (!currentLi) {
+                return
+            }
+            
+            if (currentLi.children.length > 1) {
+                currentLi.children[1].classList.add("open")
+            }
+            
+            let ul = currentLi.parentElement;
+            do {
+                ul.classList.add("open");
+                ul = ul.parentElement.parentElement
+            } while (ul !== undefined && (ul.localName === 'ul' || ul.localName === 'ol'))
+        });
+    }
+    initTocHide()
+
+    function initCodeMoreBox() {
+    let codeBlocks = document.querySelectorAll(".highlight");
+    if (!codeBlocks) {
+      return;
+    }
+    codeBlocks.forEach(codeBlock => {
+      
+      if (codeBlock.scrollHeight <= codeBlock.clientHeight) {
+        return;
+      }
+      
+      
+      let codeMoreBox = document.createElement('div');
+      codeMoreBox.classList.add('code-more-box');
+      
+      let codeMoreBtn = document.createElement('span');
+      codeMoreBtn.classList.add('code-more-btn');
+      codeMoreBtn.addEventListener('click', () => {
+        codeBlock.classList.add('code-show');
+        codeMoreBox.style.display = 'none';
+        
+        window.dispatchEvent(new Event('resize'))
+      })
+      
+      let img = document.createElement('img');
+      img.classList.add('code-more-img');
+      img.src = 'https:\/\/skylm.top\/icon\/codeMore.png';
+      
+      codeMoreBtn.appendChild(img);
+      codeMoreBox.appendChild(codeMoreBtn);
+      codeBlock.appendChild(codeMoreBox)
+    })
+  }
+  
+  initCodeMoreBox();
+</script>
+
+
+
+    </body>
+</html>
