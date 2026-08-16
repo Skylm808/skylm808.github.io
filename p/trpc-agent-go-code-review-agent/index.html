@@ -264,17 +264,17 @@
     <li><a href="#第三步正式规则入口到底在哪里">第三步：正式规则入口到底在哪里</a>
       <ol>
         <li><a href="#为什么要有-shellpython-和-go-fallback-三层">为什么要有 Shell、Python 和 Go fallback 三层</a></li>
-        <li><a href="#三个脚本结合关键源码看">三个脚本结合关键源码看</a></li>
+        <li><a href="#三个脚本结合关键源码看">三个脚本结合关键源码看</a>
+          <ol>
+            <li><a href="#一个规则如何从-diff-变成-finding">一个规则如何从 diff 变成 finding</a></li>
+          </ol>
+        </li>
       </ol>
     </li>
     <li><a href="#第四步skill-怎么被加载和执行">第四步：Skill 怎么被加载和执行</a></li>
     <li><a href="#internalreview-在这条链里到底做什么"><code>internal/review</code> 在这条链里到底做什么</a></li>
     <li><a href="#规则为什么会误报或漏报">规则为什么会误报或漏报</a></li>
-    <li><a href="#用-secretdiff-走一遍真实完整链路">用 <code>secret.diff</code> 走一遍真实完整链路</a>
-      <ol>
-        <li><a href="#脚本到底怎样从-diff-找到问题">脚本到底怎样从 diff 找到问题</a></li>
-      </ol>
-    </li>
+    <li><a href="#用-secretdiff-走一遍真实完整链路">用 <code>secret.diff</code> 走一遍真实完整链路</a></li>
     <li><a href="#再对比一下-dry-run别把两个模式讲混">再对比一下 dry-run，别把两个模式讲混</a></li>
     <li><a href="#模式矩阵到底哪些阶段会执行">模式矩阵：到底哪些阶段会执行</a></li>
     <li><a href="#sandbox真正的执行边界在哪里">Sandbox：真正的执行边界在哪里</a>
@@ -283,6 +283,7 @@
         <li><a href="#为什么不直接在-checksh-里执行-go-test">为什么不直接在 <code>check.sh</code> 里执行 <code>go test</code></a></li>
         <li><a href="#什么时候必须提供被审仓库">什么时候必须提供被审仓库</a></li>
         <li><a href="#什么时候会询问用户">什么时候会询问用户</a></li>
+        <li><a href="#permissionpolicy-的三类决策和当前白名单">PermissionPolicy 的三类决策和当前白名单</a></li>
       </ol>
     </li>
     <li><a href="#模型阶段模型拿到的不是未经处理的原始-diff">模型阶段：模型拿到的不是未经处理的原始 diff</a></li>
@@ -390,7 +391,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 36 分钟
+                    阅读时长: 37 分钟
                 </time>
             </div>
         
@@ -982,7 +983,54 @@
 </div>
 </div><p>它同样解析 <code>+++</code> 文件头和 <code>@@</code> hunk header，只检查新增行，再用自己的 <code>redact</code> 和去重逻辑产出 findings/warnings。fallback 的意义是“没有 Python 时仍能运行”，不是把 Python 和 Go 两套规则串联执行；两者都必须遵守 Skill 规定的 JSON 契约，否则 <code>parseSkillFindings</code> 无法把 stdout 变成内部 finding。</p>
 <p>这三层也解释了为什么不能只在一个大 Shell 脚本里写完：Shell 适合做进程编排和环境探测，Python 适合快速维护规则，Go fallback 保证目标环境没有 Python 时仍可运行；Agent 负责权限、超时、审计和结果合并，而不是把这些职责全部塞进脚本。</p>
-<p>仓库里虽然还有 <code>internal/rules/rules.go</code>，但当前主 Agent 路径没有调用 <code>rules.Run</code>；它目前主要由该包自己的测试覆盖。面试时可以说“仓库保留了 Go 规则实现和测试”，不能把它说成当前 CLI 的正式执行入口。</p>
+<h4 id="一个规则如何从-diff-变成-finding">一个规则如何从 diff 变成 finding
+</h4><p>下面用两段最小 diff 看“脚本到底怎样找到问题”。假设输入是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-diff" data-lang="diff"><span style="display:flex;"><span><span style="font-weight:bold">diff --git a/config.go b/config.go
+</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+++ b/config.go
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold">@@ -1,2 +1,3 @@
+</span></span></span><span style="display:flex;"><span> package foo
+</span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+const apiKey = &#34;sk-1234567890abcdef&#34;
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>Python 解析 <code>@@ -1,2 +1,3 @@</code> 后知道：新文件从第 1 行开始，这个 hunk 有 3 行；遇到以 <code>+</code> 开头的新增行时，把前面的 <code>+</code> 去掉，得到 <code>const apiKey = &quot;sk-1234567890abcdef&quot;</code>，并把新文件行号递增到 2。随后调用 <code>should_report_secret(text)</code>：</p>
+<ol>
+<li><code>secret_value_pattern</code> 先匹配 <code>sk-...</code> 这类 token 形状；</li>
+<li>即使没有特殊形状，也会检查 <code>apiKey</code>、<code>token</code>、<code>password</code> 等敏感变量名，再取出赋值字符串；</li>
+<li>太短的值和 <code>example</code>、<code>changeme</code> 等占位符会被过滤；</li>
+<li>命中后，<code>add_finding</code> 写入 <code>critical/security</code>、<code>config.go:2</code>、<code>rule_id=secret-leak</code> 和修复建议，证据再经过脱敏，报告中不会保留完整密钥。</li>
+</ol>
+<p>资源规则也是同一套“新增行模式 + 当前 hunk 上下文”思路：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-diff" data-lang="diff"><span style="display:flex;"><span><span style="font-weight:bold">diff --git a/client.go b/client.go
+</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+++ b/client.go
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold">@@ -1,2 +1,5 @@
+</span></span></span><span style="display:flex;"><span> package foo
+</span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+resp, err := http.Get(url)
+</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+if err != nil { return err }
+</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+return use(resp.Body)
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>reports_http_body_leak</code> 识别 <code>http.Get</code>，取出变量名 <code>resp</code>，再在同一个 hunk 文本中搜索 <code>resp.Body.Close()</code>。由于没有找到清理动作，它会生成 <code>http-body-close</code>；若新增行中包含 <code>defer resp.Body.Close()</code>，同一规则就不再报告。<code>os.Open</code>/<code>Close</code>、<code>sql.Open</code>/<code>db.Close</code>、<code>BeginTx</code>/<code>Rollback</code>、<code>WithCancel</code>/<code>cancel()</code> 也采用类似检查。它不是完整 AST/数据流分析器：跨函数、跨文件或 hunk 外的清理动作可能看不到，因此结果是确定性筛查，不是绝对证明。</p>
+<p>仓库里虽然还有 <code>internal/rules/rules.go</code>，但当前主 Agent 路径没有调用 <code>rules.Run</code>；现有引用主要是该包自己的测试。它是另一套基于 <code>review.ParsedDiff</code> 的 Go 规则实现，输出的 <code>Source</code> 是 <code>rule</code>，而脚本链输出的是 <code>skill_run</code>。从当前源码可以确认它“存在且可测试”，但不能仅凭代码断言它是迁移遗留；面试时应说它是未接入主 CLI 的并行/候选实现，而不是当前正式规则入口。</p>
 <h2 id="第四步skill-怎么被加载和执行">第四步：Skill 怎么被加载和执行
 </h2><p>Skill 运行逻辑在 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/skill_step.go"  target="_blank" rel="noopener"
     ><code>internal/agent/skill_step.go</code></a>。</p>
@@ -1134,101 +1182,7 @@
 </span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+const apiKey = &#34;sk-1234567890abcdef&#34;
 </span></span></span></code></pre></td></tr></table>
 </div>
-</div><h3 id="脚本到底怎样从-diff-找到问题">脚本到底怎样从 diff 找到问题
-</h3><p><code>check.sh</code> 不会“理解” Go 代码。它把 diff 交给规则实现；规则实现逐行读取 hunk，维护当前文件名、新文件行号和当前 hunk 的上下文。只有满足 <code>new_remaining &gt; 0</code> 且行首是 <code>+</code> 的行才进入规则判断，删除行和未修改上下文不会直接生成 finding。</p>
-<p>以 <code>secret.diff</code> 为例，Python 规则的调用关系是：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">if</span> should_report_secret(text):
-</span></span><span style="display:flex;"><span>    add_finding(
-</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;critical&#34;</span>, <span style="color:#f1fa8c">&#34;security&#34;</span>, current_file, new_line,
-</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;Potential secret appears in added code&#34;</span>, text,
-</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;Replace the literal with a secret manager or environment lookup.&#34;</span>,
-</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;secret-leak&#34;</span>)
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p><code>should_report_secret</code> 不是只查字符串 <code>sk-</code>：</p>
-<ol>
-<li>先用 <code>secret_value_pattern</code> 检查常见 token 形状，例如 <code>sk-...</code>、GitHub token、JWT 或私钥块。</li>
-<li>如果没有命中特殊形状，再检查变量名是否包含 <code>apiKey</code>、<code>token</code>、<code>password</code>、<code>privateKey</code> 等敏感名称。</li>
-<li>通过 <code>assigned_string</code> 取出赋值字符串，长度不足 12 或符合 <code>placeholder_secret_pattern</code> 的示例值会被过滤。</li>
-<li>命中后，<code>add_finding</code> 统一写入 <code>severity=critical</code>、文件、<strong>新文件行号</strong>、脱敏证据、修复建议、<code>source=skill_run</code> 和 <code>rule_id=secret-leak</code>。</li>
-</ol>
-<p>其他规则也是“模式 + hunk 上下文”，例如：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>resp, err <span style="color:#ff79c6">:=</span> http.<span style="color:#50fa7b">Get</span>(url)
-</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> { <span style="color:#ff79c6">return</span> err }
-</span></span><span style="display:flex;"><span><span style="color:#ff79c6">return</span> <span style="color:#50fa7b">use</span>(resp.Body)
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p><code>reports_http_body_leak</code> 先判断这一行是否包含 <code>http.Get</code>、<code>http.Post</code> 或 <code>.Do(</code>，再取出变量名 <code>resp</code>，最后在同一个 hunk 文本中搜索 <code>resp.Body.Close()</code>。找不到就生成 <code>http-body-close</code>；如果改动里有：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">defer</span> resp.Body.<span style="color:#50fa7b">Close</span>()
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>规则认为这个 hunk 已经有清理动作，不再报这一条。</p>
-<p>资源和生命周期规则使用同样的思路：</p>
-<div class="table-wrapper"><table>
-	<thead>
-			<tr>
-					<th>代码模式</th>
-					<th>脚本检查</th>
-					<th>可能的 rule_id</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td><code>os.Open</code> / <code>os.Create</code></td>
-					<td>取赋值变量，检查同一 hunk 是否出现 <code>变量.Close()</code>。</td>
-					<td><code>resource-leak</code></td>
-			</tr>
-			<tr>
-					<td><code>sql.Open</code> / <code>BeginTx</code></td>
-					<td>检查 <code>db.Close()</code> 或 <code>tx.Rollback()</code> 是否出现。</td>
-					<td><code>db-lifecycle</code></td>
-			</tr>
-			<tr>
-					<td><code>context.WithCancel/Timeout/Deadline</code></td>
-					<td>检查返回的 cancel 函数是否在 hunk 中被调用。</td>
-					<td><code>context-leak</code></td>
-			</tr>
-			<tr>
-					<td><code>go func</code> / <code>go ...</code></td>
-					<td>检查是否出现 <code>WaitGroup</code>、<code>Done</code>、<code>errgroup</code>、<code>context</code> 等生命周期信号。</td>
-					<td><code>goroutine-leak</code></td>
-			</tr>
-			<tr>
-					<td><code>Lock()</code></td>
-					<td>检查是否有同一 receiver 的 <code>Unlock()</code>，尤其建议 <code>defer Unlock()</code>。</td>
-					<td><code>mutex-unlock-missing</code></td>
-			</tr>
-			<tr>
-					<td><code>panic(</code></td>
-					<td>直接生成高严重级别错误处理 finding。</td>
-					<td><code>panic-direct</code></td>
-			</tr>
-	</tbody>
-</table></div>
-<p>这也是为什么报告里的证据通常是某一条新增代码，而不是“模型觉得有风险”：脚本先用明确模式定位文件和新增行，再把建议写进 JSON。规则是启发式的，只看新增行和当前 hunk，跨文件、跨函数或 hunk 外已经存在的 <code>Close</code> 可能看不到，因此会有漏报和误报。</p>
-<p>这条命令背后的真实链路是：</p>
+</div><p>这条命令背后的真实链路是：</p>
 <ol>
 <li>CLI 读取 <code>--fixture secret.diff</code>，由 <code>input.Read</code> 加载 <code>testdata/fixtures/secret.diff</code>。</li>
 <li><code>normalizeExecutionPlan</code> 得到 <code>mode=review</code>、<code>sandbox=false</code>、<code>model=false</code>。</li>
@@ -1573,6 +1527,35 @@
 <h3 id="什么时候会询问用户">什么时候会询问用户
 </h3><p>这里要区分框架语义和当前 CLI 的实际行为。<code>PermissionPolicy</code> 可以返回 <code>allow</code>、<code>deny</code> 或 <code>ask</code>；当前示例的 <code>internal/approval/gate.go</code> 对固定的 <code>skill_run</code>、<code>go test ./...</code>、<code>go vet ./...</code>（以及显式开启的 <code>staticcheck ./...</code>）返回 <code>allow</code>，遇到不在 allowlist 的工具或命令返回 <code>tool.AskPermission(&quot;unrecognized tool command requires human review&quot;)</code>。</p>
 <p>但当前 CLI 没有接入交互式审批 UI，所以不会真的暂停在终端等待你输入“是否执行”。<code>ask</code> 会被记录为 permission decision，相关 run 标记为 <code>ask</code>，结果增加 <code>needs_human_review</code> warning，然后跳过这条命令。若未来接 Web/API 审批，才可以把这个 decision 发给用户，用户批准后用同一个 task ID 恢复执行；拒绝则保留审计记录并结束或继续其他安全阶段。</p>
+<h3 id="permissionpolicy-的三类决策和当前白名单">PermissionPolicy 的三类决策和当前白名单
+</h3><p>框架层的返回值有三类，含义不要混淆：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>决策</th>
+					<th>白话含义</th>
+					<th>当前示例的实际情况</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>allow</code></td>
+					<td>这一次具体调用可以继续执行。</td>
+					<td><code>skill_run</code> 只允许 <code>scripts/check.sh</code>；<code>workspace_exec</code> 只允许 <code>go test ./...</code>、<code>go vet ./...</code>；配置显式开启时再允许 <code>staticcheck ./...</code>；<code>execute_code</code> 只接受这些检查的内部 fallback 包装。</td>
+			</tr>
+			<tr>
+					<td><code>ask</code></td>
+					<td>策略无法确认安全，需要人工复核。</td>
+					<td>任何未知工具名、未知脚本、参数不匹配或命令变形都会走这里。当前 CLI 没有交互终端，所以记录后跳过。</td>
+			</tr>
+			<tr>
+					<td><code>deny</code></td>
+					<td>明确拒绝，不应执行。</td>
+					<td>当前策略对缺失的 permission request 直接 deny；普通的未知命令通常返回 <code>ask</code>，不是假装成 <code>allow</code>。</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>所以这里的“白名单”不是“所有 Shell 命令都能问用户后执行”，而是只把少数固定动作设为 <code>allow</code>。例如 <code>go test ./... &amp;&amp; curl ...</code>、<code>sh -c '...'</code> 或用户把 <code>check.sh</code> 换成别的脚本，都不会因为看起来像测试而自动放行。当前 <code>ask</code> 结果会写入 SQLite 的 permission decision 和 <code>needs_human_review</code> warning；要实现真正的命令行或 Web 审批，需要增加 <code>pending_approval</code> 状态和审批接口，批准后重新校验 task、仓库 digest、命令摘要和过期时间，再从原 task 恢复，而不是在策略函数里直接放开任意命令。</p>
 <p>当前运行时边界也要讲准：</p>
 <ol>
 <li><code>container</code> 是正式隔离运行时，默认禁网、限制资源、只读挂载仓库。</li>
