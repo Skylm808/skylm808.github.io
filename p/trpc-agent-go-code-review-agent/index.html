@@ -272,7 +272,11 @@
       </ol>
     </li>
     <li><a href="#第四步skill-怎么被加载和执行">第四步：Skill 怎么被加载和执行</a></li>
-    <li><a href="#internalreview-在这条链里到底做什么"><code>internal/review</code> 在这条链里到底做什么</a></li>
+    <li><a href="#internalreview-在这条链里到底做什么"><code>internal/review</code> 在这条链里到底做什么</a>
+      <ol>
+        <li><a href="#用一段-diff-看它到底做了什么">用一段 diff 看它到底做了什么</a></li>
+      </ol>
+    </li>
     <li><a href="#规则为什么会误报或漏报">规则为什么会误报或漏报</a></li>
     <li><a href="#用-secretdiff-走一遍真实完整链路">用 <code>secret.diff</code> 走一遍真实完整链路</a></li>
     <li><a href="#再对比一下-dry-run别把两个模式讲混">再对比一下 dry-run，别把两个模式讲混</a></li>
@@ -391,7 +395,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 38 分钟
+                    阅读时长: 39 分钟
                 </time>
             </div>
         
@@ -1166,7 +1170,70 @@
 <blockquote>
 <p>Skill 脚本链负责正式规则执行；<code>internal/review</code> 负责 Agent 内部的 diff 结构化、模型锚点校验、去重与脱敏。</p>
 </blockquote>
-<p>这个区分非常重要，因为它直接决定你怎么解释“规则从哪里进”和“模型结果凭什么可信”。</p>
+<h3 id="用一段-diff-看它到底做了什么">用一段 diff 看它到底做了什么
+</h3><p>假设输入是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-diff" data-lang="diff"><span style="display:flex;"><span><span style="font-weight:bold">diff --git a/client.go b/client.go
+</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+++ b/client.go
+</span></span></span><span style="display:flex;"><span><span style="font-weight:bold">@@ -1,2 +1,5 @@
+</span></span></span><span style="display:flex;"><span> package client
+</span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+resp, err := http.Get(url)
+</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+if err != nil { return err }
+</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+return use(resp.Body)
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>internal/review.ParseUnifiedDiff</code> 不会判断“响应体是否关闭”，它只把这段文本翻译成内部数据：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>ParsedDiff
+</span></span><span style="display:flex;"><span>└── client.go
+</span></span><span style="display:flex;"><span>    └── hunk
+</span></span><span style="display:flex;"><span>        ├── add, NewLine=2, Text=&#34;resp, err := http.Get(url)&#34;
+</span></span><span style="display:flex;"><span>        ├── add, NewLine=3, Text=&#34;if err != nil { return err }&#34;
+</span></span><span style="display:flex;"><span>        └── add, NewLine=4, Text=&#34;return use(resp.Body)&#34;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这一步的价值是让后面的代码不用重新解析 <code>+</code>、<code>@@</code> 和行号。Skill 脚本随后才会检查第一行是否缺少 <code>resp.Body.Close()</code>，并生成 <code>http-body-close</code> finding。也就是说：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>internal/review/parser.go  -&gt;  把 diff 变成“文件/ hunk / 新增行”数据
+</span></span><span style="display:flex;"><span>check.sh + check_rules.py  -&gt;  根据模式判断是否缺少 Close，并生成规则 finding
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>模型阶段还有一道独立的锚点校验。假设脱敏后的 diff 只包含 <code>client.go</code> 的第 2、3、4 行，但模型返回：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{<span style="color:#ff79c6">&#34;file&#34;</span>:<span style="color:#f1fa8c">&#34;client.go&#34;</span>,<span style="color:#ff79c6">&#34;line&#34;</span>:<span style="color:#bd93f9">80</span>,<span style="color:#ff79c6">&#34;title&#34;</span>:<span style="color:#f1fa8c">&#34;HTTP response may leak&#34;</span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>internal/llm/review.go</code> 会重新读取 <code>ParsedDiff</code> 的新增行集合，发现 <code>client.go:80</code> 不在本次变更里，就丢弃这条模型 finding，并增加 <code>model-invalid-anchor</code> 审计 warning。模型不能凭空评论仓库里没有改动的第 80 行。</p>
+<p>最后，<code>review.RedactSecrets</code> 会把类似 <code>apiKey = &quot;sk-...&quot;</code> 的证据变成脱敏文本，<code>Finding.DedupeKey</code> 会用文件、行号、类别和规则 ID 去掉脚本与模型重复报告的同一问题。因此 <code>internal/review</code> 的定位是“内部数据和可信边界”，不是第二个 <code>check.sh</code>。</p>
+<p>这个区分非常重要：规则从 <code>skills/code-review/scripts/check.sh</code> 进入；<code>internal/review</code> 负责让规则结果和模型结果有统一格式、合法行号、脱敏证据和稳定去重。</p>
 <h2 id="规则为什么会误报或漏报">规则为什么会误报或漏报
 </h2><p>当前正式规则实现主要读取新增行和同一个 hunk 中的文本上下文。例如发现 <code>os.Open</code> 后，它会在当前改动块里寻找对应的 <code>Close()</code>；发现 <code>context.WithCancel</code> 后，会寻找 cancel 调用。</p>
 <p>这种方法属于<strong>启发式检查</strong>：用可以快速验证的文本特征推断风险。它的优势是运行快、结果容易解释，也可以用 fixture 精确回归；边界则是它没有完整理解 Go 程序：</p>
