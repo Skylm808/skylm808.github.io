@@ -254,13 +254,18 @@
     <li><a href="#先分层哪些是框架层哪些是-cr-业务层">先分层：哪些是框架层，哪些是 CR 业务层</a></li>
     <li><a href="#它不是-react-自治-agent而是固定工作流">它不是 ReAct 自治 Agent，而是固定工作流</a>
       <ol>
+        <li><a href="#workflowreact-与其他-agent-形态">Workflow、ReAct 与其他 Agent 形态</a></li>
         <li><a href="#runner-adapter-为什么只是外壳">Runner adapter 为什么只是外壳</a></li>
       </ol>
     </li>
     <li><a href="#从入口开始cli-到-execution-plan">从入口开始：CLI 到 execution plan</a></li>
     <li><a href="#第一步输入层把一切统一成-diff">第一步：输入层把一切统一成 diff</a></li>
     <li><a href="#第二步rundirect-才是真正的总编排">第二步：<code>runDirect</code> 才是真正的总编排</a></li>
-    <li><a href="#第三步正式规则入口到底在哪里">第三步：正式规则入口到底在哪里</a></li>
+    <li><a href="#第三步正式规则入口到底在哪里">第三步：正式规则入口到底在哪里</a>
+      <ol>
+        <li><a href="#为什么要有-shellpython-和-go-fallback-三层">为什么要有 Shell、Python 和 Go fallback 三层</a></li>
+      </ol>
+    </li>
     <li><a href="#第四步skill-怎么被加载和执行">第四步：Skill 怎么被加载和执行</a></li>
     <li><a href="#internalreview-在这条链里到底做什么"><code>internal/review</code> 在这条链里到底做什么</a></li>
     <li><a href="#规则为什么会误报或漏报">规则为什么会误报或漏报</a></li>
@@ -268,7 +273,11 @@
     <li><a href="#再对比一下-dry-run别把两个模式讲混">再对比一下 dry-run，别把两个模式讲混</a></li>
     <li><a href="#模式矩阵到底哪些阶段会执行">模式矩阵：到底哪些阶段会执行</a></li>
     <li><a href="#sandbox真正的执行边界在哪里">Sandbox：真正的执行边界在哪里</a></li>
-    <li><a href="#模型阶段模型拿到的不是未经处理的原始-diff">模型阶段：模型拿到的不是未经处理的原始 diff</a></li>
+    <li><a href="#模型阶段模型拿到的不是未经处理的原始-diff">模型阶段：模型拿到的不是未经处理的原始 diff</a>
+      <ol>
+        <li><a href="#一次包含模型的完整例子">一次包含模型的完整例子</a></li>
+      </ol>
+    </li>
     <li><a href="#去重artifacttelemetrysqlite-各自管什么">去重、Artifact、Telemetry、SQLite 各自管什么</a>
       <ol>
         <li><a href="#finding-去重">Finding 去重</a></li>
@@ -365,7 +374,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 19 分钟
+                    阅读时长: 23 分钟
                 </time>
             </div>
         
@@ -389,6 +398,7 @@
 <li><code>internal/review</code> 里的 parser 仍然重要，但主要承担 diff 元数据、行号锚点、去重和脱敏等内部职责，而不是“正式规则入口”。</li>
 <li><code>--sandbox false</code> 只是不跑 Go 检查，不会跳过 Skill 规则。真正只加载 Skill、不执行规则脚本的模式是 <code>--mode dry-run</code>。</li>
 </ol>
+<p>如果你要在简历或面试中给它定位，建议说“自动代码评审 Agent 原型”，再立即补一句“当前实现是 Agent 框架托管的受控 workflow”。这样既没有抹掉 Runner、Skill、Tool、Model、事件和审计这些 Agent 框架能力，也不会把固定编排说成已经完成了自主规划型 Agent。</p>
 <h2 id="先把-prcrdiffpatchhunk-说清楚">先把 PR、CR、diff、patch、hunk 说清楚
 </h2><p>很多人一上来就说“我做了一个自动 CR Agent”，但术语如果混着用，后面源码很容易讲偏。</p>
 <div class="table-wrapper"><table>
@@ -572,6 +582,51 @@
 <li>模型是可选语义增强阶段，不是总调度器。</li>
 <li>真正的“工具能不能执行”由 <code>PermissionPolicy</code> 和 executor 决定，不由模型一句话拍板。</li>
 </ol>
+<h3 id="workflowreact-与其他-agent-形态">Workflow、ReAct 与其他 Agent 形态
+</h3><p>不要把 Agent 开发粗暴地分成“workflow 或 ReAct”两类。它们是最常见的两种组织方式，但不是全部：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>形态</th>
+					<th>谁决定下一步</th>
+					<th>适合什么</th>
+					<th>当前示例是否属于它</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>固定 workflow</td>
+					<td>业务代码和状态机。</td>
+					<td>审计、CI、支付、审批等顺序稳定且需要可预测结果的流程。</td>
+					<td>是。</td>
+			</tr>
+			<tr>
+					<td>ReAct</td>
+					<td>模型根据当前观察结果在循环中选择 Tool。</td>
+					<td>调研、排障、开放式问答等步骤难预先写死的任务。</td>
+					<td>否。</td>
+			</tr>
+			<tr>
+					<td>图工作流 / 状态机</td>
+					<td>节点与分支预先定义，可有并行、重试和人工审批。</td>
+					<td>多阶段、长任务、需要恢复执行的系统。</td>
+					<td>可以作为当前 workflow 的演进方向。</td>
+			</tr>
+			<tr>
+					<td>多 Agent 协作</td>
+					<td>一个协调者把子任务交给不同 Agent。</td>
+					<td>角色和上下文可以清晰拆分的复杂任务。</td>
+					<td>否。</td>
+			</tr>
+			<tr>
+					<td>规划器 + 执行器</td>
+					<td>模型先生成计划，再由受控执行器逐步执行。</td>
+					<td>任务需要规划，但动作必须受权限和预算约束。</td>
+					<td>否。</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>后续若要演进成更复杂的 Agent，合理的方向不是先让模型拥有任意命令执行权，而是先保留 <code>PermissionPolicy</code>、沙箱、预算、超时和审计，再把“选择哪些低风险检查、何时请求人工复核、是否补充模型分析”做成受限决策。对 CR 这类安全敏感任务，固定 workflow 往往仍应保留为主路径。</p>
 <h3 id="runner-adapter-为什么只是外壳">Runner adapter 为什么只是外壳
 </h3><p><a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/runner_adapter.go"  target="_blank" rel="noopener"
     ><code>internal/agent/runner_adapter.go</code></a> 中的 <code>reviewRunnerAgent</code> 实现了框架的 <code>agent.Agent</code> 接口，但它没有让模型进入工具选择循环：</p>
@@ -815,6 +870,26 @@
 <li>真正跑规则时，优先走 Python 规则实现；没有 <code>python3</code> 再回退到 Go fallback。</li>
 <li>所以“当前正式规则入口”应该表述成 <code>skill_run -&gt; check.sh -&gt; check_rules.py/check_fallback.go</code>。</li>
 </ol>
+<h3 id="为什么要有-shellpython-和-go-fallback-三层">为什么要有 Shell、Python 和 Go fallback 三层
+</h3><p>三者不是三套都要依次执行的规则，而是一条“稳定入口 + 优先实现 + 可用性降级”的链：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>skill_run
+</span></span><span style="display:flex;"><span>  -&gt; check.sh                 # 对 Agent 暴露的唯一脚本入口
+</span></span><span style="display:flex;"><span>      -&gt; check_rules.py       # Python 可用时，执行主规则实现
+</span></span><span style="display:flex;"><span>      -&gt; check_fallback.go    # 没有 Python 时，执行等价的 Go fallback
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>check.sh</code> 的意义是把“怎样运行规则”固定成一个小而稳定的协议：diff 从 stdin 写入临时文件，脚本再把 JSON 输出到 stdout。Agent 因此只需要批准并调用 <code>scripts/check.sh</code>，不需要关心宿主机是否安装 Python。</p>
+<p><code>check_rules.py</code> 是当前的主规则实现。它适合快速表达 diff 文本、正则、hunk 上下文和 JSON 输出这类规则，例如敏感信息、危险命令、明显的资源或 context 生命周期模式。</p>
+<p><code>check_fallback.go</code> 不是额外增加一次扫描，而是环境兼容兜底：当运行环境没有 <code>python3</code> 时，仍能运行同类规则并产出同一份 finding JSON 契约。最新源码还专门增加了两种运行时对 diff 路径解析一致性的测试，说明 fallback 必须与主实现保持行为对齐。</p>
+<p>这也是为什么基础规则不直接交给 LLM：密钥泄露、危险命令等规则需要稳定、低成本、可重复测试，且每次运行应给出一致的 file、line、rule_id 和证据。LLM 的输出会随模型、提示词和上下文变化，更适合作为后面的语义补充，而不是安全规则的唯一裁判。</p>
 <p>仓库里虽然还有 <code>internal/rules/rules.go</code>，但当前主 Agent 路径没有调用 <code>rules.Run</code>；它目前主要由该包自己的测试覆盖。面试时可以说“仓库保留了 Go 规则实现和测试”，不能把它说成当前 CLI 的正式执行入口。</p>
 <h2 id="第四步skill-怎么被加载和执行">第四步：Skill 怎么被加载和执行
 </h2><p>Skill 运行逻辑在 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/skill_step.go"  target="_blank" rel="noopener"
@@ -1192,6 +1267,51 @@
 <li>模型返回后不会直接进最终结论，还要经过 <code>validateProviderFindings</code> 校验 file/line 是否锚定到本次 diff 的新增行。</li>
 </ol>
 <p>如果模型报了一个不在这次改动里的位置，系统不会照单全收，而是加一条 <code>model-invalid-anchor</code> 的人工复核 warning。这就是前面说的“<code>internal/review</code> 与相关 parser 负责模型锚点可信度”的真实落点。</p>
+<h3 id="一次包含模型的完整例子">一次包含模型的完整例子
+</h3><p>假设某份 diff 同时新增了硬编码密钥和一段可能解引用空指针的代码：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-diff" data-lang="diff"><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+apiKey := &#34;sk-real-secret&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+if user == nil {
+</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+    return user.Name
+</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+}
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>第一阶段，Skill 脚本可以稳定命中第一行，产出脱敏 finding：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{<span style="color:#ff79c6">&#34;rule_id&#34;</span>:<span style="color:#f1fa8c">&#34;secret-leak&#34;</span>,<span style="color:#ff79c6">&#34;severity&#34;</span>:<span style="color:#f1fa8c">&#34;critical&#34;</span>,<span style="color:#ff79c6">&#34;file&#34;</span>:<span style="color:#f1fa8c">&#34;config.go&#34;</span>,<span style="color:#ff79c6">&#34;line&#34;</span>:<span style="color:#bd93f9">10</span>,<span style="color:#ff79c6">&#34;evidence&#34;</span>:<span style="color:#f1fa8c">&#34;apiKey=[REDACTED]&#34;</span>,<span style="color:#ff79c6">&#34;source&#34;</span>:<span style="color:#f1fa8c">&#34;skill_run&#34;</span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>若启用 DeepSeek 等 Provider，程序随后发送的不是密钥明文，而是类似下面的载荷：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;diff_summary&#34;</span>: <span style="color:#f1fa8c">&#34;+apiKey := \&#34;[REDACTED]\&#34;\n+if user == nil {\n+    return user.Name\n+}&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;existing_findings&#34;</span>: [{<span style="color:#ff79c6">&#34;rule_id&#34;</span>:<span style="color:#f1fa8c">&#34;secret-leak&#34;</span>,<span style="color:#ff79c6">&#34;file&#34;</span>:<span style="color:#f1fa8c">&#34;config.go&#34;</span>,<span style="color:#ff79c6">&#34;line&#34;</span>:<span style="color:#bd93f9">10</span>}],
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;sandbox_summary&#34;</span>: {<span style="color:#ff79c6">&#34;runs&#34;</span>: []},
+</span></span><span style="display:flex;"><span>  <span style="color:#ff79c6">&#34;governance_summary&#34;</span>: {<span style="color:#ff79c6">&#34;permission_blocks&#34;</span>: <span style="color:#bd93f9">0</span>}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>DiffSummary</code> 虽然名字里有 Summary，但当前实现传的是脱敏后的完整或接近完整 diff 文本；模型可以通读这些变更。<code>ExistingFindings</code> 则是前面脚本已经确认的问题，告诉模型“secret-leak 已经报过，请不要原样再报一次”。模型更适合补充第二类语义风险，例如返回一条 <code>possible-nil-dereference</code> finding。最后程序仍会检查它的文件和行号是否位于本次新增行，并和现有 finding 去重；模型不能绕过这一步直接写最终报告。</p>
 <h2 id="去重artifacttelemetrysqlite-各自管什么">去重、Artifact、Telemetry、SQLite 各自管什么
 </h2><p>到这一步，很多讲解会只盯着 findings。但对真实 CR 系统来说，“怎么回放一次执行”同样重要。</p>
 <h3 id="finding-去重">Finding 去重
@@ -1208,16 +1328,58 @@
 <h3 id="telemetry">Telemetry
 </h3><p>Telemetry 更偏运行观测。这个示例会记录 review trace、耗时、工具调用数、异常计数、严重级别分布等指标。它回答的是“这次系统怎么跑的”，不是“报告正文是什么”。</p>
 <h3 id="sqlite">SQLite
-</h3><p>SQLite 是这个示例默认的审计存储，不是框架强制绑定；CLI 可以用 <code>--no-persist</code> 关闭持久化。它的价值在于把一次 review 拆成可查询的实体，例如：</p>
-<ol>
-<li>task</li>
-<li>permission decisions</li>
-<li>sandbox runs</li>
-<li>findings</li>
-<li>artifacts</li>
-<li>reports</li>
-<li>metrics</li>
-</ol>
+</h3><p>SQLite 是这个示例默认的审计存储，不是框架强制绑定；CLI 可以用 <code>--no-persist</code> 关闭持久化。它的价值在于把一次 review 拆成可查询的实体：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>实体</th>
+					<th>具体记录什么</th>
+					<th>排障或审计时怎么用</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>task</code></td>
+					<td>task ID、输入类型和引用、diff digest、仓库路径、模式、开始结束时间、状态。</td>
+					<td>查“这次评审审了什么、有没有完成”。</td>
+			</tr>
+			<tr>
+					<td><code>permission decisions</code></td>
+					<td>哪条命令申请执行、<code>allow</code>/<code>ask</code>/<code>deny</code>、原因和时间。</td>
+					<td>查“为什么脚本或 <code>go vet</code> 没有运行”。</td>
+			</tr>
+			<tr>
+					<td><code>filter decisions</code></td>
+					<td>某个过滤目标被允许、拒绝或要求人工复核的原因。</td>
+					<td>查治理策略是否按预期拦截。</td>
+			</tr>
+			<tr>
+					<td><code>sandbox runs</code></td>
+					<td>命令、runtime、退出码、状态、超时、输出上限、环境白名单、输出摘要和耗时。</td>
+					<td>区分测试失败、超时、未执行和 runtime 不支持。</td>
+			</tr>
+			<tr>
+					<td><code>findings</code></td>
+					<td>severity、category、file、line、证据、修复建议、source、rule_id、置信度和状态。</td>
+					<td>查某个结论来自脚本、沙箱还是模型。</td>
+			</tr>
+			<tr>
+					<td><code>artifacts</code></td>
+					<td>JSON/Markdown/diagnostics 文件的名称、路径、digest 和大小。</td>
+					<td>核对报告是否是这次任务生成的，是否被替换。</td>
+			</tr>
+			<tr>
+					<td><code>reports</code></td>
+					<td>报告的 JSON 和 Markdown 内容。</td>
+					<td>不依赖本地输出目录也能回看当时结论。</td>
+			</tr>
+			<tr>
+					<td><code>metrics</code></td>
+					<td>总耗时、沙箱/模型耗时、工具和模型调用次数、拦截数、严重级别与异常分布、脱敏次数。</td>
+					<td>查慢在哪里、误差主要来自哪个阶段、拦截是否异常。</td>
+			</tr>
+	</tbody>
+</table></div>
 <p>写入时使用事务，目的不是为了“显得正规”，而是避免出现“报告文件已经生成，但数据库里只有半条 task 记录”这种审计断裂。</p>
 <h2 id="安全边界与失败降级是这篇文章最该记住的部分">安全边界与失败降级是这篇文章最该记住的部分
 </h2><p>如果只记住“它能发现 secret”，其实抓不到这个项目真正的工程价值。真正值得记的是安全边界和失败降级策略。</p>
@@ -1243,6 +1405,7 @@
 </h3><p>因为高置信的安全、生命周期、资源关闭类问题适合先走确定性规则，而且模型不应该天然拥有执行命令的权力。这个项目先让 Skill 找稳定问题，再把模型放到后面做增量语义判断。</p>
 <h3 id="2-为什么说它不是-react-agent">2. 为什么说它不是 ReAct Agent？
 </h3><p>因为阶段顺序和工具调用是预定义的。模型没有在循环里自由决定“下一步跑哪个 Tool”，它只在可选 model review 阶段接收固定格式输入并返回增量 finding。</p>
+<p>面试时可以进一步说：它仍然是 Agent 原型，因为实现了框架 Agent 接口并接入了 Runner、Skill、Tool、模型、事件和审计；但从决策形态看，它是受控 workflow，不应包装成已经完成自主规划的 ReAct Agent。</p>
 <h3 id="3-当前正式规则入口在哪里">3. 当前正式规则入口在哪里？
 </h3><p>准确答案是：<code>skill_run -&gt; scripts/check.sh -&gt; check_rules.py/check_fallback.go</code>。不要笼统说成“规则在 <code>internal/review</code>”。</p>
 <h3 id="4-internalreviewparsergo-还有什么用">4. <code>internal/review/parser.go</code> 还有什么用？

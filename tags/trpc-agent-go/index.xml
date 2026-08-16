@@ -624,6 +624,7 @@
 &lt;li&gt;&lt;code&gt;internal/review&lt;/code&gt; 里的 parser 仍然重要，但主要承担 diff 元数据、行号锚点、去重和脱敏等内部职责，而不是“正式规则入口”。&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;--sandbox false&lt;/code&gt; 只是不跑 Go 检查，不会跳过 Skill 规则。真正只加载 Skill、不执行规则脚本的模式是 &lt;code&gt;--mode dry-run&lt;/code&gt;。&lt;/li&gt;
 &lt;/ol&gt;
+&lt;p&gt;如果你要在简历或面试中给它定位，建议说“自动代码评审 Agent 原型”，再立即补一句“当前实现是 Agent 框架托管的受控 workflow”。这样既没有抹掉 Runner、Skill、Tool、Model、事件和审计这些 Agent 框架能力，也不会把固定编排说成已经完成了自主规划型 Agent。&lt;/p&gt;
 &lt;h2 id=&#34;先把-prcrdiffpatchhunk-说清楚&#34;&gt;先把 PR、CR、diff、patch、hunk 说清楚
 &lt;/h2&gt;&lt;p&gt;很多人一上来就说“我做了一个自动 CR Agent”，但术语如果混着用，后面源码很容易讲偏。&lt;/p&gt;
 &lt;table&gt;
@@ -807,6 +808,51 @@
 &lt;li&gt;模型是可选语义增强阶段，不是总调度器。&lt;/li&gt;
 &lt;li&gt;真正的“工具能不能执行”由 &lt;code&gt;PermissionPolicy&lt;/code&gt; 和 executor 决定，不由模型一句话拍板。&lt;/li&gt;
 &lt;/ol&gt;
+&lt;h3 id=&#34;workflowreact-与其他-agent-形态&#34;&gt;Workflow、ReAct 与其他 Agent 形态
+&lt;/h3&gt;&lt;p&gt;不要把 Agent 开发粗暴地分成“workflow 或 ReAct”两类。它们是最常见的两种组织方式，但不是全部：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;形态&lt;/th&gt;
+					&lt;th&gt;谁决定下一步&lt;/th&gt;
+					&lt;th&gt;适合什么&lt;/th&gt;
+					&lt;th&gt;当前示例是否属于它&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;固定 workflow&lt;/td&gt;
+					&lt;td&gt;业务代码和状态机。&lt;/td&gt;
+					&lt;td&gt;审计、CI、支付、审批等顺序稳定且需要可预测结果的流程。&lt;/td&gt;
+					&lt;td&gt;是。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;ReAct&lt;/td&gt;
+					&lt;td&gt;模型根据当前观察结果在循环中选择 Tool。&lt;/td&gt;
+					&lt;td&gt;调研、排障、开放式问答等步骤难预先写死的任务。&lt;/td&gt;
+					&lt;td&gt;否。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;图工作流 / 状态机&lt;/td&gt;
+					&lt;td&gt;节点与分支预先定义，可有并行、重试和人工审批。&lt;/td&gt;
+					&lt;td&gt;多阶段、长任务、需要恢复执行的系统。&lt;/td&gt;
+					&lt;td&gt;可以作为当前 workflow 的演进方向。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;多 Agent 协作&lt;/td&gt;
+					&lt;td&gt;一个协调者把子任务交给不同 Agent。&lt;/td&gt;
+					&lt;td&gt;角色和上下文可以清晰拆分的复杂任务。&lt;/td&gt;
+					&lt;td&gt;否。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;规划器 + 执行器&lt;/td&gt;
+					&lt;td&gt;模型先生成计划，再由受控执行器逐步执行。&lt;/td&gt;
+					&lt;td&gt;任务需要规划，但动作必须受权限和预算约束。&lt;/td&gt;
+					&lt;td&gt;否。&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;后续若要演进成更复杂的 Agent，合理的方向不是先让模型拥有任意命令执行权，而是先保留 &lt;code&gt;PermissionPolicy&lt;/code&gt;、沙箱、预算、超时和审计，再把“选择哪些低风险检查、何时请求人工复核、是否补充模型分析”做成受限决策。对 CR 这类安全敏感任务，固定 workflow 往往仍应保留为主路径。&lt;/p&gt;
 &lt;h3 id=&#34;runner-adapter-为什么只是外壳&#34;&gt;Runner adapter 为什么只是外壳
 &lt;/h3&gt;&lt;p&gt;&lt;a class=&#34;link&#34; href=&#34;https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/runner_adapter.go&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
     &gt;&lt;code&gt;internal/agent/runner_adapter.go&lt;/code&gt;&lt;/a&gt; 中的 &lt;code&gt;reviewRunnerAgent&lt;/code&gt; 实现了框架的 &lt;code&gt;agent.Agent&lt;/code&gt; 接口，但它没有让模型进入工具选择循环：&lt;/p&gt;
@@ -1050,6 +1096,26 @@
 &lt;li&gt;真正跑规则时，优先走 Python 规则实现；没有 &lt;code&gt;python3&lt;/code&gt; 再回退到 Go fallback。&lt;/li&gt;
 &lt;li&gt;所以“当前正式规则入口”应该表述成 &lt;code&gt;skill_run -&amp;gt; check.sh -&amp;gt; check_rules.py/check_fallback.go&lt;/code&gt;。&lt;/li&gt;
 &lt;/ol&gt;
+&lt;h3 id=&#34;为什么要有-shellpython-和-go-fallback-三层&#34;&gt;为什么要有 Shell、Python 和 Go fallback 三层
+&lt;/h3&gt;&lt;p&gt;三者不是三套都要依次执行的规则，而是一条“稳定入口 + 优先实现 + 可用性降级”的链：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;skill_run
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  -&amp;gt; check.sh                 # 对 Agent 暴露的唯一脚本入口
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      -&amp;gt; check_rules.py       # Python 可用时，执行主规则实现
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;      -&amp;gt; check_fallback.go    # 没有 Python 时，执行等价的 Go fallback
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;code&gt;check.sh&lt;/code&gt; 的意义是把“怎样运行规则”固定成一个小而稳定的协议：diff 从 stdin 写入临时文件，脚本再把 JSON 输出到 stdout。Agent 因此只需要批准并调用 &lt;code&gt;scripts/check.sh&lt;/code&gt;，不需要关心宿主机是否安装 Python。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;check_rules.py&lt;/code&gt; 是当前的主规则实现。它适合快速表达 diff 文本、正则、hunk 上下文和 JSON 输出这类规则，例如敏感信息、危险命令、明显的资源或 context 生命周期模式。&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;check_fallback.go&lt;/code&gt; 不是额外增加一次扫描，而是环境兼容兜底：当运行环境没有 &lt;code&gt;python3&lt;/code&gt; 时，仍能运行同类规则并产出同一份 finding JSON 契约。最新源码还专门增加了两种运行时对 diff 路径解析一致性的测试，说明 fallback 必须与主实现保持行为对齐。&lt;/p&gt;
+&lt;p&gt;这也是为什么基础规则不直接交给 LLM：密钥泄露、危险命令等规则需要稳定、低成本、可重复测试，且每次运行应给出一致的 file、line、rule_id 和证据。LLM 的输出会随模型、提示词和上下文变化，更适合作为后面的语义补充，而不是安全规则的唯一裁判。&lt;/p&gt;
 &lt;p&gt;仓库里虽然还有 &lt;code&gt;internal/rules/rules.go&lt;/code&gt;，但当前主 Agent 路径没有调用 &lt;code&gt;rules.Run&lt;/code&gt;；它目前主要由该包自己的测试覆盖。面试时可以说“仓库保留了 Go 规则实现和测试”，不能把它说成当前 CLI 的正式执行入口。&lt;/p&gt;
 &lt;h2 id=&#34;第四步skill-怎么被加载和执行&#34;&gt;第四步：Skill 怎么被加载和执行
 &lt;/h2&gt;&lt;p&gt;Skill 运行逻辑在 &lt;a class=&#34;link&#34; href=&#34;https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/skill_step.go&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;
@@ -1427,6 +1493,51 @@
 &lt;li&gt;模型返回后不会直接进最终结论，还要经过 &lt;code&gt;validateProviderFindings&lt;/code&gt; 校验 file/line 是否锚定到本次 diff 的新增行。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;如果模型报了一个不在这次改动里的位置，系统不会照单全收，而是加一条 &lt;code&gt;model-invalid-anchor&lt;/code&gt; 的人工复核 warning。这就是前面说的“&lt;code&gt;internal/review&lt;/code&gt; 与相关 parser 负责模型锚点可信度”的真实落点。&lt;/p&gt;
+&lt;h3 id=&#34;一次包含模型的完整例子&#34;&gt;一次包含模型的完整例子
+&lt;/h3&gt;&lt;p&gt;假设某份 diff 同时新增了硬编码密钥和一段可能解引用空指针的代码：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-diff&#34; data-lang=&#34;diff&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+apiKey := &amp;#34;sk-real-secret&amp;#34;
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+if user == nil {
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+    return user.Name
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+}
+&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;第一阶段，Skill 脚本可以稳定命中第一行，产出脱敏 finding：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;rule_id&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;secret-leak&amp;#34;&lt;/span&gt;,&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;severity&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;critical&amp;#34;&lt;/span&gt;,&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;file&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;config.go&amp;#34;&lt;/span&gt;,&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;line&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#bd93f9&#34;&gt;10&lt;/span&gt;,&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;evidence&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;apiKey=[REDACTED]&amp;#34;&lt;/span&gt;,&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;source&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;skill_run&amp;#34;&lt;/span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;若启用 DeepSeek 等 Provider，程序随后发送的不是密钥明文，而是类似下面的载荷：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;diff_summary&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;+apiKey := \&amp;#34;[REDACTED]\&amp;#34;\n+if user == nil {\n+    return user.Name\n+}&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;existing_findings&amp;#34;&lt;/span&gt;: [{&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;rule_id&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;secret-leak&amp;#34;&lt;/span&gt;,&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;file&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;config.go&amp;#34;&lt;/span&gt;,&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;line&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#bd93f9&#34;&gt;10&lt;/span&gt;}],
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;sandbox_summary&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;runs&amp;#34;&lt;/span&gt;: []},
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;governance_summary&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;permission_blocks&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;code&gt;DiffSummary&lt;/code&gt; 虽然名字里有 Summary，但当前实现传的是脱敏后的完整或接近完整 diff 文本；模型可以通读这些变更。&lt;code&gt;ExistingFindings&lt;/code&gt; 则是前面脚本已经确认的问题，告诉模型“secret-leak 已经报过，请不要原样再报一次”。模型更适合补充第二类语义风险，例如返回一条 &lt;code&gt;possible-nil-dereference&lt;/code&gt; finding。最后程序仍会检查它的文件和行号是否位于本次新增行，并和现有 finding 去重；模型不能绕过这一步直接写最终报告。&lt;/p&gt;
 &lt;h2 id=&#34;去重artifacttelemetrysqlite-各自管什么&#34;&gt;去重、Artifact、Telemetry、SQLite 各自管什么
 &lt;/h2&gt;&lt;p&gt;到这一步，很多讲解会只盯着 findings。但对真实 CR 系统来说，“怎么回放一次执行”同样重要。&lt;/p&gt;
 &lt;h3 id=&#34;finding-去重&#34;&gt;Finding 去重
@@ -1443,16 +1554,58 @@
 &lt;h3 id=&#34;telemetry&#34;&gt;Telemetry
 &lt;/h3&gt;&lt;p&gt;Telemetry 更偏运行观测。这个示例会记录 review trace、耗时、工具调用数、异常计数、严重级别分布等指标。它回答的是“这次系统怎么跑的”，不是“报告正文是什么”。&lt;/p&gt;
 &lt;h3 id=&#34;sqlite&#34;&gt;SQLite
-&lt;/h3&gt;&lt;p&gt;SQLite 是这个示例默认的审计存储，不是框架强制绑定；CLI 可以用 &lt;code&gt;--no-persist&lt;/code&gt; 关闭持久化。它的价值在于把一次 review 拆成可查询的实体，例如：&lt;/p&gt;
-&lt;ol&gt;
-&lt;li&gt;task&lt;/li&gt;
-&lt;li&gt;permission decisions&lt;/li&gt;
-&lt;li&gt;sandbox runs&lt;/li&gt;
-&lt;li&gt;findings&lt;/li&gt;
-&lt;li&gt;artifacts&lt;/li&gt;
-&lt;li&gt;reports&lt;/li&gt;
-&lt;li&gt;metrics&lt;/li&gt;
-&lt;/ol&gt;
+&lt;/h3&gt;&lt;p&gt;SQLite 是这个示例默认的审计存储，不是框架强制绑定；CLI 可以用 &lt;code&gt;--no-persist&lt;/code&gt; 关闭持久化。它的价值在于把一次 review 拆成可查询的实体：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;实体&lt;/th&gt;
+					&lt;th&gt;具体记录什么&lt;/th&gt;
+					&lt;th&gt;排障或审计时怎么用&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;task&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;task ID、输入类型和引用、diff digest、仓库路径、模式、开始结束时间、状态。&lt;/td&gt;
+					&lt;td&gt;查“这次评审审了什么、有没有完成”。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;permission decisions&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;哪条命令申请执行、&lt;code&gt;allow&lt;/code&gt;/&lt;code&gt;ask&lt;/code&gt;/&lt;code&gt;deny&lt;/code&gt;、原因和时间。&lt;/td&gt;
+					&lt;td&gt;查“为什么脚本或 &lt;code&gt;go vet&lt;/code&gt; 没有运行”。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;filter decisions&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;某个过滤目标被允许、拒绝或要求人工复核的原因。&lt;/td&gt;
+					&lt;td&gt;查治理策略是否按预期拦截。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;sandbox runs&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;命令、runtime、退出码、状态、超时、输出上限、环境白名单、输出摘要和耗时。&lt;/td&gt;
+					&lt;td&gt;区分测试失败、超时、未执行和 runtime 不支持。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;findings&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;severity、category、file、line、证据、修复建议、source、rule_id、置信度和状态。&lt;/td&gt;
+					&lt;td&gt;查某个结论来自脚本、沙箱还是模型。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;artifacts&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;JSON/Markdown/diagnostics 文件的名称、路径、digest 和大小。&lt;/td&gt;
+					&lt;td&gt;核对报告是否是这次任务生成的，是否被替换。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;reports&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;报告的 JSON 和 Markdown 内容。&lt;/td&gt;
+					&lt;td&gt;不依赖本地输出目录也能回看当时结论。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;metrics&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;总耗时、沙箱/模型耗时、工具和模型调用次数、拦截数、严重级别与异常分布、脱敏次数。&lt;/td&gt;
+					&lt;td&gt;查慢在哪里、误差主要来自哪个阶段、拦截是否异常。&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
 &lt;p&gt;写入时使用事务，目的不是为了“显得正规”，而是避免出现“报告文件已经生成，但数据库里只有半条 task 记录”这种审计断裂。&lt;/p&gt;
 &lt;h2 id=&#34;安全边界与失败降级是这篇文章最该记住的部分&#34;&gt;安全边界与失败降级是这篇文章最该记住的部分
 &lt;/h2&gt;&lt;p&gt;如果只记住“它能发现 secret”，其实抓不到这个项目真正的工程价值。真正值得记的是安全边界和失败降级策略。&lt;/p&gt;
@@ -1478,6 +1631,7 @@
 &lt;/h3&gt;&lt;p&gt;因为高置信的安全、生命周期、资源关闭类问题适合先走确定性规则，而且模型不应该天然拥有执行命令的权力。这个项目先让 Skill 找稳定问题，再把模型放到后面做增量语义判断。&lt;/p&gt;
 &lt;h3 id=&#34;2-为什么说它不是-react-agent&#34;&gt;2. 为什么说它不是 ReAct Agent？
 &lt;/h3&gt;&lt;p&gt;因为阶段顺序和工具调用是预定义的。模型没有在循环里自由决定“下一步跑哪个 Tool”，它只在可选 model review 阶段接收固定格式输入并返回增量 finding。&lt;/p&gt;
+&lt;p&gt;面试时可以进一步说：它仍然是 Agent 原型，因为实现了框架 Agent 接口并接入了 Runner、Skill、Tool、模型、事件和审计；但从决策形态看，它是受控 workflow，不应包装成已经完成自主规划的 ReAct Agent。&lt;/p&gt;
 &lt;h3 id=&#34;3-当前正式规则入口在哪里&#34;&gt;3. 当前正式规则入口在哪里？
 &lt;/h3&gt;&lt;p&gt;准确答案是：&lt;code&gt;skill_run -&amp;gt; scripts/check.sh -&amp;gt; check_rules.py/check_fallback.go&lt;/code&gt;。不要笼统说成“规则在 &lt;code&gt;internal/review&lt;/code&gt;”。&lt;/p&gt;
 &lt;h3 id=&#34;4-internalreviewparsergo-还有什么用&#34;&gt;4. &lt;code&gt;internal/review/parser.go&lt;/code&gt; 还有什么用？
