@@ -1683,6 +1683,12 @@
 &lt;li&gt;分开后可以单独回答“规则发现了什么”和“沙箱运行结果是什么”，失败时保留规则 findings，并把 sandbox 失败标成 &lt;code&gt;needs_human_review&lt;/code&gt;。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;所以正确的分工是：&lt;code&gt;check.sh&lt;/code&gt; 做 diff 级确定性筛查，沙箱做需要完整工作区的编译、测试和静态检查；不是因为 Shell 不能启动 &lt;code&gt;go test&lt;/code&gt;，而是不能绕过 Agent 的治理和审计边界。&lt;/p&gt;
+&lt;h3 id=&#34;什么时候必须提供被审仓库&#34;&gt;什么时候必须提供被审仓库
+&lt;/h3&gt;&lt;p&gt;只跑 Skill 规则时，输入可以只有 &lt;code&gt;--diff-file&lt;/code&gt;、&lt;code&gt;--fixture&lt;/code&gt; 或文件列表；脚本从 stdin 得到 diff，不需要访问完整仓库。开启 Go 沙箱检查时则不同：&lt;code&gt;go test&lt;/code&gt; 和 &lt;code&gt;go vet&lt;/code&gt; 需要 &lt;code&gt;--repo-path&lt;/code&gt; 指向一个本地工作区，container executor 会把它只读挂载到 &lt;code&gt;/workspace/repo&lt;/code&gt;。如果只提供 diff 而没有 &lt;code&gt;--repo-path&lt;/code&gt;，代码不会猜一个目录，也不会执行宿主机检查，而是记录 &lt;code&gt;sandbox-repo-required&lt;/code&gt; warning 和 skipped sandbox run。&lt;/p&gt;
+&lt;p&gt;所以你的理解是对的：&lt;strong&gt;diff-only 可以完成规则审查和可选模型审查；需要编译、测试或 Go 静态分析时，必须额外提供被审仓库。&lt;/strong&gt;&lt;/p&gt;
+&lt;h3 id=&#34;什么时候会询问用户&#34;&gt;什么时候会询问用户
+&lt;/h3&gt;&lt;p&gt;这里要区分框架语义和当前 CLI 的实际行为。&lt;code&gt;PermissionPolicy&lt;/code&gt; 可以返回 &lt;code&gt;allow&lt;/code&gt;、&lt;code&gt;deny&lt;/code&gt; 或 &lt;code&gt;ask&lt;/code&gt;；当前示例的 &lt;code&gt;internal/approval/gate.go&lt;/code&gt; 对固定的 &lt;code&gt;skill_run&lt;/code&gt;、&lt;code&gt;go test ./...&lt;/code&gt;、&lt;code&gt;go vet ./...&lt;/code&gt;（以及显式开启的 &lt;code&gt;staticcheck ./...&lt;/code&gt;）返回 &lt;code&gt;allow&lt;/code&gt;，遇到不在 allowlist 的工具或命令返回 &lt;code&gt;tool.AskPermission(&amp;quot;unrecognized tool command requires human review&amp;quot;)&lt;/code&gt;。&lt;/p&gt;
+&lt;p&gt;但当前 CLI 没有接入交互式审批 UI，所以不会真的暂停在终端等待你输入“是否执行”。&lt;code&gt;ask&lt;/code&gt; 会被记录为 permission decision，相关 run 标记为 &lt;code&gt;ask&lt;/code&gt;，结果增加 &lt;code&gt;needs_human_review&lt;/code&gt; warning，然后跳过这条命令。若未来接 Web/API 审批，才可以把这个 decision 发给用户，用户批准后用同一个 task ID 恢复执行；拒绝则保留审计记录并结束或继续其他安全阶段。&lt;/p&gt;
 &lt;p&gt;当前运行时边界也要讲准：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;&lt;code&gt;container&lt;/code&gt; 是正式隔离运行时，默认禁网、限制资源、只读挂载仓库。&lt;/li&gt;
@@ -1721,55 +1727,57 @@
 &lt;li&gt;模型返回后不会直接进最终结论，还要经过 &lt;code&gt;validateProviderFindings&lt;/code&gt; 校验 file/line 是否锚定到本次 diff 的新增行。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;如果模型报了一个不在这次改动里的位置，系统不会照单全收，而是加一条 &lt;code&gt;model-invalid-anchor&lt;/code&gt; 的人工复核 warning。这就是前面说的“&lt;code&gt;internal/review&lt;/code&gt; 与相关 parser 负责模型锚点可信度”的真实落点。&lt;/p&gt;
-&lt;h3 id=&#34;一次包含模型的完整例子&#34;&gt;一次包含模型的完整例子
-&lt;/h3&gt;&lt;p&gt;假设某份 diff 同时新增了硬编码密钥和一段可能解引用空指针的代码：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
-&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
-&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
-&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-diff&#34; data-lang=&#34;diff&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+apiKey := &amp;#34;sk-real-secret&amp;#34;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+if user == nil {
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+    return user.Name
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+}
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;第一阶段，Skill 脚本可以稳定命中第一行，产出脱敏 finding：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
-&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
-&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
-&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;rule_id&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;secret-leak&amp;#34;&lt;/span&gt;,&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;severity&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;critical&amp;#34;&lt;/span&gt;,&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;file&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;config.go&amp;#34;&lt;/span&gt;,&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;line&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#bd93f9&#34;&gt;10&lt;/span&gt;,&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;evidence&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;apiKey=[REDACTED]&amp;#34;&lt;/span&gt;,&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;source&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;skill_run&amp;#34;&lt;/span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;若启用 DeepSeek 等 Provider，程序随后发送的不是密钥明文，而是类似下面的载荷：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
-&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
-&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
-&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-json&#34; data-lang=&#34;json&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;{
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;diff_summary&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;+apiKey := \&amp;#34;[REDACTED]\&amp;#34;\n+if user == nil {\n+    return user.Name\n+}&amp;#34;&lt;/span&gt;,
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;existing_findings&amp;#34;&lt;/span&gt;: [{&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;rule_id&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;secret-leak&amp;#34;&lt;/span&gt;,&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;file&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;config.go&amp;#34;&lt;/span&gt;,&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;line&amp;#34;&lt;/span&gt;:&lt;span style=&#34;color:#bd93f9&#34;&gt;10&lt;/span&gt;}],
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;sandbox_summary&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;runs&amp;#34;&lt;/span&gt;: []},
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;  &lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;governance_summary&amp;#34;&lt;/span&gt;: {&lt;span style=&#34;color:#ff79c6&#34;&gt;&amp;#34;permission_blocks&amp;#34;&lt;/span&gt;: &lt;span style=&#34;color:#bd93f9&#34;&gt;0&lt;/span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
-&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;code&gt;DiffSummary&lt;/code&gt; 虽然名字里有 Summary，但当前实现传的是脱敏后的完整或接近完整 diff 文本；模型可以通读这些变更。&lt;code&gt;ExistingFindings&lt;/code&gt; 则是前面脚本已经确认的问题，告诉模型“secret-leak 已经报过，请不要原样再报一次”。模型更适合补充第二类语义风险，例如返回一条 &lt;code&gt;possible-nil-dereference&lt;/code&gt; finding。最后程序仍会检查它的文件和行号是否位于本次新增行，并和现有 finding 去重；模型不能绕过这一步直接写最终报告。&lt;/p&gt;
 &lt;h2 id=&#34;去重artifacttelemetrysqlite-各自管什么&#34;&gt;去重、Artifact、Telemetry、SQLite 各自管什么
 &lt;/h2&gt;&lt;p&gt;到这一步，很多讲解会只盯着 findings。但对真实 CR 系统来说，“怎么回放一次执行”同样重要。&lt;/p&gt;
 &lt;h3 id=&#34;finding-去重&#34;&gt;Finding 去重
 &lt;/h3&gt;&lt;p&gt;同一问题可能来自 Skill、模型或多个阶段，系统会按稳定 key 去重，避免同一 file/line/category/rule 被重复报。&lt;/p&gt;
+&lt;h3 id=&#34;finding-的来源怎么区分&#34;&gt;Finding 的来源怎么区分
+&lt;/h3&gt;&lt;p&gt;SQLite 的 &lt;code&gt;findings&lt;/code&gt; 表不是只保存脚本结果。&lt;code&gt;internal/agent/persist.go&lt;/code&gt; 的 &lt;code&gt;persistedReviewItems&lt;/code&gt; 会把三类审查项合并后落库：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;items = &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;append&lt;/span&gt;(items, result.Findings&lt;span style=&#34;color:#ff79c6&#34;&gt;...&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;items = &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;append&lt;/span&gt;(items, result.Warnings&lt;span style=&#34;color:#ff79c6&#34;&gt;...&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;items = &lt;span style=&#34;color:#8be9fd;font-style:italic&#34;&gt;append&lt;/span&gt;(items, result.HumanReviewItems&lt;span style=&#34;color:#ff79c6&#34;&gt;...&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;每条 &lt;code&gt;review.Finding&lt;/code&gt; 有一个 &lt;code&gt;Source&lt;/code&gt; 字段，可以这样读：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;&lt;code&gt;Source&lt;/code&gt; 示例&lt;/th&gt;
+					&lt;th&gt;记录什么&lt;/th&gt;
+					&lt;th&gt;常见触发点&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;skill_run&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;固定规则脚本发现的问题。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;check.sh&lt;/code&gt; 返回 &lt;code&gt;secret-leak&lt;/code&gt;、&lt;code&gt;panic-direct&lt;/code&gt; 等。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;sandbox&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;沙箱执行失败、超时、缺少仓库或 runtime 不支持等审查项。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;go test&lt;/code&gt; / &lt;code&gt;go vet&lt;/code&gt; 没有正常完成。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;model&lt;/code&gt; / &lt;code&gt;fake_model&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;真实 Provider 或 fake Provider 返回的增量问题。&lt;/td&gt;
+					&lt;td&gt;模型阶段发现语义风险。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;permission&lt;/code&gt; / &lt;code&gt;mode&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;权限不允许、dry-run 跳过等治理提示。&lt;/td&gt;
+					&lt;td&gt;命令没有被执行，但需要人工知道原因。&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;所以面试官问“数据库里的 finding 是哪来的”，不能只回答“来自 check.sh”。准确答案是：&lt;strong&gt;Skill、沙箱和模型都可能产生审查项，数据库通过 &lt;code&gt;source&lt;/code&gt;、&lt;code&gt;rule_id&lt;/code&gt;、&lt;code&gt;status&lt;/code&gt; 区分；权限和模式导致的 warning 也会作为可审计项保存。&lt;/strong&gt;&lt;/p&gt;
 &lt;h3 id=&#34;artifact&#34;&gt;Artifact
 &lt;/h3&gt;&lt;p&gt;最终输出不只是一段终端文本，而是正式 Artifact，包括：&lt;/p&gt;
 &lt;ol&gt;
@@ -1863,7 +1871,7 @@
 &lt;h3 id=&#34;3-为什么不把-go-test-直接写进-checksh&#34;&gt;3. 为什么不把 &lt;code&gt;go test&lt;/code&gt; 直接写进 &lt;code&gt;check.sh&lt;/code&gt;？
 &lt;/h3&gt;&lt;p&gt;答：不是 Shell 不能调用 Go，而是职责和安全边界不同。&lt;code&gt;check.sh&lt;/code&gt; 的输入是 stdin diff，输出是规则 JSON；&lt;code&gt;go test&lt;/code&gt; 需要 repo workspace，可能耗时、产生大量输出并执行仓库代码。把它放进脚本会绕开独立的 PermissionPolicy、runtime 选择、超时、禁网、只读挂载和 &lt;code&gt;sandbox_run&lt;/code&gt; 审计。当前设计把 diff 筛查和工作区执行拆成两个可治理阶段。&lt;/p&gt;
 &lt;h3 id=&#34;4-checkshcheck_rulespycheck_fallbackgo-分别负责什么&#34;&gt;4. &lt;code&gt;check.sh&lt;/code&gt;、&lt;code&gt;check_rules.py&lt;/code&gt;、&lt;code&gt;check_fallback.go&lt;/code&gt; 分别负责什么？
-&lt;/h3&gt;&lt;p&gt;答：&lt;code&gt;check.sh&lt;/code&gt; 是 Skill 对外的稳定入口，负责接收 stdin、写临时文件和选择实现；&lt;code&gt;check_rules.py&lt;/code&gt; 是有 Python 时运行的主规则实现，逐行解析 hunk，检查 secret、panic、资源关闭、context、错误处理等模式并输出 JSON；&lt;code&gt;check_fallback.go&lt;/code&gt; 是没有 Python 时的 Go 兼容实现，不与 Python 串行执行，而是遵守同一 finding JSON 契约。三者关系是“入口脚本 -&amp;gt; 主实现或环境降级”，不是三次重复扫描。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;答：源码证据是三段。&lt;code&gt;check.sh&lt;/code&gt; 先执行 &lt;code&gt;cat &amp;gt; &amp;quot;$tmp&amp;quot;&lt;/code&gt;，再用 &lt;code&gt;command -v python3&lt;/code&gt; 选择 &lt;code&gt;python3 check_rules.py &amp;quot;$tmp&amp;quot;&lt;/code&gt;，否则执行 &lt;code&gt;GO111MODULE=off go run check_fallback.go &amp;quot;$tmp&amp;quot;&lt;/code&gt;。Python 规则在 &lt;code&gt;if new_remaining &amp;gt; 0 and line.startswith(&amp;quot;+&amp;quot;)&lt;/code&gt; 分支只检查新增行，并通过 &lt;code&gt;add_finding(...)&lt;/code&gt; 补齐 severity、file、line、evidence、rule_id 等字段；Go fallback 用 &lt;code&gt;bufio.Scanner&lt;/code&gt; 解析相同的 &lt;code&gt;+++&lt;/code&gt; 文件头和 &lt;code&gt;@@&lt;/code&gt; hunk 计数，并用 &lt;code&gt;finding&lt;/code&gt; struct 输出相同 JSON 契约。三者关系是“入口脚本 -&amp;gt; 主实现或环境降级”，不是三次重复扫描。&lt;/p&gt;
 &lt;h3 id=&#34;5-你的规则引擎为什么不用-llm-直接判断&#34;&gt;5. 你的规则引擎为什么不用 LLM 直接判断？
 &lt;/h3&gt;&lt;p&gt;答：高置信安全规则需要稳定、低成本和可回归测试，例如 &lt;code&gt;secret-leak&lt;/code&gt;、命令注入和 response body 未关闭。脚本能给出固定的 file、line、rule_id 和证据。LLM 更适合补充跨上下文语义，但有成本、隐私和误报波动，所以流程先跑 Skill 和沙箱，再把脱敏 diff、既有 findings 和执行摘要发给模型，最后对模型结果做新增行锚点校验和去重。&lt;/p&gt;
 &lt;h3 id=&#34;6-你简历里写llm-agent模型实际上做了什么&#34;&gt;6. 你简历里写“LLM Agent”，模型实际上做了什么？
@@ -1873,25 +1881,15 @@
 &lt;h3 id=&#34;8-sqlite-里到底存了什么为什么不是只保存最终报告&#34;&gt;8. SQLite 里到底存了什么，为什么不是只保存最终报告？
 &lt;/h3&gt;&lt;p&gt;答：&lt;code&gt;task&lt;/code&gt; 保存输入引用、digest、模式和状态；permission/filter decisions 保存命令为什么允许、拒绝或要求人工复核；sandbox run 保存 runtime、退出码、耗时、超时和输出摘要；finding 保存结构化问题；artifact/report 保存报告文件引用和内容；metrics 保存总耗时、工具/模型调用、拦截数、严重级别和异常分布。它们在一次事务中关联提交，目的是支持按 task 回放“输入、决策、执行、结果”，而不是只知道最后一句结论。&lt;/p&gt;
 &lt;h3 id=&#34;9-如果要把它演进成-react-或图工作流你会怎么做&#34;&gt;9. 如果要把它演进成 ReAct 或图工作流，你会怎么做？
-&lt;/h3&gt;&lt;p&gt;答：我不会先让模型获得任意命令权限。可以先把规则检查、沙箱检查、模型复核和人工审批建成带状态的节点；模型只能在 allowlist、预算、超时和审计约束内选择低风险动作，所有高风险命令仍由 PermissionPolicy 决定。这样可以逐步引入规划和重试，同时保留当前确定性主路径。&lt;/p&gt;
-&lt;h2 id=&#34;其他源码型追问&#34;&gt;其他源码型追问
-&lt;/h2&gt;&lt;h3 id=&#34;1-这个项目为什么不直接把-diff-发给模型&#34;&gt;1. 这个项目为什么不直接把 diff 发给模型？
-&lt;/h3&gt;&lt;p&gt;因为高置信的安全、生命周期、资源关闭类问题适合先走确定性规则，而且模型不应该天然拥有执行命令的权力。这个项目先让 Skill 找稳定问题，再把模型放到后面做增量语义判断。&lt;/p&gt;
-&lt;h3 id=&#34;2-为什么说它不是-react-agent&#34;&gt;2. 为什么说它不是 ReAct Agent？
-&lt;/h3&gt;&lt;p&gt;因为阶段顺序和工具调用是预定义的。模型没有在循环里自由决定“下一步跑哪个 Tool”，它只在可选 model review 阶段接收固定格式输入并返回增量 finding。&lt;/p&gt;
-&lt;p&gt;面试时可以进一步说：它仍然是 Agent 原型，因为实现了框架 Agent 接口并接入了 Runner、Skill、Tool、模型、事件和审计；但从决策形态看，它是受控 workflow，不应包装成已经完成自主规划的 ReAct Agent。&lt;/p&gt;
-&lt;h3 id=&#34;3-当前正式规则入口在哪里&#34;&gt;3. 当前正式规则入口在哪里？
-&lt;/h3&gt;&lt;p&gt;准确答案是：&lt;code&gt;skill_run -&amp;gt; scripts/check.sh -&amp;gt; check_rules.py/check_fallback.go&lt;/code&gt;。不要笼统说成“规则在 &lt;code&gt;internal/review&lt;/code&gt;”。&lt;/p&gt;
-&lt;h3 id=&#34;4-internalreviewparsergo-还有什么用&#34;&gt;4. &lt;code&gt;internal/review/parser.go&lt;/code&gt; 还有什么用？
-&lt;/h3&gt;&lt;p&gt;它负责 diff 的结构化、元数据、去重与脱敏，以及给模型 finding 做新增行锚点校验。它重要，但不是正式规则脚本入口。&lt;/p&gt;
-&lt;h3 id=&#34;5---sandbox-false-与-dry-run-的差别是什么&#34;&gt;5. &lt;code&gt;--sandbox false&lt;/code&gt; 与 &lt;code&gt;dry-run&lt;/code&gt; 的差别是什么？
-&lt;/h3&gt;&lt;p&gt;&lt;code&gt;--sandbox false&lt;/code&gt; 仍会跑 Skill 规则，只是关闭 Go 检查；&lt;code&gt;dry-run&lt;/code&gt; 连 Skill 脚本都不执行，只验证 Skill 加载与审计链路。&lt;/p&gt;
-&lt;h3 id=&#34;6-为什么-skill_run-自己也要-permissionpolicy&#34;&gt;6. 为什么 &lt;code&gt;skill_run&lt;/code&gt; 自己也要 PermissionPolicy？
-&lt;/h3&gt;&lt;p&gt;因为脚本本质上也是执行能力。不能因为脚本在仓库里，就把它当成天然可信、免审批的黑盒。&lt;/p&gt;
-&lt;h3 id=&#34;7-模型为什么不能直接报任何-fileline&#34;&gt;7. 模型为什么不能直接报任何 file/line？
-&lt;/h3&gt;&lt;p&gt;因为系统会校验模型 finding 是否锚定在本次 diff 新增行。没有锚点的结果会被拒收，并转成人工复核 warning。&lt;/p&gt;
-&lt;h3 id=&#34;8-sqlite-在这里的作用是什么&#34;&gt;8. SQLite 在这里的作用是什么？
-&lt;/h3&gt;&lt;p&gt;它不是为了“存个结果方便看”，而是为了把 task、权限决策、sandbox run、finding、artifact、report、metrics 关联成一条可回放审计链。&lt;/p&gt;
+&lt;/h3&gt;&lt;p&gt;答：我会按“先图工作流、后受限 ReAct”的顺序演进，而不是直接把所有工具暴露给模型。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;先把现有 &lt;code&gt;runDirect&lt;/code&gt; 拆成有状态节点：&lt;code&gt;input_loaded -&amp;gt; skill_run -&amp;gt; sandbox_run -&amp;gt; model_review -&amp;gt; report -&amp;gt; persist&lt;/code&gt;，每个节点写入 task 状态和输入/输出 digest，失败可从最近节点恢复。&lt;/li&gt;
+&lt;li&gt;把 &lt;code&gt;go test&lt;/code&gt;、&lt;code&gt;go vet&lt;/code&gt;、&lt;code&gt;staticcheck&lt;/code&gt;、AST 分析和模型复核注册成带 schema 的 Tool，声明只读/联网/耗时/资源等级；模型只能从低风险、参数已校验的 Tool 中选择。&lt;/li&gt;
+&lt;li&gt;高风险动作继续由 PermissionPolicy 决定。&lt;code&gt;ask&lt;/code&gt; 要进入审批 API，批准后带原 task ID 恢复，拒绝则写 decision 并继续安全分支；模型不能自行把 &lt;code&gt;ask&lt;/code&gt; 变成 &lt;code&gt;allow&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;给规划循环加预算、最大步数、超时、重试退避和幂等键，避免模型重复跑测试或无限调用工具；每一步记录 Event、Telemetry 和 sandbox run。&lt;/li&gt;
+&lt;li&gt;最后再引入 ReAct，让模型根据已有 findings 决定“是否需要补充某个低风险检查”，但保留确定性规则作为必经主路径，并用 fixture/holdout 评估新增召回率和误报率。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这样演进后，图工作流负责可靠的阶段编排，受限 ReAct 负责有限的检查选择，Docker/PermissionPolicy/SQLite 这些安全和审计边界仍然不变。&lt;/p&gt;
 &lt;h2 id=&#34;术语表&#34;&gt;术语表
 &lt;/h2&gt;&lt;p&gt;最后用一个紧凑版术语表收尾，方便回看：&lt;/p&gt;
 &lt;table&gt;
