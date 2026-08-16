@@ -264,6 +264,7 @@
     <li><a href="#第三步正式规则入口到底在哪里">第三步：正式规则入口到底在哪里</a>
       <ol>
         <li><a href="#为什么要有-shellpython-和-go-fallback-三层">为什么要有 Shell、Python 和 Go fallback 三层</a></li>
+        <li><a href="#三个脚本结合关键源码看">三个脚本结合关键源码看</a></li>
       </ol>
     </li>
     <li><a href="#第四步skill-怎么被加载和执行">第四步：Skill 怎么被加载和执行</a></li>
@@ -272,7 +273,12 @@
     <li><a href="#用-secretdiff-走一遍真实完整链路">用 <code>secret.diff</code> 走一遍真实完整链路</a></li>
     <li><a href="#再对比一下-dry-run别把两个模式讲混">再对比一下 dry-run，别把两个模式讲混</a></li>
     <li><a href="#模式矩阵到底哪些阶段会执行">模式矩阵：到底哪些阶段会执行</a></li>
-    <li><a href="#sandbox真正的执行边界在哪里">Sandbox：真正的执行边界在哪里</a></li>
+    <li><a href="#sandbox真正的执行边界在哪里">Sandbox：真正的执行边界在哪里</a>
+      <ol>
+        <li><a href="#为什么在沙箱里跑-go-test-和-go-vet">为什么在沙箱里跑 <code>go test</code> 和 <code>go vet</code></a></li>
+        <li><a href="#为什么不直接在-checksh-里执行-go-test">为什么不直接在 <code>check.sh</code> 里执行 <code>go test</code></a></li>
+      </ol>
+    </li>
     <li><a href="#模型阶段模型拿到的不是未经处理的原始-diff">模型阶段：模型拿到的不是未经处理的原始 diff</a>
       <ol>
         <li><a href="#一次包含模型的完整例子">一次包含模型的完整例子</a></li>
@@ -292,7 +298,20 @@
         <li><a href="#失败降级">失败降级</a></li>
       </ol>
     </li>
-    <li><a href="#面试里最容易被追问的-8-个问题">面试里最容易被追问的 8 个问题</a>
+    <li><a href="#按简历项目追问面试官可能怎么问">按简历项目追问：面试官可能怎么问</a>
+      <ol>
+        <li><a href="#1-你说用了沙箱具体是怎么实现的docker-在这里扮演什么角色">1. 你说“用了沙箱”，具体是怎么实现的？Docker 在这里扮演什么角色？</a></li>
+        <li><a href="#2-为什么要在沙箱里运行-go-test-和-go-vet">2. 为什么要在沙箱里运行 <code>go test</code> 和 <code>go vet</code>？</a></li>
+        <li><a href="#3-为什么不把-go-test-直接写进-checksh">3. 为什么不把 <code>go test</code> 直接写进 <code>check.sh</code>？</a></li>
+        <li><a href="#4-checkshcheck_rulespycheck_fallbackgo-分别负责什么">4. <code>check.sh</code>、<code>check_rules.py</code>、<code>check_fallback.go</code> 分别负责什么？</a></li>
+        <li><a href="#5-你的规则引擎为什么不用-llm-直接判断">5. 你的规则引擎为什么不用 LLM 直接判断？</a></li>
+        <li><a href="#6-你简历里写llm-agent模型实际上做了什么">6. 你简历里写“LLM Agent”，模型实际上做了什么？</a></li>
+        <li><a href="#7-为什么说这是-agent-原型而不是普通脚本">7. 为什么说这是 Agent 原型，而不是普通脚本？</a></li>
+        <li><a href="#8-sqlite-里到底存了什么为什么不是只保存最终报告">8. SQLite 里到底存了什么，为什么不是只保存最终报告？</a></li>
+        <li><a href="#9-如果要把它演进成-react-或图工作流你会怎么做">9. 如果要把它演进成 ReAct 或图工作流，你会怎么做？</a></li>
+      </ol>
+    </li>
+    <li><a href="#其他源码型追问">其他源码型追问</a>
       <ol>
         <li><a href="#1-这个项目为什么不直接把-diff-发给模型">1. 这个项目为什么不直接把 diff 发给模型？</a></li>
         <li><a href="#2-为什么说它不是-react-agent">2. 为什么说它不是 ReAct Agent？</a></li>
@@ -374,7 +393,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 23 分钟
+                    阅读时长: 32 分钟
                 </time>
             </div>
         
@@ -890,6 +909,82 @@
 <p><code>check_rules.py</code> 是当前的主规则实现。它适合快速表达 diff 文本、正则、hunk 上下文和 JSON 输出这类规则，例如敏感信息、危险命令、明显的资源或 context 生命周期模式。</p>
 <p><code>check_fallback.go</code> 不是额外增加一次扫描，而是环境兼容兜底：当运行环境没有 <code>python3</code> 时，仍能运行同类规则并产出同一份 finding JSON 契约。最新源码还专门增加了两种运行时对 diff 路径解析一致性的测试，说明 fallback 必须与主实现保持行为对齐。</p>
 <p>这也是为什么基础规则不直接交给 LLM：密钥泄露、危险命令等规则需要稳定、低成本、可重复测试，且每次运行应给出一致的 file、line、rule_id 和证据。LLM 的输出会随模型、提示词和上下文变化，更适合作为后面的语义补充，而不是安全规则的唯一裁判。</p>
+<h3 id="三个脚本结合关键源码看">三个脚本结合关键源码看
+</h3><p>先看 <code>check.sh</code>，它只有一个职责：把输入协议固定下来。</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">tmp</span><span style="color:#ff79c6">=</span><span style="color:#f1fa8c">&#34;</span><span style="color:#ff79c6">$(</span>mktemp<span style="color:#ff79c6">)</span><span style="color:#f1fa8c">&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">trap</span> <span style="color:#f1fa8c">&#39;rm -f &#34;$tmp&#34;&#39;</span> EXIT
+</span></span><span style="display:flex;"><span>cat &gt; <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$tmp</span><span style="color:#f1fa8c">&#34;</span>                 <span style="color:#6272a4"># stdin 中的 diff 写入临时文件</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> <span style="color:#8be9fd;font-style:italic">command</span> -v python3 &gt;/dev/null 2&gt;&amp;1; <span style="color:#ff79c6">then</span>
+</span></span><span style="display:flex;"><span>  python3 <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$script_dir</span><span style="color:#f1fa8c">/check_rules.py&#34;</span> <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$tmp</span><span style="color:#f1fa8c">&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">else</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#8be9fd;font-style:italic">GO111MODULE</span><span style="color:#ff79c6">=</span>off go run <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$script_dir</span><span style="color:#f1fa8c">/check_fallback.go&#34;</span> <span style="color:#f1fa8c">&#34;</span><span style="color:#8be9fd;font-style:italic">$tmp</span><span style="color:#f1fa8c">&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">fi</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>因此 Agent 不需要判断 Python 规则如何实现，只批准一个稳定的 <code>scripts/check.sh</code> 命令；输入是 stdin，输出约定为 stdout 上的 JSON。<code>set -euo pipefail</code> 和临时文件清理则负责脚本级错误传播与资源回收。</p>
+<p>再看 Python 主规则实现，它不是把整份 diff 当普通文本一把正则扫完，而是先维护 <code>current_file</code>、hunk 的新增行计数和 hunk 上下文：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">if</span> new_remaining <span style="color:#ff79c6">&gt;</span> <span style="color:#bd93f9">0</span> <span style="color:#ff79c6">and</span> line<span style="color:#ff79c6">.</span>startswith(<span style="color:#f1fa8c">&#34;+&#34;</span>):
+</span></span><span style="display:flex;"><span>    new_line <span style="color:#ff79c6">+=</span> <span style="color:#bd93f9">1</span>
+</span></span><span style="display:flex;"><span>    text <span style="color:#ff79c6">=</span> line[<span style="color:#bd93f9">1</span>:]<span style="color:#ff79c6">.</span>strip()
+</span></span><span style="display:flex;"><span>    hunk_text <span style="color:#ff79c6">=</span> hunk_texts<span style="color:#ff79c6">.</span>get(index, <span style="color:#f1fa8c">&#34;</span><span style="color:#f1fa8c">\n</span><span style="color:#f1fa8c">&#34;</span><span style="color:#ff79c6">.</span>join(current_hunk))
+</span></span><span style="display:flex;"><span>    <span style="color:#ff79c6">if</span> should_report_secret(text):
+</span></span><span style="display:flex;"><span>        add_finding(
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;critical&#34;</span>, <span style="color:#f1fa8c">&#34;security&#34;</span>, current_file, new_line,
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;Potential secret appears in added code&#34;</span>, text,
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;Replace the literal with a secret manager or environment lookup.&#34;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#f1fa8c">&#34;secret-leak&#34;</span>)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这里有三个关键点：只对新增行做判断；用 hunk 文本帮助判断“是否已经 Close/Cancel/Rollback”；<code>add_finding</code> 统一补齐 severity、file、line、evidence、recommendation、confidence、source 和 rule_id，并以 <code>(file, line, category, rule_id)</code> 去重。规则函数还覆盖 <code>panic</code>、HTTP response body 未关闭、SQL 字符串拼接、命令注入、context 未取消、错误缺少上下文等模式。</p>
+<p>Go fallback 采用相同的输入输出契约。它用 Go 的 <code>bufio.Scanner</code> 逐行读取 diff，用 <code>finding</code> 结构体编码 JSON：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">type</span> finding <span style="color:#8be9fd;font-style:italic">struct</span> {
+</span></span><span style="display:flex;"><span>    Severity, Category, File <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>    Line                    <span style="color:#8be9fd">int</span>
+</span></span><span style="display:flex;"><span>    Evidence, Recommendation <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>    Confidence, Source, RuleID, Status <span style="color:#8be9fd">string</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>它同样解析 <code>+++</code> 文件头和 <code>@@</code> hunk header，只检查新增行，再用自己的 <code>redact</code> 和去重逻辑产出 findings/warnings。fallback 的意义是“没有 Python 时仍能运行”，不是把 Python 和 Go 两套规则串联执行；两者都必须遵守 Skill 规定的 JSON 契约，否则 <code>parseSkillFindings</code> 无法把 stdout 变成内部 finding。</p>
+<p>这三层也解释了为什么不能只在一个大 Shell 脚本里写完：Shell 适合做进程编排和环境探测，Python 适合快速维护规则，Go fallback 保证目标环境没有 Python 时仍可运行；Agent 负责权限、超时、审计和结果合并，而不是把这些职责全部塞进脚本。</p>
 <p>仓库里虽然还有 <code>internal/rules/rules.go</code>，但当前主 Agent 路径没有调用 <code>rules.Run</code>；它目前主要由该包自己的测试覆盖。面试时可以说“仓库保留了 Go 规则实现和测试”，不能把它说成当前 CLI 的正式执行入口。</p>
 <h2 id="第四步skill-怎么被加载和执行">第四步：Skill 怎么被加载和执行
 </h2><p>Skill 运行逻辑在 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/skill_step.go"  target="_blank" rel="noopener"
@@ -1078,7 +1173,93 @@
 </span></span></code></pre></td></tr></table>
 </div>
 </div><p>这里同时验证了行号锚定、规则来源和脱敏：报告指出新增代码的第 2 行，却不会把示例密钥原文再次写入产物。</p>
-<p>这条链路里最值得记住的不是“发现了 secret”，而是：</p>
+<p>这条命令是确定性基线。接下来把 <code>model-enabled</code> 打开，才会进入模型阶段。为了不依赖真实 API Key，可以用项目内置的无网络 fake Provider 演示同一条接口链：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>go run ./cmd/review-agent <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --diff-file testdata/holdout/model-nil-boundary.diff <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --mode fake-model <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --runtime local-fallback <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --sandbox<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">false</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --skills-root ./skills <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --output-dir /tmp/cr-fake-model <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --sqlite /tmp/cr-fake-model/review.db
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>fake-model</code> 不是 DeepSeek，它是测试用的确定性 Provider：只有 diff 中带有 <code>CR_AGENT_FAKE_MODEL_*</code> 标记时才返回预设 finding，不联网、不需要 API Key。它用来验证“规则 findings -&gt; 模型 Provider -&gt; 模型 findings -&gt; 锚点校验 -&gt; 合并 -&gt; 报告”的编排是否正确。</p>
+<p>真实 DeepSeek 则通过 CLI 或配置显式开启，例如配置中设置 <code>provider: deepseek</code>、<code>name: deepseek-chat</code>、<code>api_key_env: DEEPSEEK_API_KEY</code>，密钥从环境变量读取；代码中的 <code>internal/llm/openai.go</code> 负责构造 Provider，<code>internal/llm/review.go</code> 负责把脱敏输入交给 Provider 并合并增量结果。真实调用会产生网络成本和隐私边界，因此测试时优先使用 fake Provider。</p>
+<p>如果要让刚才的 <code>secret.diff</code> 真正经过 DeepSeek，命令形态如下（不要把密钥写进命令历史或仓库）：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>go run ./cmd/review-agent <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --fixture secret.diff <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --runtime local-fallback <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --sandbox<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">false</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --model-enabled<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">true</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --model-provider deepseek <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --model-name deepseek-chat <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --model-api-key-env DEEPSEEK_API_KEY <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --skills-root ./skills <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --output-dir /tmp/cr-secret-model <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --sqlite /tmp/cr-secret-model/review.db
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这次运行中，<code>secret-leak</code> 仍由 Skill 先产生；模型拿到脱敏 diff 和这条既有 finding 后，可以返回“没有新的语义问题”，也可能返回其他增量问题。无论模型返回什么，最终报告都应保留 <code>source=skill_run</code> 的确定性发现，并把模型调用次数、耗时、异常和模型 findings 单独记入 metrics。</p>
+<p>这两次运行合起来才是完整主线：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>secret.diff / PR patch
+</span></span><span style="display:flex;"><span>  -&gt; input.Read 统一成 diff
+</span></span><span style="display:flex;"><span>  -&gt; skill_load
+</span></span><span style="display:flex;"><span>  -&gt; PermissionPolicy
+</span></span><span style="display:flex;"><span>  -&gt; skill_run
+</span></span><span style="display:flex;"><span>  -&gt; check.sh
+</span></span><span style="display:flex;"><span>  -&gt; check_rules.py（有 Python）或 check_fallback.go（无 Python）
+</span></span><span style="display:flex;"><span>  -&gt; 确定性 findings
+</span></span><span style="display:flex;"><span>  -&gt; 可选 sandbox：在 repo workspace 中运行 go test / go vet
+</span></span><span style="display:flex;"><span>  -&gt; 可选 model：发送脱敏 diff + 既有 findings
+</span></span><span style="display:flex;"><span>  -&gt; 校验模型 file/line 锚点并去重
+</span></span><span style="display:flex;"><span>  -&gt; JSON/Markdown 报告 + SQLite 审计
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这里最值得记住的不是“发现了 secret”，而是：</p>
 <ol>
 <li>发现 secret 的正式规则入口是 Skill 脚本链。</li>
 <li>Skill 也受权限治理，不是“脚本天然可信”。</li>
@@ -1202,6 +1383,39 @@
 <p>还有一个容易忽略的控制流：<code>skill_run</code> 被 PermissionPolicy 判为 non-allow 时会生成需要人工复核的 warning，但不会自动取消整个 execution plan。如果请求同时启用了 sandbox 或 model，后续阶段仍可能继续；最终报告会同时保留权限拒绝和其他阶段的结果。</p>
 <h2 id="sandbox真正的执行边界在哪里">Sandbox：真正的执行边界在哪里
 </h2><p>规则命中只是第一层。这个示例还支持在权限允许时运行 Go 检查，例如 <code>go test ./...</code>、<code>go vet ./...</code>，以及可选 <code>staticcheck ./...</code>。</p>
+<p>先把“沙箱”这个词说准确：沙箱不是某一种固定技术，而是一组执行约束，目标是让不完全信任的代码在受限环境中运行。Docker 容器是这里采用的具体实现之一；tRPC-Agent-Go 的 <code>codeexecutor/container</code> 负责创建和复用容器，示例自己的 <code>internal/execution/exec.go</code> 再把容器配置成当前的安全边界。<code>local-fallback</code> 则是开发回退，不等于同等级的隔离。</p>
+<p>当前 container runtime 的关键源码配置包括：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>dockercontainer.HostConfig{
+</span></span><span style="display:flex;"><span>    AutoRemove:  <span style="color:#ff79c6">true</span>,
+</span></span><span style="display:flex;"><span>    Privileged:  <span style="color:#ff79c6">false</span>,
+</span></span><span style="display:flex;"><span>    NetworkMode: <span style="color:#f1fa8c">&#34;none&#34;</span>,
+</span></span><span style="display:flex;"><span>    CapDrop:     []<span style="color:#8be9fd">string</span>{<span style="color:#f1fa8c">&#34;ALL&#34;</span>},
+</span></span><span style="display:flex;"><span>    SecurityOpt: []<span style="color:#8be9fd">string</span>{<span style="color:#f1fa8c">&#34;no-new-privileges&#34;</span>},
+</span></span><span style="display:flex;"><span>    Resources: dockercontainer.Resources{
+</span></span><span style="display:flex;"><span>        Memory: <span style="color:#bd93f9">1024</span> <span style="color:#ff79c6">*</span> <span style="color:#bd93f9">1024</span> <span style="color:#ff79c6">*</span> <span style="color:#bd93f9">1024</span>,
+</span></span><span style="display:flex;"><span>        NanoCPUs: <span style="color:#bd93f9">2_000_000_000</span>,
+</span></span><span style="display:flex;"><span>        PidsLimit: <span style="color:#ff79c6">&amp;</span>pidsLimit,
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>仓库通过只读 bind mount 放到容器的 <code>/workspace/repo</code>；环境变量只保留 <code>PATH</code>、<code>HOME</code>、<code>TMPDIR</code> 和 <code>GOCACHE</code>。命令还会经过 <code>BoundedSandboxCommand</code>，把合并 stdout/stderr 限制在配置的字节数内，并通过 <code>context.WithTimeout</code> 限制执行时间。也就是说，Docker 提供进程隔离，Agent 自己补上网络、权限、资源、超时、输出和挂载策略；仅仅“用了 Docker”并不自动等于安全沙箱。</p>
 <p>关键点在 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/approval/gate.go"  target="_blank" rel="noopener"
     ><code>internal/approval/gate.go</code></a> 和 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/sandbox_step.go"  target="_blank" rel="noopener"
     ><code>internal/agent/sandbox_step.go</code></a>：</p>
@@ -1229,6 +1443,39 @@
 			</tr>
 	</tbody>
 </table></div>
+<h3 id="为什么在沙箱里跑-go-test-和-go-vet">为什么在沙箱里跑 <code>go test</code> 和 <code>go vet</code>
+</h3><p>两条命令检查的层次不同：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>命令</th>
+					<th>主要作用</th>
+					<th>能发现什么</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>go test ./...</code></td>
+					<td>编译包并运行测试。</td>
+					<td>编译错误、测试失败、部分初始化和行为回归。</td>
+			</tr>
+			<tr>
+					<td><code>go vet ./...</code></td>
+					<td>Go 官方静态分析器集合。</td>
+					<td>格式化字符串、不可达/可疑构造、锁和复制等常见问题。</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>它们和 Skill 脚本互补：脚本只拿到 diff，适合快速检查新增行的高置信规则；<code>go test</code> / <code>go vet</code> 需要真实仓库目录、<code>go.mod</code>、包依赖和完整代码上下文，才能编译和分析跨文件关系。它们的结果也要被记录成 <code>sandbox_run</code>，包括命令、退出码、耗时、输出摘要和失败状态。</p>
+<h3 id="为什么不直接在-checksh-里执行-go-test">为什么不直接在 <code>check.sh</code> 里执行 <code>go test</code>
+</h3><p>因为两者的输入和风险不同：</p>
+<ol>
+<li><code>check.sh</code> 的输入契约是 stdin 中的一份 diff，不保证旁边有完整仓库；<code>go test</code> 需要 repo workspace。</li>
+<li><code>check.sh</code> 是 Skill 的规则执行入口，应该快速、确定、容易回归；测试和编译可能耗时、产生大量输出，甚至触发项目自定义生成逻辑。</li>
+<li><code>go test</code> 可能执行被审仓库里的 <code>init</code>、测试代码或生成命令，必须先过 PermissionPolicy，再交给带超时、禁网、只读挂载和输出上限的 executor。</li>
+<li>分开后可以单独回答“规则发现了什么”和“沙箱运行结果是什么”，失败时保留规则 findings，并把 sandbox 失败标成 <code>needs_human_review</code>。</li>
+</ol>
+<p>所以正确的分工是：<code>check.sh</code> 做 diff 级确定性筛查，沙箱做需要完整工作区的编译、测试和静态检查；不是因为 Shell 不能启动 <code>go test</code>，而是不能绕过 Agent 的治理和审计边界。</p>
 <p>当前运行时边界也要讲准：</p>
 <ol>
 <li><code>container</code> 是正式隔离运行时，默认禁网、限制资源、只读挂载仓库。</li>
@@ -1400,7 +1647,27 @@
 </ol>
 <p>但并不是所有错误都会降级。输入读不到、模式组合非法、可信 Skill 根目录无效、报告无法写入或 SQLite 最终事务提交失败时，任务会返回错误，因为这时系统已经无法保证输入或审计结果完整。面试时可以概括为：<strong>可选检查失败尽量保留已有结果，基础契约和最终持久化失败则终止任务。</strong></p>
 <p>一句话：它追求的不是“所有阶段都必须成功”，而是“任何阶段失败都要留下可审计的解释，并尽量保留已经可靠得到的结果”。</p>
-<h2 id="面试里最容易被追问的-8-个问题">面试里最容易被追问的 8 个问题
+<h2 id="按简历项目追问面试官可能怎么问">按简历项目追问：面试官可能怎么问
+</h2><p>下面的问题直接对应简历里的三条职责。回答时先讲结论，再给源码证据，最后说限制和取舍。</p>
+<h3 id="1-你说用了沙箱具体是怎么实现的docker-在这里扮演什么角色">1. 你说“用了沙箱”，具体是怎么实现的？Docker 在这里扮演什么角色？
+</h3><p>答：沙箱是执行安全边界，不是单独一种技术。这个项目的生产 runtime 是 Docker 容器，通过 <code>trpc-agent-go/codeexecutor/container</code> 创建容器；<code>internal/execution/exec.go</code> 配置 <code>NetworkMode=none</code>、非特权、丢弃 Linux capabilities、<code>no-new-privileges</code>、内存/CPU/PID 限制，并把被审仓库只读挂载到 <code>/workspace/repo</code>。命令在进入 executor 前还要经过 PermissionPolicy，并受到 timeout、输出上限和环境变量白名单约束。Docker 提供进程隔离，PermissionPolicy 和执行层共同组成沙箱治理；<code>local-fallback</code> 只是开发回退，<code>e2b</code> 在当前示例中仍是 unsupported 适配入口。</p>
+<h3 id="2-为什么要在沙箱里运行-go-test-和-go-vet">2. 为什么要在沙箱里运行 <code>go test</code> 和 <code>go vet</code>？
+</h3><p>答：Skill 脚本只接收 diff，适合检查新增行的固定规则；<code>go test ./...</code> 需要完整 repo、模块依赖和包上下文，能发现编译错误、测试回归和运行时行为问题；<code>go vet ./...</code> 做 Go 常见静态分析。它们放进受限 runtime 是因为测试和 <code>init</code> 代码可能执行被审仓库中的逻辑，不能在宿主机直接运行。结果会以 sandbox run 记录命令、退出码、耗时、输出摘要和状态。</p>
+<h3 id="3-为什么不把-go-test-直接写进-checksh">3. 为什么不把 <code>go test</code> 直接写进 <code>check.sh</code>？
+</h3><p>答：不是 Shell 不能调用 Go，而是职责和安全边界不同。<code>check.sh</code> 的输入是 stdin diff，输出是规则 JSON；<code>go test</code> 需要 repo workspace，可能耗时、产生大量输出并执行仓库代码。把它放进脚本会绕开独立的 PermissionPolicy、runtime 选择、超时、禁网、只读挂载和 <code>sandbox_run</code> 审计。当前设计把 diff 筛查和工作区执行拆成两个可治理阶段。</p>
+<h3 id="4-checkshcheck_rulespycheck_fallbackgo-分别负责什么">4. <code>check.sh</code>、<code>check_rules.py</code>、<code>check_fallback.go</code> 分别负责什么？
+</h3><p>答：<code>check.sh</code> 是 Skill 对外的稳定入口，负责接收 stdin、写临时文件和选择实现；<code>check_rules.py</code> 是有 Python 时运行的主规则实现，逐行解析 hunk，检查 secret、panic、资源关闭、context、错误处理等模式并输出 JSON；<code>check_fallback.go</code> 是没有 Python 时的 Go 兼容实现，不与 Python 串行执行，而是遵守同一 finding JSON 契约。三者关系是“入口脚本 -&gt; 主实现或环境降级”，不是三次重复扫描。</p>
+<h3 id="5-你的规则引擎为什么不用-llm-直接判断">5. 你的规则引擎为什么不用 LLM 直接判断？
+</h3><p>答：高置信安全规则需要稳定、低成本和可回归测试，例如 <code>secret-leak</code>、命令注入和 response body 未关闭。脚本能给出固定的 file、line、rule_id 和证据。LLM 更适合补充跨上下文语义，但有成本、隐私和误报波动，所以流程先跑 Skill 和沙箱，再把脱敏 diff、既有 findings 和执行摘要发给模型，最后对模型结果做新增行锚点校验和去重。</p>
+<h3 id="6-你简历里写llm-agent模型实际上做了什么">6. 你简历里写“LLM Agent”，模型实际上做了什么？
+</h3><p>答：模型不是总调度器，也不决定是否执行高风险命令。它在固定 workflow 的 <code>model_review</code> 阶段接收脱敏后的完整 diff、脚本已有 findings、sandbox 摘要和治理摘要，返回增量 findings。程序会检查模型报告的 file/line 是否真实位于本次 diff 新增行，并合并去重；模型调用失败不会丢掉前面的确定性结果。</p>
+<h3 id="7-为什么说这是-agent-原型而不是普通脚本">7. 为什么说这是 Agent 原型，而不是普通脚本？
+</h3><p>答：普通脚本通常只负责检查和打印结果；这个原型实现了框架 <code>agent.Agent</code> 接口，并由 Runner 托管 session、request ID、Event 和生命周期，同时接入 Skill、Tool、PermissionPolicy、CodeExecutor、Model Provider、Artifact、Telemetry 和 SQLite。执行决策仍是固定 Workflow，所以我会称它为“Agent 框架托管的受控代码评审 Workflow”，不会说成已经完成自主 ReAct。</p>
+<h3 id="8-sqlite-里到底存了什么为什么不是只保存最终报告">8. SQLite 里到底存了什么，为什么不是只保存最终报告？
+</h3><p>答：<code>task</code> 保存输入引用、digest、模式和状态；permission/filter decisions 保存命令为什么允许、拒绝或要求人工复核；sandbox run 保存 runtime、退出码、耗时、超时和输出摘要；finding 保存结构化问题；artifact/report 保存报告文件引用和内容；metrics 保存总耗时、工具/模型调用、拦截数、严重级别和异常分布。它们在一次事务中关联提交，目的是支持按 task 回放“输入、决策、执行、结果”，而不是只知道最后一句结论。</p>
+<h3 id="9-如果要把它演进成-react-或图工作流你会怎么做">9. 如果要把它演进成 ReAct 或图工作流，你会怎么做？
+</h3><p>答：我不会先让模型获得任意命令权限。可以先把规则检查、沙箱检查、模型复核和人工审批建成带状态的节点；模型只能在 allowlist、预算、超时和审计约束内选择低风险动作，所有高风险命令仍由 PermissionPolicy 决定。这样可以逐步引入规划和重试，同时保留当前确定性主路径。</p>
+<h2 id="其他源码型追问">其他源码型追问
 </h2><h3 id="1-这个项目为什么不直接把-diff-发给模型">1. 这个项目为什么不直接把 diff 发给模型？
 </h3><p>因为高置信的安全、生命周期、资源关闭类问题适合先走确定性规则，而且模型不应该天然拥有执行命令的权力。这个项目先让 Skill 找稳定问题，再把模型放到后面做增量语义判断。</p>
 <h3 id="2-为什么说它不是-react-agent">2. 为什么说它不是 ReAct Agent？
