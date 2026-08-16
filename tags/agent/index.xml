@@ -1192,53 +1192,93 @@
 &lt;/div&gt;
 &lt;/div&gt;&lt;p&gt;它同样解析 &lt;code&gt;+++&lt;/code&gt; 文件头和 &lt;code&gt;@@&lt;/code&gt; hunk header，只检查新增行，再用自己的 &lt;code&gt;redact&lt;/code&gt; 和去重逻辑产出 findings/warnings。fallback 的意义是“没有 Python 时仍能运行”，不是把 Python 和 Go 两套规则串联执行；两者都必须遵守 Skill 规定的 JSON 契约，否则 &lt;code&gt;parseSkillFindings&lt;/code&gt; 无法把 stdout 变成内部 finding。&lt;/p&gt;
 &lt;p&gt;这三层也解释了为什么不能只在一个大 Shell 脚本里写完：Shell 适合做进程编排和环境探测，Python 适合快速维护规则，Go fallback 保证目标环境没有 Python 时仍可运行；Agent 负责权限、超时、审计和结果合并，而不是把这些职责全部塞进脚本。&lt;/p&gt;
-&lt;h4 id=&#34;一个规则如何从-diff-变成-finding&#34;&gt;一个规则如何从 diff 变成 finding
-&lt;/h4&gt;&lt;p&gt;下面用两段最小 diff 看“脚本到底怎样找到问题”。假设输入是：&lt;/p&gt;
+&lt;h4 id=&#34;issue-要求的规则脚本怎样真正找到&#34;&gt;Issue 要求的规则，脚本怎样真正找到
+&lt;/h4&gt;&lt;p&gt;是的，&lt;code&gt;check.sh&lt;/code&gt; 最终会调用 Python 主实现或 Go fallback，&lt;strong&gt;由它们扫描 diff 中的新增代码&lt;/strong&gt;。它们不是把变量放进运行时追踪，而是做固定的“模式 + 当前 hunk 上下文”检查：解析 &lt;code&gt;+++&lt;/code&gt; 和 &lt;code&gt;@@&lt;/code&gt; 后，得到文件和新文件行号；只看 &lt;code&gt;+&lt;/code&gt; 新增行；某个模式命中后，再看同一 hunk 是否出现对应的清理或生命周期信号；最后 &lt;code&gt;add_finding&lt;/code&gt; 写出 JSON 并按 &lt;code&gt;(file, line, category, rule_id)&lt;/code&gt; 去重。&lt;/p&gt;
+&lt;p&gt;这正是在落实 Issue 对安全、并发、资源、错误处理、测试和数据库生命周期等规则类别的要求。Python 的规则函数与典型触发样例如下；Go fallback 用同一输入输出契约提供无 Python 环境的兼容实现。&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Issue 要求的类别&lt;/th&gt;
+					&lt;th&gt;脚本寻找的新增代码模式&lt;/th&gt;
+					&lt;th&gt;再检查什么&lt;/th&gt;
+					&lt;th&gt;结果&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;敏感信息泄漏&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;sk-...&lt;/code&gt;、JWT、私钥形状；或 &lt;code&gt;apiKey&lt;/code&gt;、&lt;code&gt;token&lt;/code&gt;、&lt;code&gt;password&lt;/code&gt; 等变量名加较长字符串。&lt;/td&gt;
+					&lt;td&gt;过滤 &lt;code&gt;example&lt;/code&gt;、&lt;code&gt;changeme&lt;/code&gt; 等占位值。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;secret-leak&lt;/code&gt;，证据先脱敏。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;资源未关闭&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;resp, err := http.Get(...)&lt;/code&gt;、&lt;code&gt;f, err := os.Open(...)&lt;/code&gt;。&lt;/td&gt;
+					&lt;td&gt;当前 hunk 是否有 &lt;code&gt;resp.Body.Close()&lt;/code&gt; 或 &lt;code&gt;f.Close()&lt;/code&gt;。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;http-body-close&lt;/code&gt; / &lt;code&gt;resource-leak&lt;/code&gt;。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;数据库生命周期&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;db, err := sql.Open(...)&lt;/code&gt;、&lt;code&gt;tx, err := db.BeginTx(...)&lt;/code&gt;。&lt;/td&gt;
+					&lt;td&gt;是否有 &lt;code&gt;db.Close()&lt;/code&gt;；事务是否有 &lt;code&gt;tx.Rollback()&lt;/code&gt;。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;db-lifecycle&lt;/code&gt;。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;context&lt;/code&gt; 泄漏&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;ctx, cancel := context.WithCancel/Timeout/Deadline(...)&lt;/code&gt;。&lt;/td&gt;
+					&lt;td&gt;同一 hunk 是否调用 &lt;code&gt;cancel()&lt;/code&gt;。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;context-leak&lt;/code&gt;。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;goroutine 生命周期&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;go func&lt;/code&gt; 或 &lt;code&gt;go work()&lt;/code&gt;。&lt;/td&gt;
+					&lt;td&gt;同一 hunk 是否出现 &lt;code&gt;WaitGroup&lt;/code&gt;、&lt;code&gt;.Done()&lt;/code&gt;、&lt;code&gt;errgroup&lt;/code&gt;、&lt;code&gt;done&lt;/code&gt;、&lt;code&gt;sync.&lt;/code&gt; 等信号。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;goroutine-leak&lt;/code&gt;。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;错误处理&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;panic(&lt;/code&gt; 或单独的 &lt;code&gt;return err&lt;/code&gt;。&lt;/td&gt;
+					&lt;td&gt;前者直接触发；后者提示缺少操作上下文。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;panic-direct&lt;/code&gt; / &lt;code&gt;bare-return-err&lt;/code&gt;。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;安全风险&lt;/td&gt;
+					&lt;td&gt;SQL 中出现字符串拼接，或 &lt;code&gt;exec.Command&lt;/code&gt; 带 &lt;code&gt;-c&lt;/code&gt;/动态可执行文件。&lt;/td&gt;
+					&lt;td&gt;判断是否属于危险拼接或 Shell/动态命令形态。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;sql-string-concat&lt;/code&gt; / &lt;code&gt;command-injection&lt;/code&gt;。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;测试缺失&lt;/td&gt;
+					&lt;td&gt;非 &lt;code&gt;_test.go&lt;/code&gt; 中新增普通 &lt;code&gt;func&lt;/code&gt;。&lt;/td&gt;
+					&lt;td&gt;这是低置信度提示，而非确定缺陷。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;missing-test-hint&lt;/code&gt; warning。&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;最小例子是：&lt;/p&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
 &lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
 &lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
 &lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
 &lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
 &lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-diff&#34; data-lang=&#34;diff&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;font-weight:bold&#34;&gt;diff --git a/config.go b/config.go
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+++ b/config.go
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;font-weight:bold&#34;&gt;@@ -1,2 +1,3 @@
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt; package foo
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+const apiKey = &amp;#34;sk-1234567890abcdef&amp;#34;
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
-&lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;Python 解析 &lt;code&gt;@@ -1,2 +1,3 @@&lt;/code&gt; 后知道：新文件从第 1 行开始，这个 hunk 有 3 行；遇到以 &lt;code&gt;+&lt;/code&gt; 开头的新增行时，把前面的 &lt;code&gt;+&lt;/code&gt; 去掉，得到 &lt;code&gt;const apiKey = &amp;quot;sk-1234567890abcdef&amp;quot;&lt;/code&gt;，并把新文件行号递增到 2。随后调用 &lt;code&gt;should_report_secret(text)&lt;/code&gt;：&lt;/p&gt;
-&lt;ol&gt;
-&lt;li&gt;&lt;code&gt;secret_value_pattern&lt;/code&gt; 先匹配 &lt;code&gt;sk-...&lt;/code&gt; 这类 token 形状；&lt;/li&gt;
-&lt;li&gt;即使没有特殊形状，也会检查 &lt;code&gt;apiKey&lt;/code&gt;、&lt;code&gt;token&lt;/code&gt;、&lt;code&gt;password&lt;/code&gt; 等敏感变量名，再取出赋值字符串；&lt;/li&gt;
-&lt;li&gt;太短的值和 &lt;code&gt;example&lt;/code&gt;、&lt;code&gt;changeme&lt;/code&gt; 等占位符会被过滤；&lt;/li&gt;
-&lt;li&gt;命中后，&lt;code&gt;add_finding&lt;/code&gt; 写入 &lt;code&gt;critical/security&lt;/code&gt;、&lt;code&gt;config.go:2&lt;/code&gt;、&lt;code&gt;rule_id=secret-leak&lt;/code&gt; 和修复建议，证据再经过脱敏，报告中不会保留完整密钥。&lt;/li&gt;
-&lt;/ol&gt;
-&lt;p&gt;资源规则也是同一套“新增行模式 + 当前 hunk 上下文”思路：&lt;/p&gt;
-&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
-&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
-&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;7
-&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
-&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-diff&#34; data-lang=&#34;diff&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;font-weight:bold&#34;&gt;diff --git a/client.go b/client.go
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+++ b/client.go
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;font-weight:bold&#34;&gt;@@ -1,2 +1,5 @@
-&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt; package foo
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+resp, err := http.Get(url)
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-diff&#34; data-lang=&#34;diff&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+resp, err := http.Get(url)
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+if err != nil { return err }
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+return use(resp.Body)
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;code&gt;reports_http_body_leak&lt;/code&gt; 识别 &lt;code&gt;http.Get&lt;/code&gt;，取出变量名 &lt;code&gt;resp&lt;/code&gt;，再在同一个 hunk 文本中搜索 &lt;code&gt;resp.Body.Close()&lt;/code&gt;。由于没有找到清理动作，它会生成 &lt;code&gt;http-body-close&lt;/code&gt;；若新增行中包含 &lt;code&gt;defer resp.Body.Close()&lt;/code&gt;，同一规则就不再报告。&lt;code&gt;os.Open&lt;/code&gt;/&lt;code&gt;Close&lt;/code&gt;、&lt;code&gt;sql.Open&lt;/code&gt;/&lt;code&gt;db.Close&lt;/code&gt;、&lt;code&gt;BeginTx&lt;/code&gt;/&lt;code&gt;Rollback&lt;/code&gt;、&lt;code&gt;WithCancel&lt;/code&gt;/&lt;code&gt;cancel()&lt;/code&gt; 也采用类似检查。它不是完整 AST/数据流分析器：跨函数、跨文件或 hunk 外的清理动作可能看不到，因此结果是确定性筛查，不是绝对证明。&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;&lt;code&gt;reports_http_body_leak&lt;/code&gt; 从第一行取到变量名 &lt;code&gt;resp&lt;/code&gt;，然后在这一个 hunk 中找 &lt;code&gt;resp.Body.Close()&lt;/code&gt;；找不到，便在 &lt;code&gt;http.Get&lt;/code&gt; 所在的新文件行生成 finding。把下面这行一并加入同一 hunk：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;defer&lt;/span&gt; resp.Body.&lt;span style=&#34;color:#50fa7b&#34;&gt;Close&lt;/span&gt;()
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;规则就不报。密钥规则也一样：&lt;code&gt;+const apiKey = &amp;quot;sk-1234567890abcdef&amp;quot;&lt;/code&gt; 命中 &lt;code&gt;should_report_secret&lt;/code&gt; 后，产生 &lt;code&gt;critical/security&lt;/code&gt; 的 &lt;code&gt;secret-leak&lt;/code&gt;，但落入报告前会把完整 token 脱敏。&lt;/p&gt;
+&lt;p&gt;这类规则快、可重复、能稳定定位文件和行号，但不是完整 AST 或数据流分析：清理动作若在另一个函数、另一个文件或 hunk 之外，脚本可能看不到。因此它是确定性初筛；需要完整仓库上下文的编译、测试和静态检查交给后面的沙箱，语义不确定的问题才交给可选 LLM 复核。&lt;/p&gt;
 &lt;p&gt;仓库里虽然还有 &lt;code&gt;internal/rules/rules.go&lt;/code&gt;，但当前主 Agent 路径没有调用 &lt;code&gt;rules.Run&lt;/code&gt;；现有引用主要是该包自己的测试。它是另一套基于 &lt;code&gt;review.ParsedDiff&lt;/code&gt; 的 Go 规则实现，输出的 &lt;code&gt;Source&lt;/code&gt; 是 &lt;code&gt;rule&lt;/code&gt;，而脚本链输出的是 &lt;code&gt;skill_run&lt;/code&gt;。从当前源码可以确认它“存在且可测试”，但不能仅凭代码断言它是迁移遗留；面试时应说它是未接入主 CLI 的并行/候选实现，而不是当前正式规则入口。&lt;/p&gt;
 &lt;h2 id=&#34;第四步skill-怎么被加载和执行&#34;&gt;第四步：Skill 怎么被加载和执行
 &lt;/h2&gt;&lt;p&gt;Skill 运行逻辑在 &lt;a class=&#34;link&#34; href=&#34;https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/skill_step.go&#34;  target=&#34;_blank&#34; rel=&#34;noopener&#34;

@@ -266,7 +266,7 @@
         <li><a href="#为什么要有-shellpython-和-go-fallback-三层">为什么要有 Shell、Python 和 Go fallback 三层</a></li>
         <li><a href="#三个脚本结合关键源码看">三个脚本结合关键源码看</a>
           <ol>
-            <li><a href="#一个规则如何从-diff-变成-finding">一个规则如何从 diff 变成 finding</a></li>
+            <li><a href="#issue-要求的规则脚本怎样真正找到">Issue 要求的规则，脚本怎样真正找到</a></li>
           </ol>
         </li>
       </ol>
@@ -391,7 +391,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 37 分钟
+                    阅读时长: 38 分钟
                 </time>
             </div>
         
@@ -983,53 +983,93 @@
 </div>
 </div><p>它同样解析 <code>+++</code> 文件头和 <code>@@</code> hunk header，只检查新增行，再用自己的 <code>redact</code> 和去重逻辑产出 findings/warnings。fallback 的意义是“没有 Python 时仍能运行”，不是把 Python 和 Go 两套规则串联执行；两者都必须遵守 Skill 规定的 JSON 契约，否则 <code>parseSkillFindings</code> 无法把 stdout 变成内部 finding。</p>
 <p>这三层也解释了为什么不能只在一个大 Shell 脚本里写完：Shell 适合做进程编排和环境探测，Python 适合快速维护规则，Go fallback 保证目标环境没有 Python 时仍可运行；Agent 负责权限、超时、审计和结果合并，而不是把这些职责全部塞进脚本。</p>
-<h4 id="一个规则如何从-diff-变成-finding">一个规则如何从 diff 变成 finding
-</h4><p>下面用两段最小 diff 看“脚本到底怎样找到问题”。假设输入是：</p>
+<h4 id="issue-要求的规则脚本怎样真正找到">Issue 要求的规则，脚本怎样真正找到
+</h4><p>是的，<code>check.sh</code> 最终会调用 Python 主实现或 Go fallback，<strong>由它们扫描 diff 中的新增代码</strong>。它们不是把变量放进运行时追踪，而是做固定的“模式 + 当前 hunk 上下文”检查：解析 <code>+++</code> 和 <code>@@</code> 后，得到文件和新文件行号；只看 <code>+</code> 新增行；某个模式命中后，再看同一 hunk 是否出现对应的清理或生命周期信号；最后 <code>add_finding</code> 写出 JSON 并按 <code>(file, line, category, rule_id)</code> 去重。</p>
+<p>这正是在落实 Issue 对安全、并发、资源、错误处理、测试和数据库生命周期等规则类别的要求。Python 的规则函数与典型触发样例如下；Go fallback 用同一输入输出契约提供无 Python 环境的兼容实现。</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>Issue 要求的类别</th>
+					<th>脚本寻找的新增代码模式</th>
+					<th>再检查什么</th>
+					<th>结果</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>敏感信息泄漏</td>
+					<td><code>sk-...</code>、JWT、私钥形状；或 <code>apiKey</code>、<code>token</code>、<code>password</code> 等变量名加较长字符串。</td>
+					<td>过滤 <code>example</code>、<code>changeme</code> 等占位值。</td>
+					<td><code>secret-leak</code>，证据先脱敏。</td>
+			</tr>
+			<tr>
+					<td>资源未关闭</td>
+					<td><code>resp, err := http.Get(...)</code>、<code>f, err := os.Open(...)</code>。</td>
+					<td>当前 hunk 是否有 <code>resp.Body.Close()</code> 或 <code>f.Close()</code>。</td>
+					<td><code>http-body-close</code> / <code>resource-leak</code>。</td>
+			</tr>
+			<tr>
+					<td>数据库生命周期</td>
+					<td><code>db, err := sql.Open(...)</code>、<code>tx, err := db.BeginTx(...)</code>。</td>
+					<td>是否有 <code>db.Close()</code>；事务是否有 <code>tx.Rollback()</code>。</td>
+					<td><code>db-lifecycle</code>。</td>
+			</tr>
+			<tr>
+					<td><code>context</code> 泄漏</td>
+					<td><code>ctx, cancel := context.WithCancel/Timeout/Deadline(...)</code>。</td>
+					<td>同一 hunk 是否调用 <code>cancel()</code>。</td>
+					<td><code>context-leak</code>。</td>
+			</tr>
+			<tr>
+					<td>goroutine 生命周期</td>
+					<td><code>go func</code> 或 <code>go work()</code>。</td>
+					<td>同一 hunk 是否出现 <code>WaitGroup</code>、<code>.Done()</code>、<code>errgroup</code>、<code>done</code>、<code>sync.</code> 等信号。</td>
+					<td><code>goroutine-leak</code>。</td>
+			</tr>
+			<tr>
+					<td>错误处理</td>
+					<td><code>panic(</code> 或单独的 <code>return err</code>。</td>
+					<td>前者直接触发；后者提示缺少操作上下文。</td>
+					<td><code>panic-direct</code> / <code>bare-return-err</code>。</td>
+			</tr>
+			<tr>
+					<td>安全风险</td>
+					<td>SQL 中出现字符串拼接，或 <code>exec.Command</code> 带 <code>-c</code>/动态可执行文件。</td>
+					<td>判断是否属于危险拼接或 Shell/动态命令形态。</td>
+					<td><code>sql-string-concat</code> / <code>command-injection</code>。</td>
+			</tr>
+			<tr>
+					<td>测试缺失</td>
+					<td>非 <code>_test.go</code> 中新增普通 <code>func</code>。</td>
+					<td>这是低置信度提示，而非确定缺陷。</td>
+					<td><code>missing-test-hint</code> warning。</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>最小例子是：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
 </span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
 </span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
 </span></code></pre></td>
 <td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-diff" data-lang="diff"><span style="display:flex;"><span><span style="font-weight:bold">diff --git a/config.go b/config.go
-</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+++ b/config.go
-</span></span></span><span style="display:flex;"><span><span style="font-weight:bold">@@ -1,2 +1,3 @@
-</span></span></span><span style="display:flex;"><span> package foo
-</span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+const apiKey = &#34;sk-1234567890abcdef&#34;
-</span></span></span></code></pre></td></tr></table>
-</div>
-</div><p>Python 解析 <code>@@ -1,2 +1,3 @@</code> 后知道：新文件从第 1 行开始，这个 hunk 有 3 行；遇到以 <code>+</code> 开头的新增行时，把前面的 <code>+</code> 去掉，得到 <code>const apiKey = &quot;sk-1234567890abcdef&quot;</code>，并把新文件行号递增到 2。随后调用 <code>should_report_secret(text)</code>：</p>
-<ol>
-<li><code>secret_value_pattern</code> 先匹配 <code>sk-...</code> 这类 token 形状；</li>
-<li>即使没有特殊形状，也会检查 <code>apiKey</code>、<code>token</code>、<code>password</code> 等敏感变量名，再取出赋值字符串；</li>
-<li>太短的值和 <code>example</code>、<code>changeme</code> 等占位符会被过滤；</li>
-<li>命中后，<code>add_finding</code> 写入 <code>critical/security</code>、<code>config.go:2</code>、<code>rule_id=secret-leak</code> 和修复建议，证据再经过脱敏，报告中不会保留完整密钥。</li>
-</ol>
-<p>资源规则也是同一套“新增行模式 + 当前 hunk 上下文”思路：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-diff" data-lang="diff"><span style="display:flex;"><span><span style="font-weight:bold">diff --git a/client.go b/client.go
-</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+++ b/client.go
-</span></span></span><span style="display:flex;"><span><span style="font-weight:bold">@@ -1,2 +1,5 @@
-</span></span></span><span style="display:flex;"><span> package foo
-</span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+resp, err := http.Get(url)
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-diff" data-lang="diff"><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+resp, err := http.Get(url)
 </span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+if err != nil { return err }
 </span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+return use(resp.Body)
 </span></span></span></code></pre></td></tr></table>
 </div>
-</div><p><code>reports_http_body_leak</code> 识别 <code>http.Get</code>，取出变量名 <code>resp</code>，再在同一个 hunk 文本中搜索 <code>resp.Body.Close()</code>。由于没有找到清理动作，它会生成 <code>http-body-close</code>；若新增行中包含 <code>defer resp.Body.Close()</code>，同一规则就不再报告。<code>os.Open</code>/<code>Close</code>、<code>sql.Open</code>/<code>db.Close</code>、<code>BeginTx</code>/<code>Rollback</code>、<code>WithCancel</code>/<code>cancel()</code> 也采用类似检查。它不是完整 AST/数据流分析器：跨函数、跨文件或 hunk 外的清理动作可能看不到，因此结果是确定性筛查，不是绝对证明。</p>
+</div><p><code>reports_http_body_leak</code> 从第一行取到变量名 <code>resp</code>，然后在这一个 hunk 中找 <code>resp.Body.Close()</code>；找不到，便在 <code>http.Get</code> 所在的新文件行生成 finding。把下面这行一并加入同一 hunk：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">defer</span> resp.Body.<span style="color:#50fa7b">Close</span>()
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>规则就不报。密钥规则也一样：<code>+const apiKey = &quot;sk-1234567890abcdef&quot;</code> 命中 <code>should_report_secret</code> 后，产生 <code>critical/security</code> 的 <code>secret-leak</code>，但落入报告前会把完整 token 脱敏。</p>
+<p>这类规则快、可重复、能稳定定位文件和行号，但不是完整 AST 或数据流分析：清理动作若在另一个函数、另一个文件或 hunk 之外，脚本可能看不到。因此它是确定性初筛；需要完整仓库上下文的编译、测试和静态检查交给后面的沙箱，语义不确定的问题才交给可选 LLM 复核。</p>
 <p>仓库里虽然还有 <code>internal/rules/rules.go</code>，但当前主 Agent 路径没有调用 <code>rules.Run</code>；现有引用主要是该包自己的测试。它是另一套基于 <code>review.ParsedDiff</code> 的 Go 规则实现，输出的 <code>Source</code> 是 <code>rule</code>，而脚本链输出的是 <code>skill_run</code>。从当前源码可以确认它“存在且可测试”，但不能仅凭代码断言它是迁移遗留；面试时应说它是未接入主 CLI 的并行/候选实现，而不是当前正式规则入口。</p>
 <h2 id="第四步skill-怎么被加载和执行">第四步：Skill 怎么被加载和执行
 </h2><p>Skill 运行逻辑在 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/skill_step.go"  target="_blank" rel="noopener"
