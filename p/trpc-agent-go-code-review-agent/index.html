@@ -270,7 +270,11 @@
     <li><a href="#第四步skill-怎么被加载和执行">第四步：Skill 怎么被加载和执行</a></li>
     <li><a href="#internalreview-在这条链里到底做什么"><code>internal/review</code> 在这条链里到底做什么</a></li>
     <li><a href="#规则为什么会误报或漏报">规则为什么会误报或漏报</a></li>
-    <li><a href="#用-secretdiff-走一遍真实完整链路">用 <code>secret.diff</code> 走一遍真实完整链路</a></li>
+    <li><a href="#用-secretdiff-走一遍真实完整链路">用 <code>secret.diff</code> 走一遍真实完整链路</a>
+      <ol>
+        <li><a href="#脚本到底怎样从-diff-找到问题">脚本到底怎样从 diff 找到问题</a></li>
+      </ol>
+    </li>
     <li><a href="#再对比一下-dry-run别把两个模式讲混">再对比一下 dry-run，别把两个模式讲混</a></li>
     <li><a href="#模式矩阵到底哪些阶段会执行">模式矩阵：到底哪些阶段会执行</a></li>
     <li><a href="#sandbox真正的执行边界在哪里">Sandbox：真正的执行边界在哪里</a>
@@ -308,6 +312,12 @@
         <li><a href="#7-为什么说这是-agent-原型而不是普通脚本">7. 为什么说这是 Agent 原型，而不是普通脚本？</a></li>
         <li><a href="#8-sqlite-里到底存了什么为什么不是只保存最终报告">8. SQLite 里到底存了什么，为什么不是只保存最终报告？</a></li>
         <li><a href="#9-如果要把它演进成-react-或图工作流你会怎么做">9. 如果要把它演进成 ReAct 或图工作流，你会怎么做？</a></li>
+        <li><a href="#10-规则为什么只检查新增行和当前-hunk">10. 规则为什么只检查新增行和当前 hunk？</a></li>
+        <li><a href="#11-secret-leak-规则会不会把示例字符串都报成密钥">11. <code>secret-leak</code> 规则会不会把示例字符串都报成密钥？</a></li>
+        <li><a href="#12-defer-close-规则具体怎么判断">12. <code>defer Close</code> 规则具体怎么判断？</a></li>
+        <li><a href="#13-permissionpolicy-的-allowlist-具体保护了什么">13. PermissionPolicy 的 allowlist 具体保护了什么？</a></li>
+        <li><a href="#14-如果-go-test-超时或容器没有-vendor-依赖最终结论是什么">14. 如果 <code>go test</code> 超时或容器没有 vendor 依赖，最终结论是什么？</a></li>
+        <li><a href="#15-你如何证明这套规则没有只记住公开样例">15. 你如何证明这套规则没有“只记住公开样例”？</a></li>
       </ol>
     </li>
     <li><a href="#术语表">术语表</a></li>
@@ -380,7 +390,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 33 分钟
+                    阅读时长: 36 分钟
                 </time>
             </div>
         
@@ -1124,7 +1134,101 @@
 </span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+const apiKey = &#34;sk-1234567890abcdef&#34;
 </span></span></span></code></pre></td></tr></table>
 </div>
-</div><p>这条命令背后的真实链路是：</p>
+</div><h3 id="脚本到底怎样从-diff-找到问题">脚本到底怎样从 diff 找到问题
+</h3><p><code>check.sh</code> 不会“理解” Go 代码。它把 diff 交给规则实现；规则实现逐行读取 hunk，维护当前文件名、新文件行号和当前 hunk 的上下文。只有满足 <code>new_remaining &gt; 0</code> 且行首是 <code>+</code> 的行才进入规则判断，删除行和未修改上下文不会直接生成 finding。</p>
+<p>以 <code>secret.diff</code> 为例，Python 规则的调用关系是：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ff79c6">if</span> should_report_secret(text):
+</span></span><span style="display:flex;"><span>    add_finding(
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;critical&#34;</span>, <span style="color:#f1fa8c">&#34;security&#34;</span>, current_file, new_line,
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;Potential secret appears in added code&#34;</span>, text,
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;Replace the literal with a secret manager or environment lookup.&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#f1fa8c">&#34;secret-leak&#34;</span>)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>should_report_secret</code> 不是只查字符串 <code>sk-</code>：</p>
+<ol>
+<li>先用 <code>secret_value_pattern</code> 检查常见 token 形状，例如 <code>sk-...</code>、GitHub token、JWT 或私钥块。</li>
+<li>如果没有命中特殊形状，再检查变量名是否包含 <code>apiKey</code>、<code>token</code>、<code>password</code>、<code>privateKey</code> 等敏感名称。</li>
+<li>通过 <code>assigned_string</code> 取出赋值字符串，长度不足 12 或符合 <code>placeholder_secret_pattern</code> 的示例值会被过滤。</li>
+<li>命中后，<code>add_finding</code> 统一写入 <code>severity=critical</code>、文件、<strong>新文件行号</strong>、脱敏证据、修复建议、<code>source=skill_run</code> 和 <code>rule_id=secret-leak</code>。</li>
+</ol>
+<p>其他规则也是“模式 + hunk 上下文”，例如：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>resp, err <span style="color:#ff79c6">:=</span> http.<span style="color:#50fa7b">Get</span>(url)
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">if</span> err <span style="color:#ff79c6">!=</span> <span style="color:#ff79c6">nil</span> { <span style="color:#ff79c6">return</span> err }
+</span></span><span style="display:flex;"><span><span style="color:#ff79c6">return</span> <span style="color:#50fa7b">use</span>(resp.Body)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>reports_http_body_leak</code> 先判断这一行是否包含 <code>http.Get</code>、<code>http.Post</code> 或 <code>.Do(</code>，再取出变量名 <code>resp</code>，最后在同一个 hunk 文本中搜索 <code>resp.Body.Close()</code>。找不到就生成 <code>http-body-close</code>；如果改动里有：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#ff79c6">defer</span> resp.Body.<span style="color:#50fa7b">Close</span>()
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>规则认为这个 hunk 已经有清理动作，不再报这一条。</p>
+<p>资源和生命周期规则使用同样的思路：</p>
+<div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>代码模式</th>
+					<th>脚本检查</th>
+					<th>可能的 rule_id</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>os.Open</code> / <code>os.Create</code></td>
+					<td>取赋值变量，检查同一 hunk 是否出现 <code>变量.Close()</code>。</td>
+					<td><code>resource-leak</code></td>
+			</tr>
+			<tr>
+					<td><code>sql.Open</code> / <code>BeginTx</code></td>
+					<td>检查 <code>db.Close()</code> 或 <code>tx.Rollback()</code> 是否出现。</td>
+					<td><code>db-lifecycle</code></td>
+			</tr>
+			<tr>
+					<td><code>context.WithCancel/Timeout/Deadline</code></td>
+					<td>检查返回的 cancel 函数是否在 hunk 中被调用。</td>
+					<td><code>context-leak</code></td>
+			</tr>
+			<tr>
+					<td><code>go func</code> / <code>go ...</code></td>
+					<td>检查是否出现 <code>WaitGroup</code>、<code>Done</code>、<code>errgroup</code>、<code>context</code> 等生命周期信号。</td>
+					<td><code>goroutine-leak</code></td>
+			</tr>
+			<tr>
+					<td><code>Lock()</code></td>
+					<td>检查是否有同一 receiver 的 <code>Unlock()</code>，尤其建议 <code>defer Unlock()</code>。</td>
+					<td><code>mutex-unlock-missing</code></td>
+			</tr>
+			<tr>
+					<td><code>panic(</code></td>
+					<td>直接生成高严重级别错误处理 finding。</td>
+					<td><code>panic-direct</code></td>
+			</tr>
+	</tbody>
+</table></div>
+<p>这也是为什么报告里的证据通常是某一条新增代码，而不是“模型觉得有风险”：脚本先用明确模式定位文件和新增行，再把建议写进 JSON。规则是启发式的，只看新增行和当前 hunk，跨文件、跨函数或 hunk 外已经存在的 <code>Close</code> 可能看不到，因此会有漏报和误报。</p>
+<p>这条命令背后的真实链路是：</p>
 <ol>
 <li>CLI 读取 <code>--fixture secret.diff</code>，由 <code>input.Read</code> 加载 <code>testdata/fixtures/secret.diff</code>。</li>
 <li><code>normalizeExecutionPlan</code> 得到 <code>mode=review</code>、<code>sandbox=false</code>、<code>model=false</code>。</li>
@@ -1670,6 +1774,18 @@
 <li>最后再引入 ReAct，让模型根据已有 findings 决定“是否需要补充某个低风险检查”，但保留确定性规则作为必经主路径，并用 fixture/holdout 评估新增召回率和误报率。</li>
 </ol>
 <p>这样演进后，图工作流负责可靠的阶段编排，受限 ReAct 负责有限的检查选择，Docker/PermissionPolicy/SQLite 这些安全和审计边界仍然不变。</p>
+<h3 id="10-规则为什么只检查新增行和当前-hunk">10. 规则为什么只检查新增行和当前 hunk？
+</h3><p>答：代码评审的目标是判断本次变更引入了什么风险，而不是重新扫描整个仓库。解析 <code>@@</code> hunk header 可以得到新文件起始行号，脚本只在 <code>+</code> 行上报 finding，并把相邻上下文用于判断是否已有 <code>Close</code>、<code>Unlock</code> 或 <code>cancel()</code>。这样速度快、定位准确、容易回归；代价是看不到跨文件和 hunk 外的生命周期逻辑，所以它不是完整静态分析器。</p>
+<h3 id="11-secret-leak-规则会不会把示例字符串都报成密钥">11. <code>secret-leak</code> 规则会不会把示例字符串都报成密钥？
+</h3><p>答：不会只靠变量名判断。<code>should_report_secret</code> 先匹配 token/私钥等形状；变量名命中后还要提取赋值字符串，检查长度，并过滤 placeholder pattern。命中后证据再经过 <code>redact</code>，所以 finding 可以保留“哪里疑似泄露”的信息，但报告和 SQLite 不保存明文密钥。规则仍是启发式，不能承诺 100% 召回。</p>
+<h3 id="12-defer-close-规则具体怎么判断">12. <code>defer Close</code> 规则具体怎么判断？
+</h3><p>答：例如新增 <code>resp, err := http.Get(url)</code> 后，<code>reports_http_body_leak</code> 会识别 HTTP 调用和变量名 <code>resp</code>，再在同一 hunk 文本中搜索 <code>resp.Body.Close()</code>；找不到就报 <code>http-body-close</code>。<code>os.Open</code>、<code>sql.Open</code> 和 <code>BeginTx</code> 分别走 <code>resource_has_cleanup</code> 或 <code>database_has_cleanup</code>，检查 <code>Close</code> / <code>Rollback</code>。它不是 Go 编译器级别的资源流分析，跨函数关闭可能被误判。</p>
+<h3 id="13-permissionpolicy-的-allowlist-具体保护了什么">13. PermissionPolicy 的 allowlist 具体保护了什么？
+</h3><p>答：<code>internal/approval/gate.go</code> 只允许精确匹配的 <code>scripts/check.sh</code>、<code>go test ./...</code>、<code>go vet ./...</code>，以及显式开启的 <code>staticcheck ./...</code>。命令参数、Tool 名称或 fallback code block 不匹配时返回 <code>AskPermission</code>。它防止模型或输入内容把执行器改成任意 Shell 命令，但不等于完整安全分析；容器隔离、超时、网络和输出限制仍然需要执行层提供。</p>
+<h3 id="14-如果-go-test-超时或容器没有-vendor-依赖最终结论是什么">14. 如果 <code>go test</code> 超时或容器没有 vendor 依赖，最终结论是什么？
+</h3><p>答：不会把已有 Skill findings 丢掉。执行层会记录 <code>timed_out</code> 或 <code>unsupported</code> 的 sandbox run，生成 <code>needs_human_review</code> 项，并把 stderr digest、耗时和原因写入审计；最终报告会说明 Go 检查没有完成。基础输入无法读取、报告无法写入或 SQLite 事务提交失败则会终止任务，因为这些错误会破坏结果完整性。</p>
+<h3 id="15-你如何证明这套规则没有只记住公开样例">15. 你如何证明这套规则没有“只记住公开样例”？
+</h3><p>答：公开 <code>testdata/fixtures</code> 用于回归每条规则，<code>testdata/holdout</code> 保存未参与规则开发的变体和模型语义样本。测试会核对 rule_id、严重级别、状态、脱敏结果、去重和 sandbox 失败语义。进一步可以把 holdout 接入 CI，按规则类型统计召回率、误报率和模型增量 finding 的锚点通过率，而不是只看一次 demo 输出。</p>
 <h2 id="术语表">术语表
 </h2><p>最后用一个紧凑版术语表收尾，方便回看：</p>
 <div class="table-wrapper"><table>

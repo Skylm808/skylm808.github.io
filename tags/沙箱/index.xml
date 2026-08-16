@@ -742,7 +742,101 @@
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b;font-weight:bold&#34;&gt;+const apiKey = &amp;#34;sk-1234567890abcdef&amp;#34;
 &lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;这条命令背后的真实链路是：&lt;/p&gt;
+&lt;/div&gt;&lt;h3 id=&#34;脚本到底怎样从-diff-找到问题&#34;&gt;脚本到底怎样从 diff 找到问题
+&lt;/h3&gt;&lt;p&gt;&lt;code&gt;check.sh&lt;/code&gt; 不会“理解” Go 代码。它把 diff 交给规则实现；规则实现逐行读取 hunk，维护当前文件名、新文件行号和当前 hunk 的上下文。只有满足 &lt;code&gt;new_remaining &amp;gt; 0&lt;/code&gt; 且行首是 &lt;code&gt;+&lt;/code&gt; 的行才进入规则判断，删除行和未修改上下文不会直接生成 finding。&lt;/p&gt;
+&lt;p&gt;以 &lt;code&gt;secret.diff&lt;/code&gt; 为例，Python 规则的调用关系是：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;4
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;5
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;6
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-python&#34; data-lang=&#34;python&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; should_report_secret(text):
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    add_finding(
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;critical&amp;#34;&lt;/span&gt;, &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;security&amp;#34;&lt;/span&gt;, current_file, new_line,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;Potential secret appears in added code&amp;#34;&lt;/span&gt;, text,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;Replace the literal with a secret manager or environment lookup.&amp;#34;&lt;/span&gt;,
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#f1fa8c&#34;&gt;&amp;#34;secret-leak&amp;#34;&lt;/span&gt;)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;code&gt;should_report_secret&lt;/code&gt; 不是只查字符串 &lt;code&gt;sk-&lt;/code&gt;：&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;先用 &lt;code&gt;secret_value_pattern&lt;/code&gt; 检查常见 token 形状，例如 &lt;code&gt;sk-...&lt;/code&gt;、GitHub token、JWT 或私钥块。&lt;/li&gt;
+&lt;li&gt;如果没有命中特殊形状，再检查变量名是否包含 &lt;code&gt;apiKey&lt;/code&gt;、&lt;code&gt;token&lt;/code&gt;、&lt;code&gt;password&lt;/code&gt;、&lt;code&gt;privateKey&lt;/code&gt; 等敏感名称。&lt;/li&gt;
+&lt;li&gt;通过 &lt;code&gt;assigned_string&lt;/code&gt; 取出赋值字符串，长度不足 12 或符合 &lt;code&gt;placeholder_secret_pattern&lt;/code&gt; 的示例值会被过滤。&lt;/li&gt;
+&lt;li&gt;命中后，&lt;code&gt;add_finding&lt;/code&gt; 统一写入 &lt;code&gt;severity=critical&lt;/code&gt;、文件、&lt;strong&gt;新文件行号&lt;/strong&gt;、脱敏证据、修复建议、&lt;code&gt;source=skill_run&lt;/code&gt; 和 &lt;code&gt;rule_id=secret-leak&lt;/code&gt;。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;其他规则也是“模式 + hunk 上下文”，例如：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;2
+&lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;3
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;resp, err &lt;span style=&#34;color:#ff79c6&#34;&gt;:=&lt;/span&gt; http.&lt;span style=&#34;color:#50fa7b&#34;&gt;Get&lt;/span&gt;(url)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; err &lt;span style=&#34;color:#ff79c6&#34;&gt;!=&lt;/span&gt; &lt;span style=&#34;color:#ff79c6&#34;&gt;nil&lt;/span&gt; { &lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; err }
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#50fa7b&#34;&gt;use&lt;/span&gt;(resp.Body)
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;&lt;code&gt;reports_http_body_leak&lt;/code&gt; 先判断这一行是否包含 &lt;code&gt;http.Get&lt;/code&gt;、&lt;code&gt;http.Post&lt;/code&gt; 或 &lt;code&gt;.Do(&lt;/code&gt;，再取出变量名 &lt;code&gt;resp&lt;/code&gt;，最后在同一个 hunk 文本中搜索 &lt;code&gt;resp.Body.Close()&lt;/code&gt;。找不到就生成 &lt;code&gt;http-body-close&lt;/code&gt;；如果改动里有：&lt;/p&gt;
+&lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
+&lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;1
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
+&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#ff79c6&#34;&gt;defer&lt;/span&gt; resp.Body.&lt;span style=&#34;color:#50fa7b&#34;&gt;Close&lt;/span&gt;()
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+&lt;/div&gt;
+&lt;/div&gt;&lt;p&gt;规则认为这个 hunk 已经有清理动作，不再报这一条。&lt;/p&gt;
+&lt;p&gt;资源和生命周期规则使用同样的思路：&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;代码模式&lt;/th&gt;
+					&lt;th&gt;脚本检查&lt;/th&gt;
+					&lt;th&gt;可能的 rule_id&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;os.Open&lt;/code&gt; / &lt;code&gt;os.Create&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;取赋值变量，检查同一 hunk 是否出现 &lt;code&gt;变量.Close()&lt;/code&gt;。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;resource-leak&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;sql.Open&lt;/code&gt; / &lt;code&gt;BeginTx&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;检查 &lt;code&gt;db.Close()&lt;/code&gt; 或 &lt;code&gt;tx.Rollback()&lt;/code&gt; 是否出现。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;db-lifecycle&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;context.WithCancel/Timeout/Deadline&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;检查返回的 cancel 函数是否在 hunk 中被调用。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;context-leak&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;go func&lt;/code&gt; / &lt;code&gt;go ...&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;检查是否出现 &lt;code&gt;WaitGroup&lt;/code&gt;、&lt;code&gt;Done&lt;/code&gt;、&lt;code&gt;errgroup&lt;/code&gt;、&lt;code&gt;context&lt;/code&gt; 等生命周期信号。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;goroutine-leak&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;Lock()&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;检查是否有同一 receiver 的 &lt;code&gt;Unlock()&lt;/code&gt;，尤其建议 &lt;code&gt;defer Unlock()&lt;/code&gt;。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;mutex-unlock-missing&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;panic(&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;直接生成高严重级别错误处理 finding。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;panic-direct&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;这也是为什么报告里的证据通常是某一条新增代码，而不是“模型觉得有风险”：脚本先用明确模式定位文件和新增行，再把建议写进 JSON。规则是启发式的，只看新增行和当前 hunk，跨文件、跨函数或 hunk 外已经存在的 &lt;code&gt;Close&lt;/code&gt; 可能看不到，因此会有漏报和误报。&lt;/p&gt;
+&lt;p&gt;这条命令背后的真实链路是：&lt;/p&gt;
 &lt;ol&gt;
 &lt;li&gt;CLI 读取 &lt;code&gt;--fixture secret.diff&lt;/code&gt;，由 &lt;code&gt;input.Read&lt;/code&gt; 加载 &lt;code&gt;testdata/fixtures/secret.diff&lt;/code&gt;。&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;normalizeExecutionPlan&lt;/code&gt; 得到 &lt;code&gt;mode=review&lt;/code&gt;、&lt;code&gt;sandbox=false&lt;/code&gt;、&lt;code&gt;model=false&lt;/code&gt;。&lt;/li&gt;
@@ -1288,6 +1382,18 @@
 &lt;li&gt;最后再引入 ReAct，让模型根据已有 findings 决定“是否需要补充某个低风险检查”，但保留确定性规则作为必经主路径，并用 fixture/holdout 评估新增召回率和误报率。&lt;/li&gt;
 &lt;/ol&gt;
 &lt;p&gt;这样演进后，图工作流负责可靠的阶段编排，受限 ReAct 负责有限的检查选择，Docker/PermissionPolicy/SQLite 这些安全和审计边界仍然不变。&lt;/p&gt;
+&lt;h3 id=&#34;10-规则为什么只检查新增行和当前-hunk&#34;&gt;10. 规则为什么只检查新增行和当前 hunk？
+&lt;/h3&gt;&lt;p&gt;答：代码评审的目标是判断本次变更引入了什么风险，而不是重新扫描整个仓库。解析 &lt;code&gt;@@&lt;/code&gt; hunk header 可以得到新文件起始行号，脚本只在 &lt;code&gt;+&lt;/code&gt; 行上报 finding，并把相邻上下文用于判断是否已有 &lt;code&gt;Close&lt;/code&gt;、&lt;code&gt;Unlock&lt;/code&gt; 或 &lt;code&gt;cancel()&lt;/code&gt;。这样速度快、定位准确、容易回归；代价是看不到跨文件和 hunk 外的生命周期逻辑，所以它不是完整静态分析器。&lt;/p&gt;
+&lt;h3 id=&#34;11-secret-leak-规则会不会把示例字符串都报成密钥&#34;&gt;11. &lt;code&gt;secret-leak&lt;/code&gt; 规则会不会把示例字符串都报成密钥？
+&lt;/h3&gt;&lt;p&gt;答：不会只靠变量名判断。&lt;code&gt;should_report_secret&lt;/code&gt; 先匹配 token/私钥等形状；变量名命中后还要提取赋值字符串，检查长度，并过滤 placeholder pattern。命中后证据再经过 &lt;code&gt;redact&lt;/code&gt;，所以 finding 可以保留“哪里疑似泄露”的信息，但报告和 SQLite 不保存明文密钥。规则仍是启发式，不能承诺 100% 召回。&lt;/p&gt;
+&lt;h3 id=&#34;12-defer-close-规则具体怎么判断&#34;&gt;12. &lt;code&gt;defer Close&lt;/code&gt; 规则具体怎么判断？
+&lt;/h3&gt;&lt;p&gt;答：例如新增 &lt;code&gt;resp, err := http.Get(url)&lt;/code&gt; 后，&lt;code&gt;reports_http_body_leak&lt;/code&gt; 会识别 HTTP 调用和变量名 &lt;code&gt;resp&lt;/code&gt;，再在同一 hunk 文本中搜索 &lt;code&gt;resp.Body.Close()&lt;/code&gt;；找不到就报 &lt;code&gt;http-body-close&lt;/code&gt;。&lt;code&gt;os.Open&lt;/code&gt;、&lt;code&gt;sql.Open&lt;/code&gt; 和 &lt;code&gt;BeginTx&lt;/code&gt; 分别走 &lt;code&gt;resource_has_cleanup&lt;/code&gt; 或 &lt;code&gt;database_has_cleanup&lt;/code&gt;，检查 &lt;code&gt;Close&lt;/code&gt; / &lt;code&gt;Rollback&lt;/code&gt;。它不是 Go 编译器级别的资源流分析，跨函数关闭可能被误判。&lt;/p&gt;
+&lt;h3 id=&#34;13-permissionpolicy-的-allowlist-具体保护了什么&#34;&gt;13. PermissionPolicy 的 allowlist 具体保护了什么？
+&lt;/h3&gt;&lt;p&gt;答：&lt;code&gt;internal/approval/gate.go&lt;/code&gt; 只允许精确匹配的 &lt;code&gt;scripts/check.sh&lt;/code&gt;、&lt;code&gt;go test ./...&lt;/code&gt;、&lt;code&gt;go vet ./...&lt;/code&gt;，以及显式开启的 &lt;code&gt;staticcheck ./...&lt;/code&gt;。命令参数、Tool 名称或 fallback code block 不匹配时返回 &lt;code&gt;AskPermission&lt;/code&gt;。它防止模型或输入内容把执行器改成任意 Shell 命令，但不等于完整安全分析；容器隔离、超时、网络和输出限制仍然需要执行层提供。&lt;/p&gt;
+&lt;h3 id=&#34;14-如果-go-test-超时或容器没有-vendor-依赖最终结论是什么&#34;&gt;14. 如果 &lt;code&gt;go test&lt;/code&gt; 超时或容器没有 vendor 依赖，最终结论是什么？
+&lt;/h3&gt;&lt;p&gt;答：不会把已有 Skill findings 丢掉。执行层会记录 &lt;code&gt;timed_out&lt;/code&gt; 或 &lt;code&gt;unsupported&lt;/code&gt; 的 sandbox run，生成 &lt;code&gt;needs_human_review&lt;/code&gt; 项，并把 stderr digest、耗时和原因写入审计；最终报告会说明 Go 检查没有完成。基础输入无法读取、报告无法写入或 SQLite 事务提交失败则会终止任务，因为这些错误会破坏结果完整性。&lt;/p&gt;
+&lt;h3 id=&#34;15-你如何证明这套规则没有只记住公开样例&#34;&gt;15. 你如何证明这套规则没有“只记住公开样例”？
+&lt;/h3&gt;&lt;p&gt;答：公开 &lt;code&gt;testdata/fixtures&lt;/code&gt; 用于回归每条规则，&lt;code&gt;testdata/holdout&lt;/code&gt; 保存未参与规则开发的变体和模型语义样本。测试会核对 rule_id、严重级别、状态、脱敏结果、去重和 sandbox 失败语义。进一步可以把 holdout 接入 CI，按规则类型统计召回率、误报率和模型增量 finding 的锚点通过率，而不是只看一次 demo 输出。&lt;/p&gt;
 &lt;h2 id=&#34;术语表&#34;&gt;术语表
 &lt;/h2&gt;&lt;p&gt;最后用一个紧凑版术语表收尾，方便回看：&lt;/p&gt;
 &lt;table&gt;
