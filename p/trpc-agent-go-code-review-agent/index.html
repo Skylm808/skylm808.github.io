@@ -251,6 +251,7 @@
   <ol>
     <li><a href="#先把-prcrdiffpatchhunk-说清楚">先把 PR、CR、diff、patch、hunk 说清楚</a></li>
     <li><a href="#这个项目一句话到底是什么">这个项目一句话到底是什么</a></li>
+    <li><a href="#先在-90-秒内跑通一条完整链路">先在 90 秒内跑通一条完整链路</a></li>
     <li><a href="#先分层哪些是框架层哪些是-cr-业务层">先分层：哪些是框架层，哪些是 CR 业务层</a></li>
     <li><a href="#它不是-react-自治-agent而是固定工作流">它不是 ReAct 自治 Agent，而是固定工作流</a>
       <ol>
@@ -260,8 +261,10 @@
     </li>
     <li><a href="#从入口开始cli-到-execution-plan">从入口开始：CLI 到 execution plan</a></li>
     <li><a href="#第一步输入层把一切统一成-diff">第一步：输入层把一切统一成 diff</a></li>
+    <li><a href="#输入变成-diff-后internalreview-做什么">输入变成 diff 后：<code>internal/review</code> 做什么</a></li>
     <li><a href="#第二步rundirect-才是真正的总编排">第二步：<code>runDirect</code> 才是真正的总编排</a></li>
-    <li><a href="#第三步正式规则入口到底在哪里">第三步：正式规则入口到底在哪里</a>
+    <li><a href="#skill-设计它不是一个脚本而是可复用规则包">Skill 设计：它不是一个脚本，而是可复用规则包</a></li>
+    <li><a href="#正式规则入口到底在哪里">正式规则入口到底在哪里</a>
       <ol>
         <li><a href="#为什么要有-shellpython-和-go-fallback-三层">为什么要有 Shell、Python 和 Go fallback 三层</a></li>
         <li><a href="#三个脚本结合关键源码看">三个脚本结合关键源码看</a>
@@ -271,14 +274,14 @@
         </li>
       </ol>
     </li>
-    <li><a href="#第四步skill-怎么被加载和执行">第四步：Skill 怎么被加载和执行</a></li>
-    <li><a href="#internalreview-在这条链里到底做什么"><code>internal/review</code> 在这条链里到底做什么</a>
+    <li><a href="#skill-如何被加载和执行">Skill 如何被加载和执行</a></li>
+    <li><a href="#internalreview-源码补充模型锚点为何可信"><code>internal/review</code> 源码补充：模型锚点为何可信</a>
       <ol>
         <li><a href="#用一段-diff-看它到底做了什么">用一段 diff 看它到底做了什么</a></li>
       </ol>
     </li>
     <li><a href="#规则为什么会误报或漏报">规则为什么会误报或漏报</a></li>
-    <li><a href="#用-secretdiff-走一遍真实完整链路">用 <code>secret.diff</code> 走一遍真实完整链路</a></li>
+    <li><a href="#回到-secretdiff逐步对照实际调用链">回到 <code>secret.diff</code>：逐步对照实际调用链</a></li>
     <li><a href="#再对比一下-dry-run别把两个模式讲混">再对比一下 dry-run，别把两个模式讲混</a></li>
     <li><a href="#模式矩阵到底哪些阶段会执行">模式矩阵：到底哪些阶段会执行</a></li>
     <li><a href="#sandbox真正的执行边界在哪里">Sandbox：真正的执行边界在哪里</a>
@@ -311,7 +314,7 @@
         <li><a href="#1-你说用了沙箱具体是怎么实现的docker-在这里扮演什么角色">1. 你说“用了沙箱”，具体是怎么实现的？Docker 在这里扮演什么角色？</a></li>
         <li><a href="#2-为什么要在沙箱里运行-go-test-和-go-vet">2. 为什么要在沙箱里运行 <code>go test</code> 和 <code>go vet</code>？</a></li>
         <li><a href="#3-为什么不把-go-test-直接写进-checksh">3. 为什么不把 <code>go test</code> 直接写进 <code>check.sh</code>？</a></li>
-        <li><a href="#4-checkshcheck_rulespycheck_fallbackgo-分别负责什么">4. <code>check.sh</code>、<code>check_rules.py</code>、<code>check_fallback.go</code> 分别负责什么？</a></li>
+        <li><a href="#4-这个-code-review-skill-怎么设计为什么不只写一个脚本">4. 这个 code-review Skill 怎么设计，为什么不只写一个脚本？</a></li>
         <li><a href="#5-你的规则引擎为什么不用-llm-直接判断">5. 你的规则引擎为什么不用 LLM 直接判断？</a></li>
         <li><a href="#6-你简历里写llm-agent模型实际上做了什么">6. 你简历里写“LLM Agent”，模型实际上做了什么？</a></li>
         <li><a href="#7-为什么说这是-agent-原型而不是普通脚本">7. 为什么说这是 Agent 原型，而不是普通脚本？</a></li>
@@ -395,7 +398,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 39 分钟
+                    阅读时长: 42 分钟
                 </time>
             </div>
         
@@ -505,6 +508,69 @@
 <li><code>deterministic</code>：高置信规则优先，不把基础安全规则交给模型猜。</li>
 <li><code>auditable</code>：不只要最终报告，还要知道哪些命令被允许、哪些被拒绝、哪些阶段被跳过。</li>
 </ol>
+<h2 id="先在-90-秒内跑通一条完整链路">先在 90 秒内跑通一条完整链路
+</h2><p>先不要急着读 <code>runDirect</code> 或脚本源码。以下命令在 <code>examples/code_review_agent</code> 目录运行内置的 <code>secret.diff</code>：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>go run ./cmd/review-agent <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --fixture secret.diff <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --runtime local-fallback <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --sandbox<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">false</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --model-enabled<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">false</span> <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --skills-root ./skills <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --output-dir /tmp/cr-secret <span style="color:#f1fa8c">\
+</span></span></span><span style="display:flex;"><span>  --sqlite /tmp/cr-secret/review.db
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>它会发现新增代码中的疑似密钥，报告类似：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>[CRITICAL] config.go:2 Potential secret appears in added code
+</span></span><span style="display:flex;"><span>来源: skill_run
+</span></span><span style="display:flex;"><span>规则: secret-leak
+</span></span><span style="display:flex;"><span>证据: const apiKey=[REDACTED]
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>先记住这张地图即可：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>fixture / diff / PR patch
+</span></span><span style="display:flex;"><span>  -&gt; 统一为 diff
+</span></span><span style="display:flex;"><span>  -&gt; 加载并执行 code-review Skill
+</span></span><span style="display:flex;"><span>  -&gt; 固定规则 finding
+</span></span><span style="display:flex;"><span>  -&gt; 可选：沙箱 go test / go vet
+</span></span><span style="display:flex;"><span>  -&gt; 可选：LLM 增量复核
+</span></span><span style="display:flex;"><span>  -&gt; 锚点校验、去重、脱敏
+</span></span><span style="display:flex;"><span>  -&gt; JSON/Markdown 报告 + SQLite 审计
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>上面的命令关闭了 sandbox 和模型，便于看清最短主路径；它<strong>仍会执行 Skill</strong>。后文会把同一个案例拆开，分别解释 Skill、沙箱、模型和 SQLite。若改成 <code>--mode dry-run</code>，才是只验证 Skill 能否加载而不执行规则脚本。</p>
 <h2 id="先分层哪些是框架层哪些是-cr-业务层">先分层：哪些是框架层，哪些是 CR 业务层
 </h2><p>理解这个示例最快的方法，不是从 <code>main.go</code> 一路往下翻，而是先把“tRPC-Agent-Go 提供的通用能力”和“这个示例自己实现的代码评审逻辑”拆开。</p>
 <div class="table-wrapper"><table>
@@ -799,6 +865,28 @@
 <li>fixture，例如 <code>secret.diff</code>。</li>
 </ol>
 <p>这一层的价值不是“会读文件”，而是把后面的规则、模型、报告和存储都建立在同一种输入契约上。</p>
+<h2 id="输入变成-diff-后internalreview-做什么">输入变成 diff 后：<code>internal/review</code> 做什么
+</h2><p><code>internal/review</code> 不执行 <code>secret-leak</code> 或 <code>http-body-close</code> 规则。它负责把统一 diff 变成后续阶段都能使用的内部数据，并守住结果可信度：</p>
+<ol>
+<li>定义 <code>Finding</code>、<code>ParsedDiff</code>、<code>InputMetadata</code> 等结构。</li>
+<li>解析文件路径、语言、package、hunk、新增行及其新文件行号。</li>
+<li>脱敏、生成 finding 去重键。</li>
+<li>校验模型返回的 <code>file/line</code> 确实锚定到这次 diff 的新增行。</li>
+</ol>
+<p>例如，假设下面三行位于 <code>client.go</code> 的一个合法 hunk 中，<code>ParseUnifiedDiff</code> 会把它们转为第 2、3、4 行的新增记录：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-diff" data-lang="diff"><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+resp, err := http.Get(url)
+</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+if err != nil { return err }
+</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+return use(resp.Body)
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>脚本随后才根据这些原始 diff 文本判断是否缺少 <code>resp.Body.Close()</code>。如果模型声称问题在 <code>client.go:80</code>，但本次 diff 只新增了第 2 至 4 行，模型结果会被拒绝并留下 <code>model-invalid-anchor</code> warning。<code>internal/review</code> 因此是“数据与可信边界”，不是第二套规则引擎；更完整的源码例子在后面的模型章节。</p>
 <h2 id="第二步rundirect-才是真正的总编排">第二步：<code>runDirect</code> 才是真正的总编排
 </h2><p>总流程在 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/agent.go"  target="_blank" rel="noopener"
     ><code>internal/agent/agent.go</code></a> 的 <code>runDirect</code>。删掉细节以后，主干可以压缩成：</p>
@@ -850,7 +938,62 @@
 <li>Skill、sandbox、model 都在 <code>runReviewChecks</code> 和后续步骤里按固定顺序执行。</li>
 <li>报告与 SQLite 落库不是“最后顺手写文件”，而是正式输出的一部分。</li>
 </ol>
-<h2 id="第三步正式规则入口到底在哪里">第三步：正式规则入口到底在哪里
+<h2 id="skill-设计它不是一个脚本而是可复用规则包">Skill 设计：它不是一个脚本，而是可复用规则包
+</h2><p>当前 <code>skills/code-review/</code> 目录有四类内容：</p>
+<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>skills/code-review/
+</span></span><span style="display:flex;"><span>├── SKILL.md                  # Skill 的角色、输入输出契约和变更约束
+</span></span><span style="display:flex;"><span>├── rules.md                  # rule_id、触发条件、边界和 fixture 说明
+</span></span><span style="display:flex;"><span>└── scripts/
+</span></span><span style="display:flex;"><span>    ├── check.sh              # 对 Agent 暴露的稳定入口
+</span></span><span style="display:flex;"><span>    ├── check_rules.py        # Python 可用时的主规则实现
+</span></span><span style="display:flex;"><span>    └── check_fallback.go     # 没有 Python 时的 Go 兼容实现
+</span></span></code></pre></td></tr></table>
+</div>
+</div><div class="table-wrapper"><table>
+	<thead>
+			<tr>
+					<th>文件</th>
+					<th>解决的问题</th>
+					<th>当前内容</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>SKILL.md</code></td>
+					<td>这个 Skill 能做什么、输入输出长什么样、什么结果算高风险。</td>
+					<td>规定 stdin 是 unified diff，stdout 是 <code>findings/warnings</code> JSON，字段必须包含 <code>severity</code>、<code>file</code>、<code>line</code>、<code>evidence</code>、<code>recommendation</code>、<code>rule_id</code> 等；还规定模型只能做后置语义补充。</td>
+			</tr>
+			<tr>
+					<td><code>rules.md</code></td>
+					<td>每条规则为什么存在，以及什么情况下不应该报。</td>
+					<td>记录 <code>secret-leak</code>、<code>http-body-close</code>、<code>context-leak</code> 等规则的触发边界、误报防护和 fixture 覆盖。</td>
+			</tr>
+			<tr>
+					<td><code>check.sh</code></td>
+					<td>Agent 怎样用一个稳定命令执行 Skill。</td>
+					<td>从 stdin 接收 diff，创建临时文件，根据环境选择 Python 或 Go 实现，并把 JSON 写到 stdout。</td>
+			</tr>
+			<tr>
+					<td><code>check_rules.py</code> / <code>check_fallback.go</code></td>
+					<td>具体怎样扫描新增行。</td>
+					<td>解析 hunk、匹配规则、脱敏证据、去重，并遵守同一份 JSON 契约。</td>
+			</tr>
+	</tbody>
+</table></div>
+<p>所以 Agent 不需要知道 Python 函数叫什么，也不把每条规则硬编码进 <code>runDirect</code>；它只需加载可信 Skill、批准执行 <code>scripts/check.sh</code>、把 diff 放进 stdin、读取 JSON。这样做的收益是：实现可替换，规则可用 fixture 回归，且 Skill 必须来自显式可信的 <code>--skills-root</code>，不能信任被审仓库自带的脚本。</p>
+<p><code>SKILL.md</code> 还把确定性规则和模型阶段分开：脚本先处理密钥、命令注入、资源未关闭等高置信问题；模型只能补充跨文件或业务语义问题。<strong>Skill 是规则文档、输入输出契约、脚本实现和测试约束的整体；<code>check.sh</code> 只是执行入口。</strong></p>
+<h2 id="正式规则入口到底在哪里">正式规则入口到底在哪里
 </h2><p>这里必须说准。</p>
 <p>很多讲解会把 <code>internal/review/parser.go</code>、<code>internal/rules/rules.go</code> 当成“规则正式入口”。但按照当前 Agent 的真实执行路径，正式规则入口是：</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
@@ -1075,7 +1218,7 @@
 </div><p>规则就不报。密钥规则也一样：<code>+const apiKey = &quot;sk-1234567890abcdef&quot;</code> 命中 <code>should_report_secret</code> 后，产生 <code>critical/security</code> 的 <code>secret-leak</code>，但落入报告前会把完整 token 脱敏。</p>
 <p>这类规则快、可重复、能稳定定位文件和行号，但不是完整 AST 或数据流分析：清理动作若在另一个函数、另一个文件或 hunk 之外，脚本可能看不到。因此它是确定性初筛；需要完整仓库上下文的编译、测试和静态检查交给后面的沙箱，语义不确定的问题才交给可选 LLM 复核。</p>
 <p>仓库里虽然还有 <code>internal/rules/rules.go</code>，但当前主 Agent 路径没有调用 <code>rules.Run</code>；现有引用主要是该包自己的测试。它是另一套基于 <code>review.ParsedDiff</code> 的 Go 规则实现，输出的 <code>Source</code> 是 <code>rule</code>，而脚本链输出的是 <code>skill_run</code>。从当前源码可以确认它“存在且可测试”，但不能仅凭代码断言它是迁移遗留；面试时应说它是未接入主 CLI 的并行/候选实现，而不是当前正式规则入口。</p>
-<h2 id="第四步skill-怎么被加载和执行">第四步：Skill 怎么被加载和执行
+<h2 id="skill-如何被加载和执行">Skill 如何被加载和执行
 </h2><p>Skill 运行逻辑在 <a class="link" href="https://github.com/trpc-group/trpc-agent-go/blob/main/examples/code_review_agent/internal/agent/skill_step.go"  target="_blank" rel="noopener"
     ><code>internal/agent/skill_step.go</code></a>。</p>
 <p>先看 <code>runDryRun</code>：</p>
@@ -1157,8 +1300,8 @@
 <li>只有 allow 之后才真正调用脚本。</li>
 <li>Skill stdout 必须是结构化 JSON，之后才会被解析成 findings/warnings。</li>
 </ol>
-<h2 id="internalreview-在这条链里到底做什么"><code>internal/review</code> 在这条链里到底做什么
-</h2><p>上面刚说过，<code>internal/review</code> 不是当前正式规则入口，但它绝不是“可有可无”。</p>
+<h2 id="internalreview-源码补充模型锚点为何可信"><code>internal/review</code> 源码补充：模型锚点为何可信
+</h2><p>前面的输入层已经给出它的职责；这一节补充模型锚点校验的源码视角。</p>
 <p>它在当前源码里的核心职责更接近这四件事：</p>
 <ol>
 <li>表达 <code>Finding</code>、<code>ParsedDiff</code>、<code>InputMetadata</code> 等内部数据结构。</li>
@@ -1243,53 +1386,9 @@
 <li>当前 hunk 启发式看不到完整跨文件调用关系，因此可能把 hunk 外已经存在的清理逻辑漏掉，也可能因为同一 hunk 恰好出现某个关键词而错误地认为风险已处理。</li>
 </ol>
 <p><code>testdata/fixtures</code> 保存公开的固定输入和预期结果；<code>testdata/holdout</code> 则放独立或更具对抗性的样本，用来检查规则是否只“记住”了公开 fixture。面试时应把它称为可解释的第一层筛查，不能说成完整的 Go 静态分析器。可选模型能补充部分跨文件语义，但同样不能保证消灭误报和漏报。</p>
-<h2 id="用-secretdiff-走一遍真实完整链路">用 <code>secret.diff</code> 走一遍真实完整链路
-</h2><p>先看一个可以直接运行的最小例子。以下命令默认在 <code>examples/code_review_agent</code> 目录执行：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#8be9fd;font-style:italic">cd</span> trpc-agent/trpc-agent-go/examples/code_review_agent
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>go run ./cmd/review-agent <span style="color:#f1fa8c">\
-</span></span></span><span style="display:flex;"><span>  --fixture secret.diff <span style="color:#f1fa8c">\
-</span></span></span><span style="display:flex;"><span>  --runtime local-fallback <span style="color:#f1fa8c">\
-</span></span></span><span style="display:flex;"><span>  --sandbox<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">false</span> <span style="color:#f1fa8c">\
-</span></span></span><span style="display:flex;"><span>  --model-enabled<span style="color:#ff79c6">=</span><span style="color:#8be9fd;font-style:italic">false</span> <span style="color:#f1fa8c">\
-</span></span></span><span style="display:flex;"><span>  --skills-root ./skills <span style="color:#f1fa8c">\
-</span></span></span><span style="display:flex;"><span>  --output-dir /tmp/cr-secret <span style="color:#f1fa8c">\
-</span></span></span><span style="display:flex;"><span>  --sqlite /tmp/cr-secret/review.db
-</span></span></code></pre></td></tr></table>
-</div>
-</div><p>这里特意保留了 <code>--sandbox=false</code>，因为它正好能说明一个经常被误解的点：<strong>这条命令仍会执行 Skill 规则</strong>。它只是明确告诉系统“不跑额外的 Go 沙箱检查，不跑模型”。</p>
-<p><code>secret.diff</code> 的核心内容是：</p>
-<div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
-<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
-</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
-</span></code></pre></td>
-<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
-<pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-diff" data-lang="diff"><span style="display:flex;"><span><span style="font-weight:bold">diff --git a/config.go b/config.go
-</span></span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+++ b/config.go
-</span></span></span><span style="display:flex;"><span><span style="font-weight:bold">@@ -1,2 +1,4 @@
-</span></span></span><span style="display:flex;"><span> package foo
-</span></span><span style="display:flex;"><span><span style="color:#50fa7b;font-weight:bold">+const apiKey = &#34;sk-1234567890abcdef&#34;
-</span></span></span></code></pre></td></tr></table>
-</div>
-</div><p>这条命令背后的真实链路是：</p>
+<h2 id="回到-secretdiff逐步对照实际调用链">回到 <code>secret.diff</code>：逐步对照实际调用链
+</h2><p>前面已经运行过这条最小命令。现在不再重复命令本身，而是对照它从 <code>secret.diff</code> 到报告的每一步。</p>
+<p>这条命令背后的真实链路是：</p>
 <ol>
 <li>CLI 读取 <code>--fixture secret.diff</code>，由 <code>input.Read</code> 加载 <code>testdata/fixtures/secret.diff</code>。</li>
 <li><code>normalizeExecutionPlan</code> 得到 <code>mode=review</code>、<code>sandbox=false</code>、<code>model=false</code>。</li>
@@ -1844,8 +1943,9 @@
 </h3><p>答：Skill 脚本只接收 diff，适合检查新增行的固定规则；<code>go test ./...</code> 需要完整 repo、模块依赖和包上下文，能发现编译错误、测试回归和运行时行为问题；<code>go vet ./...</code> 做 Go 常见静态分析。它们放进受限 runtime 是因为测试和 <code>init</code> 代码可能执行被审仓库中的逻辑，不能在宿主机直接运行。结果会以 sandbox run 记录命令、退出码、耗时、输出摘要和状态。</p>
 <h3 id="3-为什么不把-go-test-直接写进-checksh">3. 为什么不把 <code>go test</code> 直接写进 <code>check.sh</code>？
 </h3><p>答：不是 Shell 不能调用 Go，而是职责和安全边界不同。<code>check.sh</code> 的输入是 stdin diff，输出是规则 JSON；<code>go test</code> 需要 repo workspace，可能耗时、产生大量输出并执行仓库代码。把它放进脚本会绕开独立的 PermissionPolicy、runtime 选择、超时、禁网、只读挂载和 <code>sandbox_run</code> 审计。当前设计把 diff 筛查和工作区执行拆成两个可治理阶段。</p>
-<h3 id="4-checkshcheck_rulespycheck_fallbackgo-分别负责什么">4. <code>check.sh</code>、<code>check_rules.py</code>、<code>check_fallback.go</code> 分别负责什么？
-</h3><p>答：源码证据是三段。<code>check.sh</code> 先执行 <code>cat &gt; &quot;$tmp&quot;</code>，再用 <code>command -v python3</code> 选择 <code>python3 check_rules.py &quot;$tmp&quot;</code>，否则执行 <code>GO111MODULE=off go run check_fallback.go &quot;$tmp&quot;</code>。Python 规则在 <code>if new_remaining &gt; 0 and line.startswith(&quot;+&quot;)</code> 分支只检查新增行，并通过 <code>add_finding(...)</code> 补齐 severity、file、line、evidence、rule_id 等字段；Go fallback 用 <code>bufio.Scanner</code> 解析相同的 <code>+++</code> 文件头和 <code>@@</code> hunk 计数，并用 <code>finding</code> struct 输出相同 JSON 契约。三者关系是“入口脚本 -&gt; 主实现或环境降级”，不是三次重复扫描。</p>
+<h3 id="4-这个-code-review-skill-怎么设计为什么不只写一个脚本">4. 这个 code-review Skill 怎么设计，为什么不只写一个脚本？
+</h3><p>答：我把它设计成一个可复用规则包：<code>SKILL.md</code> 定义角色、输入输出 JSON 契约和模型边界；<code>rules.md</code> 记录每个 <code>rule_id</code> 的触发条件、误报边界和 fixture；<code>check.sh</code> 是 Agent 唯一调用的稳定入口；<code>check_rules.py</code> 是主规则实现；<code>check_fallback.go</code> 是没有 Python 时的兼容实现。这样 <code>runDirect</code> 只需调用 <code>scripts/check.sh</code>，未来替换 Python 或增加 AST 检查器不影响编排代码；每条规则也可以用 fixture 单独回归。安全上，Skill 必须从可信 <code>--skills-root</code> 加载，不能执行被审仓库自带脚本。</p>
+<p>具体执行时，<code>check.sh</code> 先执行 <code>cat &gt; &quot;$tmp&quot;</code>，再用 <code>command -v python3</code> 选择 <code>python3 check_rules.py &quot;$tmp&quot;</code>，否则执行 <code>GO111MODULE=off go run check_fallback.go &quot;$tmp&quot;</code>。Python 规则在 <code>if new_remaining &gt; 0 and line.startswith(&quot;+&quot;)</code> 分支只检查新增行，并通过 <code>add_finding(...)</code> 补齐 severity、file、line、evidence、rule_id 等字段；Go fallback 用 <code>bufio.Scanner</code> 解析相同的 <code>+++</code> 文件头和 <code>@@</code> hunk 计数，并用 <code>finding</code> struct 输出相同 JSON 契约。三者关系是“稳定入口 -&gt; 主实现或环境降级”，不是三次重复扫描。</p>
 <h3 id="5-你的规则引擎为什么不用-llm-直接判断">5. 你的规则引擎为什么不用 LLM 直接判断？
 </h3><p>答：高置信安全规则需要稳定、低成本和可回归测试，例如 <code>secret-leak</code>、命令注入和 response body 未关闭。脚本能给出固定的 file、line、rule_id 和证据。LLM 更适合补充跨上下文语义，但有成本、隐私和误报波动，所以流程先跑 Skill 和沙箱，再把脱敏 diff、既有 findings 和执行摘要发给模型，最后对模型结果做新增行锚点校验和去重。</p>
 <h3 id="6-你简历里写llm-agent模型实际上做了什么">6. 你简历里写“LLM Agent”，模型实际上做了什么？
