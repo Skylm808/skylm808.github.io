@@ -972,6 +972,71 @@
 <p>流量治理方面，Pixiu 集成 Sentinel。RateLimit Filter 在入口根据资源规则限制 QPS，超过预算的请求直接在网关快速失败；CircuitBreaker 则统计下游 5xx、错误率或慢请求，在下游持续异常时打开熔断器，避免继续向故障服务发送请求。</p>
 <p>最后，ClusterManager 会从健康 endpoint 中结合负载均衡算法选择实例，避免持续把请求发给故障节点。</p>
 <p>所以本质上是“提高单请求处理效率 + 限制资源占用 + 入口限流 + 下游熔断 + 健康实例负载均衡”，共同保证高并发下不会因为流量突增或下游异常导致系统雪崩。</p>
+<p>这里给一个完整的流程图
+客户端
+│
+│ 入站 HTTP Request
+↓
+Go http.Server
+│
+↓
+sync.Pool.Get(HttpContext)
+│
+┌─────────┴─────────┐
+│    HttpContext     │
+│ Request           │
+│ Params            │
+│ Route             │
+└─────────┬─────────┘
+│
+↓
+Sentinel RateLimit
+“流量是否太大？”
+│
+放行
+↓
+Sentinel CircuitBreaker
+Decode阶段
+│
+创建 entryA
+│
+存入 Params
+↓
+HTTP Proxy
+│
+选择 endpoint
+│
+http.Client
+│
+http.Transport
+│
+┌────────┴────────┐
+│ TCP连接池       │
+│ Conn1 Conn2 &hellip; │
+└────────┬────────┘
+│
+keep-alive
+↓
+库存服务
+│
+HTTP Response
+↑
+│
+Sentinel CircuitBreaker
+Encode阶段
+│
+从 Params 取 entryA
+│
+5xx → entryA.SetError()
+│
+entryA.Exit()
+│
+↓
+返回客户端
+│
+HttpContext
+↓
+sync.Pool.Put()</p>
 <h2 id="4-一份可用于讨论的配置骨架">4. 一份可用于讨论的配置骨架
 </h2><p>下面是 HTTP 入口、连接池和 Sentinel filter 的结构示例。具体 Sentinel <code>resources</code> 和 <code>rules</code> 字段应按当前版本的 Sentinel rule 模型填写，并通过压测确定阈值。</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
