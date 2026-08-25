@@ -972,45 +972,45 @@
 <p>流量治理方面，Pixiu 集成 Sentinel。RateLimit Filter 在入口根据资源规则限制 QPS，超过预算的请求直接在网关快速失败；CircuitBreaker 则统计下游 5xx、错误率或慢请求，在下游持续异常时打开熔断器，避免继续向故障服务发送请求。</p>
 <p>最后，ClusterManager 会从健康 endpoint 中结合负载均衡算法选择实例，避免持续把请求发给故障节点。</p>
 <p>所以本质上是“提高单请求处理效率 + 限制资源占用 + 入口限流 + 下游熔断 + 健康实例负载均衡”，共同保证高并发下不会因为流量突增或下游异常导致系统雪崩。</p>
-<p>这里给一个完整的流程图
-flowchart TD
-A[客户端] &ndash;&gt; B[Go http.Server]
-B &ndash;&gt; C[sync.Pool.Get HttpContext]</p>
-<pre><code>C --&gt; D[HttpContext&lt;br/&gt;Request / Params / Route&lt;br/&gt;SourceResp / TargetResp]
+<p>这里给一个完整的流程图</p>
+<pre class="mermaid"> flowchart TD
+    A[客户端] --&gt; B[Go http.Server]
+    B --&gt; C[sync.Pool.Get HttpContext]
 
-D --&gt; E[Sentinel RateLimit&lt;br/&gt;判断流量是否超限]
+    C --&gt; D[HttpContext&lt;br/&gt;Request / Params / Route&lt;br/&gt;SourceResp / TargetResp]
 
-E --&gt;|超限| F[网关直接返回 429]
-E --&gt;|放行| G[Sentinel CircuitBreaker&lt;br/&gt;Decode 阶段]
+    D --&gt; E[Sentinel RateLimit&lt;br/&gt;判断流量是否超限]
 
-G --&gt; H[sentinel.Entry]
-H --&gt; I[创建 entryA]
-I --&gt; J[entryA 存入 HttpContext.Params]
+    E --&gt;|超限| F[网关直接返回 429]
+    E --&gt;|放行| G[Sentinel CircuitBreaker&lt;br/&gt;Decode 阶段]
 
-J --&gt; K[HTTP Proxy]
-K --&gt; L[选择健康 endpoint]
-L --&gt; M[http.Client]
-M --&gt; N[http.Transport]
+    G --&gt; H[sentinel.Entry]
+    H --&gt; I[创建 entryA]
+    I --&gt; J[entryA 存入 HttpContext.Params]
 
-N --&gt; O[TCP / HTTP Keep-Alive 连接池&lt;br/&gt;Conn1 Conn2 Conn3...]
+    J --&gt; K[HTTP Proxy]
+    K --&gt; L[选择健康 endpoint]
+    L --&gt; M[http.Client]
+    M --&gt; N[http.Transport]
 
-O --&gt; P[下游库存服务]
-P --&gt; Q[HTTP Response]
+    N --&gt; O[TCP / HTTP Keep-Alive 连接池&lt;br/&gt;Conn1 Conn2 Conn3...]
 
-Q --&gt; R[Sentinel CircuitBreaker&lt;br/&gt;Encode 阶段]
-R --&gt; S[从 Params 取出 entryA]
-S --&gt; T{HTTP 状态码是否为 5xx}
+    O --&gt; P[下游库存服务]
+    P --&gt; Q[HTTP Response]
 
-T --&gt;|是| U[entryA.SetError err]
-T --&gt;|否| V[正常结束]
+    Q --&gt; R[Sentinel CircuitBreaker&lt;br/&gt;Encode 阶段]
+    R --&gt; S[从 Params 取出 entryA]
+    S --&gt; T{HTTP 状态码是否为 5xx}
 
-U --&gt; W[entryA.Exit]
-V --&gt; W
+    T --&gt;|是| U[entryA.SetError err]
+    T --&gt;|否| V[正常结束]
 
-W --&gt; X[返回客户端]
-X --&gt; Y[sync.Pool.Put HttpContext]
-Y --&gt; Z[后续请求复用 HttpContext]
-</code></pre>
+    U --&gt; W[entryA.Exit]
+    V --&gt; W
+
+    W --&gt; X[返回客户端]
+    X --&gt; Y[sync.Pool.Put HttpContext]
+    Y --&gt; Z[后续请求复用 HttpContext]</pre>
 <h2 id="4-一份可用于讨论的配置骨架">4. 一份可用于讨论的配置骨架
 </h2><p>下面是 HTTP 入口、连接池和 Sentinel filter 的结构示例。具体 Sentinel <code>resources</code> 和 <code>rules</code> 字段应按当前版本的 Sentinel rule 模型填写，并通过压测确定阈值。</p>
 <div class="highlight"><div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;">
