@@ -398,7 +398,7 @@
 
 
                 <time class="article-time--reading">
-                    阅读时长: 42 分钟
+                    阅读时长: 43 分钟
                 </time>
             </div>
         
@@ -1944,8 +1944,10 @@
 <h3 id="3-为什么不把-go-test-直接写进-checksh">3. 为什么不把 <code>go test</code> 直接写进 <code>check.sh</code>？
 </h3><p>答：不是 Shell 不能调用 Go，而是职责和安全边界不同。<code>check.sh</code> 的输入是 stdin diff，输出是规则 JSON；<code>go test</code> 需要 repo workspace，可能耗时、产生大量输出并执行仓库代码。把它放进脚本会绕开独立的 PermissionPolicy、runtime 选择、超时、禁网、只读挂载和 <code>sandbox_run</code> 审计。当前设计把 diff 筛查和工作区执行拆成两个可治理阶段。</p>
 <h3 id="4-这个-code-review-skill-怎么设计为什么不只写一个脚本">4. 这个 code-review Skill 怎么设计，为什么不只写一个脚本？
-</h3><p>答：我把它设计成一个可复用规则包：<code>SKILL.md</code> 定义角色、输入输出 JSON 契约和模型边界；<code>rules.md</code> 记录每个 <code>rule_id</code> 的触发条件、误报边界和 fixture；<code>check.sh</code> 是 Agent 唯一调用的稳定入口；<code>check_rules.py</code> 是主规则实现；<code>check_fallback.go</code> 是没有 Python 时的兼容实现。这样 <code>runDirect</code> 只需调用 <code>scripts/check.sh</code>，未来替换 Python 或增加 AST 检查器不影响编排代码；每条规则也可以用 fixture 单独回归。安全上，Skill 必须从可信 <code>--skills-root</code> 加载，不能执行被审仓库自带脚本。</p>
+</h3><p>答：我把它设计成一个可复用的 Skill 包，而不是让 Agent 依赖某段具体脚本；核心是把审查能力的契约、规则知识和运行实现分层。<code>SKILL.md</code> 定义能力边界和稳定契约：输入是 unified diff，输出是统一的 JSON finding；每条结果必须带严重级别、文件和行号、证据、修复建议、<code>rule_id</code> 等字段。这样上层的报告、审计和去重逻辑只依赖契约，未来替换规则引擎或增加 AST 检查器都不需要改编排代码。</p>
+<p><code>rules.md</code> 是规则目录：除每个 <code>rule_id</code> 的触发条件外，也写清不该报的情况和 fixture 覆盖，把误报治理纳入规则本身。例如 HTTP response body 未关闭才触发；如果同一个 hunk 已有 <code>Body.Close()</code>，规则就应抑制。<code>check.sh</code> 则是 Agent 唯一调用的稳定入口：从 stdin 接收 diff、向 stdout 返回 JSON，屏蔽底层运行时差异。<code>check_rules.py</code> 是主规则实现，<code>check_fallback.go</code> 是没有 Python 时的兼容实现；<code>runDirect</code> 因而只需调用 <code>scripts/check.sh</code>，每条规则也可以通过 fixture 独立回归。安全上，Skill 必须从可信 <code>--skills-root</code> 加载，不能执行被审仓库自带脚本。</p>
 <p>具体执行时，<code>check.sh</code> 先执行 <code>cat &gt; &quot;$tmp&quot;</code>，再用 <code>command -v python3</code> 选择 <code>python3 check_rules.py &quot;$tmp&quot;</code>，否则执行 <code>GO111MODULE=off go run check_fallback.go &quot;$tmp&quot;</code>。Python 规则在 <code>if new_remaining &gt; 0 and line.startswith(&quot;+&quot;)</code> 分支只检查新增行，并通过 <code>add_finding(...)</code> 补齐 severity、file、line、evidence、rule_id 等字段；Go fallback 用 <code>bufio.Scanner</code> 解析相同的 <code>+++</code> 文件头和 <code>@@</code> hunk 计数，并用 <code>finding</code> struct 输出相同 JSON 契约。三者关系是“稳定入口 -&gt; 主实现或环境降级”，不是三次重复扫描。</p>
+<p>确定性规则和模型语义审查也要分开：secret 泄漏、资源未关闭、context 未 <code>cancel</code> 等适合规则引擎稳定发现；跨文件鉴权、业务状态机等需要上下文理解的问题，再由模型补充。模型不能重复已有的确定性 finding，低置信度结果进入人工复核而不是直接阻塞。这样既能让结果可重复、可测试、可审计，也保留模型处理复杂语义问题的能力。</p>
 <h3 id="5-你的规则引擎为什么不用-llm-直接判断">5. 你的规则引擎为什么不用 LLM 直接判断？
 </h3><p>答：高置信安全规则需要稳定、低成本和可回归测试，例如 <code>secret-leak</code>、命令注入和 response body 未关闭。脚本能给出固定的 file、line、rule_id 和证据。LLM 更适合补充跨上下文语义，但有成本、隐私和误报波动，所以流程先跑 Skill 和沙箱，再把脱敏 diff、既有 findings 和执行摘要发给模型，最后对模型结果做新增行锚点校验和去重。</p>
 <h3 id="6-你简历里写llm-agent模型实际上做了什么">6. 你简历里写“LLM Agent”，模型实际上做了什么？
