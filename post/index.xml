@@ -15548,29 +15548,22 @@ Next-Key Lock 可以近似理解为锁住&lt;strong&gt;当前读扫描的范围�
 &lt;/div&gt;&lt;p&gt;可以使用 &lt;code&gt;go build -gcflags=&amp;quot;-m&amp;quot;&lt;/code&gt; 命令查看编译器的逃逸分析结果。&lt;/p&gt;
 &lt;hr&gt;
 &lt;h2 id=&#34;3-go-的-gc-garbage-collection-深度解析&#34;&gt;3. Go 的 GC (Garbage Collection) 深度解析
-&lt;/h2&gt;&lt;p&gt;Go 的 GC 机制是由以下三个核心特征&lt;strong&gt;共同定义&lt;/strong&gt;的：&lt;/p&gt;
+&lt;/h2&gt;&lt;p&gt;Go 的 GC 是&lt;strong&gt;非分代、非压缩、并发的精确标记—清扫器&lt;/strong&gt;。逃逸分析会让一部分短命对象留在栈上，从而减轻 GC 的工作量；但这不是 Go 选择非分代 GC 的充分理由。GC 只管理堆，栈和全局变量则是发现堆中存活对象的根（Root）。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;非分代 (Non-generational)&lt;/strong&gt;：堆不按“新生代 / 老年代”分区回收。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;非压缩 (Non-compacting)&lt;/strong&gt;：存活对象在一次 GC 中不会被搬迁，指针地址保持不变。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;并发标记—清扫 (Concurrent mark and sweep)&lt;/strong&gt;：标记和清扫的大部分工作可与用户代码（Mutator）并发执行；仍有很短的 Stop The World（STW）阶段。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;精确扫描 (Precise)&lt;/strong&gt;：运行时借助编译器生成的指针位图，知道栈帧和堆对象中的哪些位置是指针，而不是把任意看似地址的整数当作引用。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&#34;30-一次-gc-周期的全貌&#34;&gt;3.0 一次 GC 周期的全貌
+&lt;/h3&gt;&lt;p&gt;下面按运行时的阶段理解一次常规 GC。实现细节会随 Go 版本演进，但这条主线和各阶段的职责是稳定的：&lt;/p&gt;
 &lt;ol&gt;
-&lt;li&gt;&lt;strong&gt;非分代 (Non-generational)&lt;/strong&gt;:&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;触发与清扫终止（Sweep termination，短 STW）&lt;/strong&gt;：堆增长到目标值、达到内存限制，或调用 &lt;code&gt;runtime.GC&lt;/code&gt; 后，运行时发起 GC。它短暂停止用户 Goroutine，完成上一轮尚未完成的清扫并准备本轮标记；随后打开写屏障。这里的 STW 不是用来“把所有栈上的对象标黑”。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;并发标记（Concurrent mark）&lt;/strong&gt;：恢复用户代码后，GC Worker 与分配时的 Mutator assist 一起处理标记工作。运行时扫描全局变量、寄存器、运行时数据结构和各 Goroutine 栈；栈中发现的堆指针会被 &lt;strong&gt;shade&lt;/strong&gt;，即标为灰色并加入待扫描工作队列。GC 从灰色对象继续扫描，直到它们变黑。并发标记期间新分配的&lt;strong&gt;堆对象&lt;/strong&gt;会直接按黑色处理，避免本轮再扫描它；栈上的局部变量不是 GC 堆对象，不能说“在栈上新建的对象被标黑”。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;终止标记（Mark termination，短 STW）&lt;/strong&gt;：当根扫描和灰色工作队列都耗尽时，运行时再次短暂停止用户代码，确认所有标记工作已完成、冲刷本地缓存并完成阶段切换。混合写屏障使这里&lt;strong&gt;不需要为了栈写入而再扫描所有栈&lt;/strong&gt;；写屏障会一直保持到标记真正结束。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;并发清扫（Concurrent sweep）&lt;/strong&gt;：关闭写屏障并恢复用户代码。清扫器按 span 回收本轮仍为白色的对象；后台清扫和分配路径上的按需清扫会并发进行。对象占用的内存会回到 Go 堆供后续分配使用，是否立刻归还给操作系统则由运行时的 scavenger 决定。&lt;/li&gt;
 &lt;/ol&gt;
-&lt;ul&gt;
-&lt;li&gt;不像 Java/JVM 那样将内存分为“新生代”和“老年代”。&lt;/li&gt;
-&lt;li&gt;&lt;em&gt;原因&lt;/em&gt;: Go 的编译器逃逸分析已经非常强大，很多短生命周期的对象直接分配在栈上并自动销毁了，这大大降低了分代 GC 在 Go 中的优势。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;ol start=&#34;2&#34;&gt;
-&lt;li&gt;&lt;strong&gt;并发 (Concurrent)&lt;/strong&gt;:&lt;/li&gt;
-&lt;/ol&gt;
-&lt;ul&gt;
-&lt;li&gt;GC 线程与用户线程（Mutator）是&lt;strong&gt;并行运行&lt;/strong&gt;的。&lt;/li&gt;
-&lt;li&gt;大部分时间不需要暂停程序 (Stop The World)，极大地降低了延迟。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;ol start=&#34;3&#34;&gt;
-&lt;li&gt;&lt;strong&gt;三色标记清除 (Tri-color Mark and Sweep)&lt;/strong&gt;:&lt;/li&gt;
-&lt;/ol&gt;
-&lt;ul&gt;
-&lt;li&gt;这是具体的&lt;strong&gt;实现算法&lt;/strong&gt;。&lt;/li&gt;
-&lt;li&gt;为了在“并发”运行的状态下准确追踪内存，Go 使用了三色（黑、灰、白）模型来标记对象。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;&lt;strong&gt;总结&lt;/strong&gt;：这三者合起来构成了 Go 的 GC。其中，“三色标记法”是其核心算法逻辑，下面重点展开讲解。&lt;/p&gt;
+&lt;p&gt;可以把三色模型看作第 2、3 阶段用来判断“本轮能否回收”的账本：白色候选垃圾、灰色待扫描、黑色已扫描。它是描述&lt;strong&gt;堆对象标记状态&lt;/strong&gt;的模型；后文说某个栈是“灰 / 黑”，是混合写屏障中的逻辑状态，不能与“栈上的对象被标成黑色”混为一谈。&lt;/p&gt;
 &lt;h3 id=&#34;31-三色标记法原理-tri-color-marking&#34;&gt;3.1 三色标记法原理 (Tri-color Marking)
 &lt;/h3&gt;&lt;p&gt;GC 的核心任务是找到所有“可达”的对象。为了在并发环境下（用户代码和 GC 同时运行）高效地完成这一任务，Go 将对象分为三种颜色：&lt;/p&gt;
 &lt;ul&gt;
@@ -15594,7 +15587,7 @@ Next-Key Lock 可以近似理解为锁住&lt;strong&gt;当前读扫描的范围�
 &lt;/ul&gt;
 &lt;h4 id=&#34;标记过程流转&#34;&gt;标记过程流转：
 &lt;/h4&gt;&lt;ol&gt;
-&lt;li&gt;&lt;strong&gt;初始状态&lt;/strong&gt;: 所有对象均为白色。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;初始状态&lt;/strong&gt;: 从概念上看，本轮尚未确认存活的堆对象均为白色；并发标记期新分配的堆对象例外，会直接按黑色处理。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;根节点扫描&lt;/strong&gt;: GC 从 &lt;strong&gt;根节点 (GC Roots)&lt;/strong&gt;（包括&lt;strong&gt;栈上的变量&lt;/strong&gt;、全局变量、寄存器等）出发，将它们引用的对象标记为 &lt;strong&gt;灰色&lt;/strong&gt;，并放入灰色集合。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;循环扫描&lt;/strong&gt;:&lt;/li&gt;
 &lt;/ol&gt;
@@ -15705,9 +15698,9 @@ Next-Key Lock 可以近似理解为锁住&lt;strong&gt;当前读扫描的范围�
 &lt;li&gt;
 &lt;p&gt;&lt;strong&gt;缺点&lt;/strong&gt;:&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;栈的特殊性&lt;/strong&gt;: 为了极高的运行速度，&lt;strong&gt;栈上的指针修改是不能加写屏障的&lt;/strong&gt;（加了会慢死）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;栈的特殊性&lt;/strong&gt;: 编译器通常不会为当前栈帧中的指针写入插入写屏障；若只用插入屏障，GC 就无法只靠它观察栈上的新引用。&lt;/li&gt;
 &lt;li&gt;&lt;strong&gt;漏洞&lt;/strong&gt;: 如果我在栈上改了指针（比如栈上的黑对象引用了堆上的白对象），写屏障抓不到！&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;补救&lt;/strong&gt;: 所以 GC 必须在结束前，&lt;strong&gt;暂停整个程序 (STW)&lt;/strong&gt;，重新把所有栈扫描一遍，确保万无一失。这就是 Go 1.5 时代 STW 耗时较高的原因（10ms - 100ms 级别）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;补救&lt;/strong&gt;: 因此 Go 1.5 的方案需要在标记结束前，&lt;strong&gt;暂停整个程序（STW）并重扫栈&lt;/strong&gt;。这段暂停会随 Goroutine 数量和栈大小增长，不能用一个固定的毫秒数概括。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;/li&gt;
 &lt;/ul&gt;
@@ -15795,12 +15788,12 @@ Next-Key Lock 可以近似理解为锁住&lt;strong&gt;当前读扫描的范围�
 &lt;/ul&gt;
 &lt;hr&gt;
 &lt;h4 id=&#34;终极形态go-18-混合写屏障-hybrid-write-barrier&#34;&gt;终极形态：Go 1.8 混合写屏障 (Hybrid Write Barrier)
-&lt;/h4&gt;&lt;p&gt;Go 1.8 结合了上述两者的优点，设计了&lt;strong&gt;混合写屏障&lt;/strong&gt;。它的目标是：&lt;strong&gt;既不需要 STW 重扫栈（像删除屏障），也不需要在栈上加屏障（像插入屏障）。&lt;/strong&gt;&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;核心做法&lt;/strong&gt;:&lt;/p&gt;
+&lt;/h4&gt;&lt;p&gt;Go 1.8 引入了&lt;strong&gt;混合写屏障&lt;/strong&gt;。它结合 Yuasa 删除屏障和 Dijkstra 插入屏障：在不为当前栈帧的普通写入插入屏障的前提下，避免 Go 1.5 那种标记终止时的全栈重扫。&lt;/p&gt;
+&lt;p&gt;前面“栈上所有对象直接标黑”和“栈上新建对象直接标黑”的说法都不准确，正确的过程是：&lt;/p&gt;
 &lt;ol&gt;
-&lt;li&gt;&lt;strong&gt;GC 开始时&lt;/strong&gt;: 直接把栈上所有可达的对象全部标记为&lt;strong&gt;黑色&lt;/strong&gt;（无需 STW 重扫）。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;GC 期间&lt;/strong&gt;: 任何在栈上&lt;strong&gt;新创建&lt;/strong&gt;的对象，直接标记为&lt;strong&gt;黑色&lt;/strong&gt;。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;堆上写屏障&lt;/strong&gt;: 当堆上的指针修改时，执行混合逻辑：&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;根扫描时按栈逐个处理&lt;/strong&gt;：GC 扫描某个 Goroutine 的栈时，会将栈中发现的&lt;strong&gt;堆指针 shade 为灰色&lt;/strong&gt;，而不是把这些堆对象直接标黑。只有 GC 后续扫描完某个灰色对象的引用，它才变黑。尚未完成扫描的栈在屏障逻辑中视为“灰栈”；扫描完成后才视为“黑栈”。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;并发标记期间的分配&lt;/strong&gt;：直接标黑的是&lt;strong&gt;新分配的堆对象&lt;/strong&gt;。栈帧中的局部变量或对局部变量的赋值没有“被 GC 标黑”这一语义；它们保存的堆指针由栈扫描和屏障协议保证不会漏标。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;堆（及全局）指针写入&lt;/strong&gt;：写屏障在真正赋值前执行。概念上的伪代码如下，其中 &lt;code&gt;shade&lt;/code&gt; 只会把尚未标记的对象加入待扫描队列：&lt;/li&gt;
 &lt;/ol&gt;
 &lt;div class=&#34;highlight&#34;&gt;&lt;div style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;
 &lt;table style=&#34;border-spacing:0;padding:0;margin:0;border:0;&#34;&gt;&lt;tr&gt;&lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;&#34;&gt;
@@ -15819,33 +15812,33 @@ Next-Key Lock 可以近似理解为锁住&lt;strong&gt;当前读扫描的范围�
 &lt;/span&gt;&lt;span style=&#34;white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f&#34;&gt;13
 &lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;
 &lt;td style=&#34;vertical-align:top;padding:0;margin:0;border:0;;width:100%&#34;&gt;
-&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#6272a4&#34;&gt;// 当执行 ptr.field = obj 时（修改堆上的引用）：&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b&#34;&gt;write_barrier&lt;/span&gt;(slot, obj) {
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#6272a4&#34;&gt;// 1. [删除屏障逻辑] 保护旧值：&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#6272a4&#34;&gt;// 如果旧值（ptr.field指的以前的值）是白色的，就涂成灰色。防止它被断开后丢失。&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#50fa7b&#34;&gt;shade&lt;/span&gt;(slot.old_value)
+&lt;pre tabindex=&#34;0&#34; style=&#34;color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;&#34;&gt;&lt;code class=&#34;language-go&#34; data-lang=&#34;go&#34;&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#6272a4&#34;&gt;// 当执行 *slot = ptr 时；slot 位于堆对象或全局变量中。&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;&lt;span style=&#34;color:#50fa7b&#34;&gt;writePointer&lt;/span&gt;(slot, ptr) {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#6272a4&#34;&gt;// Yuasa 删除屏障：旧引用即使被覆盖，也不会在本轮漏标。&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#50fa7b&#34;&gt;shade&lt;/span&gt;(&lt;span style=&#34;color:#ff79c6&#34;&gt;*&lt;/span&gt;slot)
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#6272a4&#34;&gt;// 2. [插入屏障逻辑] 保护新值：&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#6272a4&#34;&gt;// 如果新值是白色的，就涂成灰色。防止它被挂在黑色对象下而不被扫描。&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#50fa7b&#34;&gt;shade&lt;/span&gt;(obj)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#6272a4&#34;&gt;// Dijkstra 插入屏障：只在当前 Goroutine 的栈尚未扫描完成时需要。&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;if&lt;/span&gt; currentStackIsGrey {
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;        &lt;span style=&#34;color:#50fa7b&#34;&gt;shade&lt;/span&gt;(ptr)
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    }
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#6272a4&#34;&gt;// 3. 执行真正的赋值&lt;/span&gt;
-&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;*&lt;/span&gt;slot = obj
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#6272a4&#34;&gt;// 写屏障是 pre-publication：最后才发布新引用。&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;    &lt;span style=&#34;color:#ff79c6&#34;&gt;*&lt;/span&gt;slot = ptr
 &lt;/span&gt;&lt;/span&gt;&lt;span style=&#34;display:flex;&#34;&gt;&lt;span&gt;}
 &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
 &lt;/div&gt;
-&lt;/div&gt;&lt;p&gt;&lt;strong&gt;为什么这能解决所有问题？&lt;/strong&gt;&lt;/p&gt;
+&lt;/div&gt;&lt;p&gt;&lt;strong&gt;为什么不再需要终止标记时重扫栈？&lt;/strong&gt;&lt;/p&gt;
 &lt;ul&gt;
-&lt;li&gt;&lt;strong&gt;栈的操作&lt;/strong&gt;: 栈全是黑的（或能引用的都灰了），且新分配的也是黑的。所以在栈上怎么改指针都不怕丢对象，&lt;strong&gt;不需要加屏障，也不需要 STW 重扫&lt;/strong&gt;。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;堆的操作&lt;/strong&gt;: 混合屏障同时保护了“旧对象不丢失”和“新对象被扫描”。&lt;/li&gt;
+&lt;li&gt;栈扫描完成后，栈中当时可见的堆指针都已被 shade，逻辑上成为黑栈；之后把堆中唯一引用移到栈上的动作会受到删除屏障保护。&lt;/li&gt;
+&lt;li&gt;尚未扫描的灰栈若把指针写入堆中，插入部分会 shade 新值，防止该对象藏到已扫描的黑色堆对象之后。&lt;/li&gt;
+&lt;li&gt;因而，当所有栈都完成扫描且灰色工作耗尽时，终止标记只需做一致性确认和收尾，不必再因栈写入而全量重扫栈。&lt;/li&gt;
 &lt;/ul&gt;
-&lt;p&gt;&lt;strong&gt;结果&lt;/strong&gt;:
-Go 的 GC 暂停时间 (STW) 被压缩到了 &lt;strong&gt;亚毫秒级&lt;/strong&gt;（通常几十微秒），只剩下开启/关闭屏障的极短瞬间。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;结果&lt;/strong&gt;：Go 仍然有清扫终止和标记终止两个短 STW 阶段，但避免了 Go 1.5 风格的终止标记全栈重扫。暂停时长没有跨程序、跨版本都成立的固定数值；它取决于调度延迟、根数量、栈大小和运行时版本等因素。&lt;/p&gt;
 &lt;h3 id=&#34;总结gc-演进&#34;&gt;总结：GC 演进
 &lt;/h3&gt;&lt;ul&gt;
 &lt;li&gt;&lt;strong&gt;Go 1.3&lt;/strong&gt;: STW 标记清除 (百毫秒级)。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Go 1.5&lt;/strong&gt;: 并发标记 + Dijkstra 插入屏障 (需要 STW 重扫栈，毫秒级)。&lt;/li&gt;
-&lt;li&gt;&lt;strong&gt;Go 1.8&lt;/strong&gt;: &lt;strong&gt;混合写屏障&lt;/strong&gt; (无需 STW 重扫栈，亚毫秒/微秒级)。这也是目前 Go GC 低延迟的核心基石。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Go 1.5&lt;/strong&gt;: 并发标记 + Dijkstra 插入屏障（标记结束时需要 STW 重扫栈）。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Go 1.8&lt;/strong&gt;: &lt;strong&gt;混合写屏障&lt;/strong&gt;（不再需要为栈写入进行终止标记全栈重扫）。它是现代 Go 低延迟 GC 的重要基础，但 GC 仍保留短 STW 阶段。&lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3 id=&#34;总结变量的生命周期与回收&#34;&gt;总结：变量的生命周期与回收
 &lt;/h3&gt;&lt;table&gt;
